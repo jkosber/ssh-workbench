@@ -1,4 +1,4 @@
-"""Install the built wheel in a temporary environment and check its real CLI."""
+"""Check the built wheel's CLI and metadata loader outside the checkout."""
 
 import os
 import shutil
@@ -66,7 +66,26 @@ def main() -> None:
             )
             if expected not in result.stdout or result.stderr:
                 raise SystemExit(f"Installed wheel CLI check failed: {option}")
-    print("Built wheel: isolated installation, --help and --version passed.")
+        fixture = temporary / "projects.toml"
+        fixture.write_text(
+            'schema_version = 1\n[[projects]]\nid = "package-demo"\n'
+            'name = "Package demo"\nssh_alias = "package-demo-host"\n',
+            encoding="utf-8",
+        )
+        subprocess.run(
+            [
+                str(python),
+                "-c",
+                "from pathlib import Path; "
+                "from ssh_workbench.config import Project, load_projects; "
+                "assert load_projects(Path('projects.toml')) == "
+                "[Project('package-demo', 'Package demo', 'package-demo-host')]",
+            ],
+            cwd=temporary,
+            check=True,
+            timeout=10,
+        )
+    print("Built wheel: isolated installation, help/version and project loader passed.")
 
 
 if __name__ == "__main__":

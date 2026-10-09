@@ -7,6 +7,11 @@ release; 0.1.0 is the first usable release target.
 
 ### Added
 
+- A standalone UTF-8 TOML loader for schema version 1, returning ordered typed
+  project records with validated IDs, SSH aliases and optional HTTP/HTTPS links.
+- Concise configuration errors and tests for file failures, malformed input,
+  unknown fields, duplicate IDs and unsafe aliases/URLs. CLI integration remains
+  a later roadmap task.
 - A Textual development screen with keyboard exit, CLI help and a version read
   from installed package metadata.
 - A uv-managed Python package, locked dependencies, CLI and headless UI tests,

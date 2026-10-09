@@ -12,35 +12,38 @@ for evidence and remaining verification limits.
 
 ## 1. Load and validate local project metadata
 
-**Recommended next task.** Implement the loader and its tests only; no SSH,
-discovery, network requests, URL opening or project-selection UI.
+**Implemented; ready for review.** The standalone loader and its tests
+are complete. No SSH, discovery, network requests, URL opening or project-selection
+UI was added. See [schema and usage](../README.md#load-project-metadata) and
+[task 1 evidence](validation.md#task-1-local-project-metadata-2026-10-09).
 
 Acceptance criteria:
 
-- A loader accepts an explicit `pathlib.Path`, reads UTF-8 TOML and returns typed
+- [x] A loader accepts an explicit `pathlib.Path`, reads UTF-8 TOML and returns typed
   project records in file order. It has no dependency on Textual or subprocesses.
   It does not search the filesystem or inspect SSH configuration.
-- Support `schema_version = 1` and a `projects` array. Accept an empty array as
+- [x] Support `schema_version = 1` and a `projects` array. Accept an empty array as
   zero projects. Treat a missing array, an unsupported schema version or a
   boolean masquerading as an integer version as an error.
-- Each project requires a unique `id`, a nonempty `name` and `ssh_alias`.
+- [x] Each project requires a unique `id`, a nonempty `name` and `ssh_alias`.
   IDs use lowercase letters/digits separated by single hyphens. Aliases start
   with an ASCII letter/digit and contain only ASCII letters/digits, dots,
   underscores or hyphens. Reject leading dashes, whitespace, `user@host`, shell
   punctuation and values that encode commands or options.
-- `repository` and `documentation` are optional HTTP/HTTPS URLs without embedded
+- [x] `repository` and `documentation` are optional HTTP/HTTPS URLs without embedded
   credentials. Require correct types and nonempty values when supplied. Reject
   unsupported schemes and unknown fields so mistakes are visible. Keep the
   schema small; local repository paths and arbitrary SSH arguments are deferred.
-- Missing/unreadable files, malformed TOML and invalid fields produce a concise
+- [x] Missing/unreadable files, malformed TOML and invalid fields produce a concise
   domain error that identifies the field/project when possible without echoing
   the entire file or private values. Choose a small typed record and one clear
   error type; no schema framework is needed.
-- Confirm or revise the [illustrative example](../examples/projects.example.toml)
+- [x] Confirm or revise the [supported example](../examples/projects.example.toml)
   and document the implemented schema. Private files belong outside Git; the
   loader never creates or overwrites them.
 
-Required tests use `tmp_path` and fictional data:
+Implemented tests use `tmp_path` and fictional data (the string parser also has
+a direct test without a file):
 
 - Valid single/multiple projects preserve ordering; optional fields can be absent.
 - Empty `projects = []` succeeds; missing files and unreadable-file errors are
@@ -51,11 +54,9 @@ Required tests use `tmp_path` and fictional data:
   option, whitespace, shell punctuation, embedded credentials and `file:` URLs.
 - No test needs a real host, SSH files, the vault or network access.
 
-Suggested next request: "Implement roadmap task 1 only, including its acceptance
-tests and documentation. Do not add the project UI or SSH launching. Do not commit
-or push until I instruct you."
-
 ## 2. Select projects and inspect details
+
+**Next single roadmap task.** Not implemented.
 
 Acceptance: connect the loader to an explicit configuration option; document any
 default path. Display projects in file order with keyboard selection and show the
