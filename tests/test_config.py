@@ -1,5 +1,6 @@
 import json
 import traceback
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
@@ -75,6 +76,20 @@ def test_parse_projects_without_file_access() -> None:
     ]
 
 
+def test_project_records_are_immutable() -> None:
+    project = parse_projects(project_config())[0]
+    with pytest.raises(FrozenInstanceError):
+        project.name = "Changed name"
+
+
+def test_invalid_configuration_is_not_modified(tmp_path: Path) -> None:
+    path = write_config(tmp_path, project_config(ssh_alias='"--help"'))
+    original = path.read_bytes()
+    with pytest.raises(ProjectConfigError, match=r"projects\[1\].ssh_alias:"):
+        load_projects(path)
+    assert path.read_bytes() == original
+
+
 def test_documented_example(tmp_path: Path) -> None:
     example = Path(__file__).resolve().parents[1] / "examples/projects.example.toml"
     path = write_config(tmp_path, example.read_text(encoding="utf-8"))
@@ -110,14 +125,28 @@ def test_directory_is_not_a_config_file(tmp_path: Path) -> None:
         load_projects(tmp_path)
 
 
+def test_nul_in_path_has_safe_domain_error(tmp_path: Path) -> None:
+    path = tmp_path / "fictional-private\x00.toml"
+    with pytest.raises(
+        ProjectConfigError, match="configuration: invalid file path"
+    ) as caught:
+        load_projects(path)
+    assert "fictional-private" not in "".join(traceback.format_exception(caught.value))
+    assert list(tmp_path.iterdir()) == []
+
+
 @pytest.mark.parametrize(
     ("error_type", "message"),
-    [(PermissionError, "permission denied"), (OSError, "could not read file")],
+    [
+        (PermissionError, "permission denied"),
+        (OSError, "could not read file"),
+        (ValueError, "invalid file path"),
+    ],
 )
 def test_file_access_errors(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    error_type: type[OSError],
+    error_type: type[OSError | ValueError],
     message: str,
 ) -> None:
     path = write_config(tmp_path, project_config())
@@ -356,4 +385,4 @@ def test_invalid_urls(tmp_path: Path, field: str, url: str) -> None:
             write_config(tmp_path, project_config(**{field: json.dumps(url)}))
         )
     assert str(caught.value).startswith(f"projects[1].{field}:")
-    assert url not in str(caught.value)
+    assert url not in "".join(traceback.format_exception(caught.value))

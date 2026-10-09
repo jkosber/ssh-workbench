@@ -2,9 +2,9 @@
 
 ## Task 1: local project metadata, 2026-10-09
 
-Local checks for `feat/project-config`, with Python 3.14.7 on Windows.
-Version remains 0.0.1. These results cover local validation only; remote CI
-results must be associated with the reviewed feature commit.
+Initial local checks for `feat/project-config`, committed as `c6ea622`, with
+Python 3.14.7 on Windows. Version remains 0.0.1. These tables describe that
+snapshot; the pre-merge follow-up below records the later corrections.
 
 | Acceptance criterion | Observed evidence |
 | --- | --- |
@@ -38,7 +38,7 @@ directory link after the test cases ran. Rerunning with fresh explicit
 `--basetemp` directories passed as recorded above. No tests, permissions or
 security settings were changed to address that environment-specific failure.
 
-Independent source/documentation review found one URL-policy mismatch: C1
+Initial independent source/documentation review found one URL-policy mismatch: C1
 control characters were accepted despite the documented rule. The filter now
 rejects them, with U+0081/U+009F regression cases for both optional references;
 the test counts above include that correction. No other concrete review findings
@@ -50,9 +50,46 @@ Tests use fictional data and temporary files; no real SSH files, hosts, remote
 paths or vault data are read. Configuration strings remain inert. The installed
 package check removes its temporary environment and fixture when finished.
 
-A fresh interactive Windows terminal check for this change remains **pending**.
-Headless tests are not visual checks. CLI/UI startup code is unchanged.
-Historical bootstrap checks do not validate this feature.
+CLI/UI startup code is unchanged. Jadon's manual confirmation below covers the
+scaffold's appearance and exit shortcuts; the loader is verified separately by
+the automated checks. Headless tests are not visual checks.
+
+### Pre-merge follow-up: 2026-10-09
+
+Review of `c6ea622` against merge base `6639e5c` found one low-impact error-contract
+defect: a path containing a NUL character raised a raw `ValueError`. The loader
+now wraps that failure in a sanitized `ProjectConfigError`. Regression coverage
+checks the real invalid path and a portable simulated failure, frozen records,
+unchanged invalid input, and suppression of invalid URLs in formatted tracebacks.
+Alias/URL validation and the installed-wheel loader check needed no code changes.
+
+Fresh local checks on Windows with Python 3.14.7 passed after these corrections:
+
+| Check | Observed result |
+| --- | --- |
+| `uv sync --locked` | Passed with no dependency changes |
+| Ruff lint and formatting checks | Passed |
+| Full pytest suite with a fresh unique `--basetemp` | 180 passed: 174 loader tests and 6 CLI/headless UI tests |
+| CLI help, CLI version and module version | Passed; version remains 0.0.1 |
+| `uv build` and `scripts/check_package.py` | Passed; installed wheel loaded the fictional configuration outside the checkout |
+
+The earlier shared-temp cleanup error did not recur with a fresh `--basetemp`.
+This does not establish the original cause; no permissions or tests were weakened.
+A fresh tool-based interactive launch again failed with Windows "Access is
+denied" before the application started. It supplies no new visual evidence and
+does not invalidate Jadon's manual scaffold check.
+
+For the original reviewed commit `c6ea622`, both Windows and Ubuntu passed in
+[feature CI run 37977814920](https://github.com/jkosber/ssh-workbench/actions/runs/37977814920)
+and [PR CI run 37977893973](https://github.com/jkosber/ssh-workbench/actions/runs/37977893973).
+The PR run checked merge commit `47ede5b`, whose parents were the reviewed base
+and head and whose tree matched the head. Job logs confirmed dependency sync,
+lint, formatting, 176 tests, build and installed-package validation. These remote
+results apply to that snapshot; the follow-up requires its own CI after pushing.
+
+The shared Serena project settings are included for development. Cache files,
+local overrides and memories remain ignored. No private configuration is needed
+by the application or tests.
 
 ## Bootstrap environment: 2026-10-09
 
@@ -94,22 +131,26 @@ of future changes.
 
 ## Manual verification and limits
 
-Interactive terminal launch through the automation tool was attempted but the
-tool could not create its terminal process: Windows returned "Access is denied."
-This was a tool-launch failure, not an observed application exception. A normal
-interactive terminal session and visual appearance remain unverified; run
-`uv run --locked ssh-workbench` locally and check the notice and exit shortcuts.
-Automated startup and keyboard exit were verified with Textual's headless pilot.
+On 2026-10-09, Jadon confirmed that the application's appearance, Q exit and
+Ctrl+Q exit work in manual testing. This is user-confirmed verification of the
+scaffold's appearance and exit shortcuts. Automated startup and keyboard exit
+were also verified with Textual's headless pilot.
+
+The earlier tool-based interactive launch was blocked when Windows returned
+"Access is denied" while creating the terminal process. That tool-launch failure
+was not an observed application exception; the manual check is now complete.
 
 No real SSH feature exists, and no SSH configuration, keys, known_hosts,
 infrastructure or vault data is used by tests. macOS and other Python versions
 have not been tested.
 
 CI is configured for `ubuntu-latest` and `windows-latest`, both using the version
-in `.python-version`. At the initial-commit checkpoint, there was no remote CI
-result yet; its first run can start only after the initial push. Workflow creation
-alone is not a passing run. Check the repository's Actions tab for the current
-result. Action references were verified through their official GitHub
+in `.python-version`. After the initial push,
+[CI run 37966249655](https://github.com/jkosber/ssh-workbench/actions/runs/37966249655)
+passed on both targets for commit `6639e5c`, including dependency installation,
+Ruff, tests, build and isolated package checks. This result applies to that commit;
+check the repository's Actions tab for later changes. Action references were
+verified through their official GitHub
 release/tag APIs: actions/checkout v7.0.1 and astral-sh/setup-uv v10.2.0; full
 commit references are recorded in the workflow. Permissions are `contents: read`.
 

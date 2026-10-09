@@ -5,6 +5,11 @@
 The internal package version is 0.0.1. This scaffold has not been published as a
 release; 0.1.0 is the first usable release target.
 
+### Fixed
+
+- Invalid configuration paths, including embedded NUL characters, now report a
+  sanitized `ProjectConfigError` consistently with other file-read failures.
+
 ### Added
 
 - A standalone UTF-8 TOML loader for schema version 1, returning ordered typed
@@ -18,3 +23,5 @@ release; 0.1.0 is the first usable release target.
   Ruff checks, and isolated wheel installation verification.
 - Linux/Windows CI, development instructions, security boundaries and a small
   ordered roadmap with a fictional configuration example.
+- Shared optional Serena project settings; local overrides, caches and memories
+  remain ignored and are not required by the application.

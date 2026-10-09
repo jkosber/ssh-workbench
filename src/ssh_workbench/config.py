@@ -36,6 +36,8 @@ def load_projects(path: Path) -> list[Project]:
         raise ProjectConfigError("configuration: could not read file") from None
     except UnicodeDecodeError:
         raise ProjectConfigError("configuration: expected UTF-8 text") from None
+    except ValueError:
+        raise ProjectConfigError("configuration: invalid file path") from None
     return parse_projects(text)
 
 
