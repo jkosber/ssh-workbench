@@ -20,6 +20,10 @@ Use `uv add PACKAGE` for a runtime dependency or `uv add --dev PACKAGE` for a
 development tool. Add a dependency only when the current task needs it. Review
 and commit both metadata and lockfile changes together when authorized.
 
+`.serena/project.yml` contains shared settings for the optional Serena development
+tool. Its cache, local overrides and memories are ignored. Serena is not needed
+to install, run or test SSH Workbench.
+
 ## Everyday Git and Codex workflow
 
 1. Inspect `git status --short --branch` and read any existing changes. Preserve
@@ -65,8 +69,9 @@ uv run --locked python scripts/check_package.py
   pilot; they do not contact hosts or inspect private files.
 - **Build and package check:** produce a source archive and wheel under `dist/`,
   then install the wheel with locked runtime dependencies in a temporary virtual
-  environment. Help and version are exercised outside the checkout. A build
-  alone does not prove SSH functionality or interactive terminal compatibility.
+  environment. Help, version and loading a fictional TOML file are exercised
+  outside the checkout. A build alone does not prove SSH functionality or
+  interactive terminal compatibility.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
 itself; check the notice and both exit shortcuts. Record what was actually

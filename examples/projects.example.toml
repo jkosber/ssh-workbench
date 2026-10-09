@@ -1,6 +1,7 @@
-# Illustrative planned schema. The scaffold does NOT read this file yet.
+# Supported schema for ssh_workbench.config.load_projects(Path(...)).
+# The CLI and screen do not load configuration yet; see README.md.
 # All names, SSH aliases, repository locations and links below are fictional.
-# Future private configuration belongs in .local/projects.toml, outside Git.
+# Private configuration belongs in .local/projects.toml, outside Git.
 
 schema_version = 1
 
