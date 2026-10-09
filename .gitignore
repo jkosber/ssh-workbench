@@ -1,0 +1,44 @@
+# Python environments, caches and build outputs
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+
+# Private local configuration, credentials and workspace notes
+.local/
+.env
+.env.*
+.envrc
+.ssh/
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+credentials.*
+credentials/
+secrets.*
+secrets/
+projects.toml
+hosts.*
+inventory.*
+inventories/
+*.local.*
+*.log
+logs/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*~

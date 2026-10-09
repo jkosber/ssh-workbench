@@ -1,0 +1,12 @@
+# Illustrative planned schema. The scaffold does NOT read this file yet.
+# All names, SSH aliases, repository locations and links below are fictional.
+# Future private configuration belongs in .local/projects.toml, outside Git.
+
+schema_version = 1
+
+[[projects]]
+id = "garden-demo"
+name = "Garden demo"
+ssh_alias = "garden-demo-host"
+repository = "https://example.com/fictional/garden-demo.git"
+documentation = "https://example.com/fictional/garden-demo/docs"
