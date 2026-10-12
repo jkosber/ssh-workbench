@@ -101,7 +101,8 @@ def test_documented_example(tmp_path: Path) -> None:
             "garden-demo-host",
             "https://example.com/fictional/garden-demo.git",
             "https://example.com/fictional/garden-demo/docs",
-        )
+        ),
+        Project("studio-demo", "Studio demo", "studio-demo-host"),
     ]
 
 

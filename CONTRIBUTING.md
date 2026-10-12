@@ -70,11 +70,13 @@ uv run --locked python scripts/check_package.py
 - **Build and package check:** produce a source archive and wheel under `dist/`,
   then install the wheel with locked runtime dependencies in a temporary virtual
   environment. Help, version and loading a fictional TOML file are exercised
-  outside the checkout. A build alone does not prove SSH functionality or
+  outside the checkout, along with missing-configuration errors and headless
+  CLI-to-browser selection/quit. A build alone does not prove SSH functionality or
   interactive terminal compatibility.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
-itself; check the notice and both exit shortcuts. Record what was actually
+itself, with and without `--config examples/projects.example.toml`; check
+selection, details, scrolling and both exit shortcuts. Record what was actually
 observed in [validation](docs/validation.md). CI uses the same commands on Linux
 and Windows with the Python version in `.python-version`; a queued run is not a
 passing run.
