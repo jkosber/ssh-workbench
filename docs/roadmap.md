@@ -56,10 +56,11 @@ a direct test without a file):
 
 ## 2. Select projects and inspect details
 
-**Implemented and locally verified; awaiting PR review and merge authorization.**
+**Implemented and verified in [PR #2](https://github.com/jkosber/ssh-workbench/pull/2).**
 The [final local checks](validation.md#task-2-final-local-verification-2026-10-12)
 and [initial Task 2 validation](validation.md#task-2-project-browser-2026-10-09)
-record the evidence. Remote CI must be checked on the pushed Task 2 commit.
+record the local evidence. [Task 2 remote CI](validation.md#task-2-pr-documentation-and-remote-ci-2026-10-12)
+also passed on Windows and Ubuntu. The PR records the current merge and check status.
 
 The [2026-10-12 console follow-up](validation.md#task-2-interactive-console-follow-up-2026-10-12)
 also verifies real 80x24 terminal input, scrolling, errors and return to a working

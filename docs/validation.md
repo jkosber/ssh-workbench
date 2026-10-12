@@ -1,5 +1,23 @@
 # Validation
 
+## Task 2 PR documentation and remote CI, 2026-10-12
+
+[PR #2](https://github.com/jkosber/ssh-workbench/pull/2) contains the read-only
+project browser, tests, fictional example and updated usage, architecture,
+contribution, roadmap and changelog documentation. Its implementation commit is
+`aacbb6ddda37d38b39c4e4ccc9f104bf4466dce1`; local files matched that pushed tree.
+
+[Push CI 38302914229](https://github.com/jkosber/ssh-workbench/actions/runs/38302914229)
+and [PR CI 38302918709](https://github.com/jkosber/ssh-workbench/actions/runs/38302918709)
+both completed successfully for that commit. Each Windows and Ubuntu job passed
+locked installation, lint/format, all 213 tests, the build and isolated wheel
+checks. Job logs confirm the test count and installed-package browser checks.
+
+This documentation-only follow-up records those observed results; it changes no
+application code, dependencies or version. The PR records checks for its current
+head and its merge status. Task 3 remains unimplemented, and the terminal/DPI/
+screen-reader limits recorded below still apply.
+
 ## Task 2 final local verification, 2026-10-12
 
 Before committing Task 2, locked sync, Ruff lint/format, all 213 tests, CLI
@@ -20,8 +38,8 @@ The user delegated terminal checks to the agent and authorized committing the
 verified Task 2 work and opening a PR into `main`. The preceding console, browser
 and native screenshot checks provide that evidence. Human review and merge
 authorization remain separate. Windows Terminal live resizing, other DPI settings
-and screen readers were not tested. Remote Task 2 CI must be checked on the
-pushed commit; this section records local results only.
+and screen readers were not tested. This section records local results only;
+the remote CI evidence is recorded above.
 
 ## Task 2 desktop screenshot follow-up, 2026-10-12
 
