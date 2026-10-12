@@ -1,5 +1,5 @@
+# Run: uv run --locked ssh-workbench --config examples/projects.example.toml
 # Supported schema for ssh_workbench.config.load_projects(Path(...)).
-# The CLI and screen do not load configuration yet; see README.md.
 # All names, SSH aliases, repository locations and links below are fictional.
 # Private configuration belongs in .local/projects.toml, outside Git.
 
@@ -11,3 +11,9 @@ name = "Garden demo"
 ssh_alias = "garden-demo-host"
 repository = "https://example.com/fictional/garden-demo.git"
 documentation = "https://example.com/fictional/garden-demo/docs"
+
+[[projects]]
+id = "studio-demo"
+name = "Studio demo"
+ssh_alias = "studio-demo-host"
+# Optional references are omitted to demonstrate the empty detail fields.

@@ -12,16 +12,14 @@ is 0.1.0; it has not been released.
 
 | Works now | Planned |
 | --- | --- |
-| Standalone TOML project loader and validation | Load configuration into the interface |
-| Textual screen with a visible scaffold notice | Select projects and inspect their details |
-| Q or Ctrl+Q to exit | Launch native SSH and return to the interface |
-| `--help` and `--version` | Open useful documentation links |
-| Tests, lint/format checks and package build | Approved usability checks |
+| Explicit `--config PATH` with TOML validation | Launch native SSH and return to the interface |
+| Keyboard project selection and read-only details | Open useful documentation links |
+| Q or Ctrl+Q to exit; `--help` and `--version` | Approved usability checks |
+| Tests, lint/format checks and package build | 0.1.0 readiness review |
 
 The [example configuration](examples/projects.example.toml) contains fictional
-data accepted by the loader. The CLI and screen do not load configuration yet;
-that integration belongs to roadmap task 2. There are no SSH connections, remote
-commands or infrastructure controls in this scaffold.
+data for trying the browser. There are no SSH connections, remote commands,
+link-opening actions or infrastructure controls in this development build.
 
 The application requires no Codex, ChatGPT, OpenAI API key or AI subscription.
 
@@ -39,18 +37,49 @@ uv sync --locked
 uv run --locked ssh-workbench --help
 uv run --locked ssh-workbench --version
 uv run --locked ssh-workbench
+uv run --locked ssh-workbench --config examples/projects.example.toml
 ```
 
 Press **Q** or **Ctrl+Q** to close the screen. `uv sync` creates the local `.venv`
 and installs the package and development tools. No environment activation is
 needed when using `uv run`. Initial dependency installation needs network access;
-the installed scaffold runs locally.
+the installed application runs locally.
+
+Without `--config`, an informative empty development screen explains how to load
+projects. No default file is read and the example is never loaded automatically.
+An explicit path is relative to the current directory unless absolute; quote
+paths containing spaces. The application only reads the requested file and never
+creates or overwrites configuration. An invalid or unreadable file produces a
+concise error on stderr and exits with status 2 before starting the TUI.
+`--help` and `--version` exit without reading configuration, even when `--config`
+is also supplied.
+
+## Browse projects
+
+The list preserves file order, with the first project selected and focused at
+startup. **Up/Down** changes the selection and immediately updates the details.
+The highlighted row marks the selection; the accent border marks keyboard focus.
+**Tab** and **Shift+Tab** move focus between the list and details. In the details
+pane, use **Up/Down**, **Page Up/Page Down**, or **Home/End** to scroll.
+
+Details show the selected project's ID, name, SSH alias, repository and
+documentation. Missing optional references show `Not provided`. A configuration
+with `projects = []` shows a separate empty-project message. Restart the app to
+read file changes; editing and reloading are not implemented.
+
+Long names are shortened visually in the list; full values wrap in the scrollable
+details pane. Unicode text is preserved. Nonprinting characters, including
+newlines, tabs, terminal escapes and direction controls, appear as visible
+Python-style escapes such as `\n`, `\x1b` and `\u202e`. Only the display changes;
+the original project records are retained. Markup-like strings are literal text.
+References have no application-generated hyperlinks or actions. A terminal may
+independently recognize URL text; SSH Workbench does not open it.
 
 ## Load project metadata
 
-The Python API accepts an explicit `pathlib.Path`; there is no configuration CLI
-option or default search path yet. From the repository directory, exercise the
-fictional example with:
+The standalone Python API accepts an explicit `pathlib.Path`. It uses the same
+loader as `--config`, with no default search path. From the repository directory,
+exercise the fictional example without the TUI with:
 
 ```text
 uv run --locked python -c "from pathlib import Path; from ssh_workbench.config import load_projects; print(load_projects(Path('examples/projects.example.toml')))"
@@ -118,8 +147,9 @@ uv run --locked python scripts/check_package.py
 ```
 
 The last check installs the wheel and locked runtime dependencies in a temporary
-environment, tests its help/version commands and loader with a fictional file,
-then removes that environment.
+environment and tests help/version, a missing configuration error, the loader,
+and headless project selection/quit through the CLI with fictional files. It then
+removes that environment. Headless checks do not replace a human terminal check.
 CI runs these checks on Linux and Windows using the project Python version.
 See [validation evidence](docs/validation.md) for actual results and limitations.
 

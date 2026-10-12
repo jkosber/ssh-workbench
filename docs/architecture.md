@@ -1,15 +1,35 @@
 # Architecture
 
-## Implemented scaffold
+## Implemented CLI and project browser
 
 The installed `ssh-workbench` entry point calls `ssh_workbench.cli.main`.
 Standard-library `argparse` handles help, version and invalid options before
-loading the TUI. Version output uses `importlib.metadata.version`; the source
-of that metadata is `pyproject.toml`.
+reading configuration or loading the TUI. Version output uses
+`importlib.metadata.version`; the source of that metadata is `pyproject.toml`.
 
-`ssh_workbench.app.SSHWorkbenchApp` renders a header, a scaffold notice and a
-footer with the quit binding. Textual owns the event loop and terminal lifecycle.
-The CLI and TUI do not read project configuration or start SSH processes.
+An explicit `--config PATH` calls the existing `load_projects(Path)` once. A
+`ProjectConfigError` becomes an argparse error on stderr with exit status 2, before
+terminal startup. There is no default configuration, discovery, or file writing.
+
+`SSHWorkbenchApp(projects)` receives validated records in file order. It retains
+them in a tuple; `None` means no configuration was supplied and an empty sequence
+means a loaded configuration contains no projects. Those states have different
+informative screens. The app itself does no file, network or process I/O.
+
+A Textual `ListView` starts focused on the first project. Its `Highlighted` event
+updates five literal `Static` field values in a `VerticalScroll` details pane and
+resets that pane to the top. Tab/Shift+Tab switch panes; details use Textual's
+standard scrolling keys. List rows shorten long names while details wrap the
+full value. Selection uses the list's highlight and focus uses an accent border.
+The header and footer retain Q/Ctrl+Q exit. Textual owns the event loop and
+terminal lifecycle; no SSH or reference-opening action exists.
+
+`_display_text` escapes nonprinting characters using Python-style representations,
+including C0/C1 controls, formatting controls and nonprinting separators. It is
+applied only when rendering; frozen `Project` values remain untouched. Every
+configuration-derived `Static` uses `markup=False`, with no link widgets or
+Rich/Textual markup interpretation. Terminal-provided URL detection is outside
+the application's control.
 
 | Decision | Reason |
 | --- | --- |
@@ -21,8 +41,11 @@ The CLI and TUI do not read project configuration or start SSH processes.
 
 The source and wheel are built by `uv build`. The package check installs
 the wheel and locked runtime dependencies in a disposable environment outside
-the checkout, where it checks the console entry point and loads a fictional TOML
-file through the installed module. It does not launch SSH.
+the checkout, where it checks help/version, missing-configuration errors, and the
+loader. It also substitutes the terminal-run boundary with Textual's headless
+pilot to exercise CLI loading, initial selection, navigation and quit at 80x24.
+Common process, connection and browser entry points fail that smoke check if
+called. It does not establish human visual verification or launch SSH.
 
 ## Implemented project metadata loader
 
@@ -31,7 +54,8 @@ explicit UTF-8 file. `parse_projects(text)` uses standard-library `tomllib` and
 passes the resulting data to a separate schema validator. The frozen `Project`
 dataclass stores the five documented fields; the list preserves file order.
 Neither loading nor validation depends on Textual, subprocesses or network I/O.
-There is no file discovery, default path or CLI integration in task 1.
+There is no file discovery or default path. Task 2 integrates this unchanged
+loader at the CLI boundary.
 
 The [README schema](../README.md#load-project-metadata) and
 [fictional example](../examples/projects.example.toml) describe the supported
@@ -58,14 +82,11 @@ overwritten, and underlying parser/file exception text is suppressed.
 
 Develop these only as the corresponding [roadmap](roadmap.md) tasks are selected:
 
-1. **TUI:** connect the existing loader to an explicit configuration option,
-   then own selection and presentation of validated records. Add controls only
-   when their behavior exists.
-2. **SSH launcher:** accept a validated alias after an explicit user action,
+1. **SSH launcher:** accept a validated alias after an explicit user action,
    temporarily release terminal ownership to native SSH and restore the TUI on
    completion. Design the exact terminal handoff when that task is implemented.
 
-No launcher or plugin layer is prebuilt for those steps.
+No launcher or plugin layer is prebuilt.
 No database, telemetry, service account, cloud service or AI API is required.
 
 ## Security and privacy boundaries
@@ -94,6 +115,15 @@ portable relative links and contains no private vault or lab paths.
 
 - [Python 3.14 TOML parsing and errors](https://docs.python.org/3.14/library/tomllib.html)
 - [Python URL parsing behavior and validation limits](https://docs.python.org/3.14/library/urllib.parse.html#url-parsing-security)
+
+## References checked for task 2
+
+- [Textual ListView selection and messages](https://textual.textualize.io/widgets/list_view/)
+- [Textual Static literal rendering](https://textual.textualize.io/widgets/static/)
+- [Textual headless interaction testing](https://textual.textualize.io/guide/testing/)
+
+Installed Textual 8.2.8 source was also checked for selection events, focus,
+literal rendering and the details pane's scrolling bindings.
 
 ## References checked during bootstrap
 

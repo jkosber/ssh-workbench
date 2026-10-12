@@ -12,8 +12,8 @@ for evidence and remaining verification limits.
 
 ## 1. Load and validate local project metadata
 
-**Implemented; ready for review.** The standalone loader and its tests
-are complete. No SSH, discovery, network requests, URL opening or project-selection
+**Merged in PR #1** at `84d392f`; final Task 1 head `c08259a`. The standalone
+loader and its tests are complete. No SSH, discovery, network requests, URL opening or project-selection
 UI was added. See [schema and usage](../README.md#load-project-metadata) and
 [task 1 evidence](validation.md#task-1-local-project-metadata-2026-10-09).
 
@@ -56,13 +56,58 @@ a direct test without a file):
 
 ## 2. Select projects and inspect details
 
-**Next single roadmap task.** Not implemented.
+**Implemented and locally verified; awaiting PR review and merge authorization.**
+The [final local checks](validation.md#task-2-final-local-verification-2026-10-12)
+and [initial Task 2 validation](validation.md#task-2-project-browser-2026-10-09)
+record the evidence. Remote CI must be checked on the pushed Task 2 commit.
 
-Acceptance: connect the loader to an explicit configuration option; document any
-default path. Display projects in file order with keyboard selection and show the
-selected name, alias and optional references. Empty and invalid configurations
-have clear states. Test selection, detail changes and exit headlessly. Include
-no connect or open-link controls until those actions work.
+The [2026-10-12 console follow-up](validation.md#task-2-interactive-console-follow-up-2026-10-12)
+also verifies real 80x24 terminal input, scrolling, errors and return to a working
+PowerShell prompt.
+
+The [browser visual follow-up](validation.md#task-2-browser-visual-follow-up-2026-10-12)
+verifies screenshots and live browser resizing through 80x24, 60x20 and 120x40,
+including selection, pane focus, wrapping and scrolling.
+
+The [native terminal follow-up](validation.md#task-2-native-terminal-follow-up-2026-10-12)
+verifies real WezTerm window resizing, navigation, scrolling and both quit keys.
+The later [desktop screenshot follow-up](validation.md#task-2-desktop-screenshot-follow-up-2026-10-12)
+adds native Windows Terminal startup and WezTerm appearance evidence. Reinspection
+and independent review corrected an earlier mistaken report of missing project
+names; the captures show both names. Human review remains separate from these
+agent-run checks.
+
+Acceptance criteria:
+
+- [x] `--config PATH` reads only the requested file through the existing loader;
+  no discovery, default file, schema changes or configuration writes. Help/version
+  exit before configuration reading. Invalid/unreadable files report sanitized
+  errors with status 2 before starting the terminal interface.
+- [x] No configuration and an explicit empty project collection have distinct
+  informative screens. Neither silently loads example data.
+- [x] Projects appear in loader order. The first project starts selected and
+  focused; Up/Down changes selection. The row highlight and pane border make
+  selection and focus visible. Tab/Shift+Tab switch panes.
+- [x] Details update to the selected ID, name, alias and both optional references;
+  absent references show `Not provided`. Details wrap and scroll; selecting a
+  different project resets scrolling to the top.
+- [x] Configuration values render literally without markup, actions or generated
+  hyperlinks. Nonprinting characters are visibly escaped only for display;
+  underlying records remain unchanged. Unicode and long values are covered.
+- [x] The list/details layout is exercised headlessly at 80x24, 120x40 and 60x20,
+  with resizing, long text, a scrolling list and Q/Ctrl+Q exit. No nonworking
+  connect/open-link controls are shown.
+- [x] Focused CLI/headless tests and isolated installed-wheel checks use fictional
+  temporary data; application tests guard common connection/process/browser
+  boundaries. Existing loader coverage is retained.
+- [x] At the user's request, the agent exercises the
+  [Windows terminal checklist](validation.md#task-2-windows-terminal-checklist),
+  including real console flows, native screenshots and WezTerm window resizing.
+  Windows Terminal live resizing, other DPI settings and screen readers remain
+  outside the verified evidence. Jadon reviews the PR before authorizing merge.
+
+SSH launching, link opening, editing, search/filtering, discovery, tmux and file
+transfer remain outside Task 2. Do not begin Task 3 without a separate request.
 
 ## 3. Launch native SSH and return cleanly
 
