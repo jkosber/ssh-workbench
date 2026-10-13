@@ -1,5 +1,175 @@
 # Validation
 
+## Task 4: errors and links, 2026-10-12
+
+Starting state was inspected and fetched: clean `main` and `origin/main` both
+pointed to Task 3 merge `eeb6e39bf93a8ba1532503a7a2e0e565f9a9d8f2`, with the expected
+`jkosber/ssh-workbench` origin. No Task 4 branch existed; `feat/errors-and-links`
+was created from that commit. No unrelated tracked work needed preservation.
+Existing ignored evidence was preserved. Version 0.0.1, Python 3.14.7,
+Textual 8.2.8 and the lockfile/dependencies are unchanged.
+
+These are **local Windows results from the implementation session**, not remote
+CI for Task 4. At that handoff, nothing had been staged, committed, pushed,
+opened as a PR or published. Earlier Task 3 Windows/
+Ubuntu CI and terminal evidence below remain historical evidence for that merge.
+
+| Check | Observed result |
+| --- | --- |
+| `uv sync --locked` | Passed with the existing environment and lockfile |
+| CLI help/version | Passed; version remains 0.0.1 |
+| `uv run --locked ssh-workbench` | Native no-config screen; R/D explained no selection; Q returned status 0 to the shell |
+| Ruff lint and format | Passed |
+| Full pytest, fresh ignored base directory | 417 passed: 289 prior tests, 92 URL/boundary cases, 35 link UI/concurrency cases, one additional negative SSH status case |
+| `uv build` | Source archive and wheel built; existing warning that the installed uv 0.13.0 is outside the project's uv-build range remains, with no dependency change |
+| Isolated package validation | Passed CLI/config/loader, verified wheel imports, headless actions, substituted SSH/link results and separate-process blocked-opener Q/Ctrl+Q exits |
+| Documentation and final review | 43 relative links/anchors and whitespace checks passed; source and README/UI semantic review completed; deterministic code scan reported no findings (README skipped by prose scope) |
+| Native WezTerm fixture | Accepted, reported failure, raised error, missing links, repeat/blocked requests, scrolling, resizing and both quit keys passed through substituted boundaries |
+| Native screenshots | Attempted with the established Windows capture helper; owned test window could not be brought to foreground reliably. Captures were obscured, excluded as evidence and removed |
+
+The first targeted run exposed a real scroll shift when link status changed
+height; a fixed three-row status region corrected it. A later source review found
+the closed-loop posting race and ambiguous clipped long IDs; a narrow posting
+guard and captured project number corrected them, with focused regressions.
+The final full suite includes those corrections. One initial pytest invocation
+also hit an access-denied error cleaning the shared Windows temporary-directory
+link; subsequent complete runs used fresh `.local` base directories without
+changing permissions or deleting the shared directory.
+
+### Task 4 acceptance evidence
+
+| Criterion | Verification and limits |
+| --- | --- |
+| Existing configuration and SSH errors remain actionable | Original loader/CLI/SSH tests passed. Nonzero and negative codes retain their value and add neutral client-message/alias retry guidance; interruption offers C/Q |
+| Explicit R/D with visible bindings from both panes | Headless keyboard checks at all three sizes; native accepted requests from list and details; footer controls visible in terminal text |
+| No automatic action; absent links/no selection | Guarded startup/navigation/focus/Enter/click/resize tests; missing links and native no-config R/D feedback passed |
+| Capture project, kind and exact URL | Both keys pass their selected URL including query/fragment/encoding; slow completion preserves newer selection, focus and scrolling and attributes the original project |
+| Literal, sanitized output | Markup/control metadata stays literal; errors omit private markers and query values; long IDs cannot obscure the captured project number |
+| Shared validation and independent dispatch | Loader and boundary contract cases passed; malformed URLs cannot reach Windows/GIO calls; exact argv and detached/null terminal streams asserted |
+| Outcomes and supported environment policy | Accepted/missing/invalid/unavailable/failure/exception cases passed with substitutions. Windows associations and Linux desktop GIO implemented; macOS/other environments explicitly unavailable |
+| Responsiveness/repeats/shutdown | Event-controlled slow requests permit navigation and quit; repeats do not queue; stale messages and closed-loop races are discarded. Installed subprocesses exit with a forever-blocked opener on both quit keys |
+| No SSH lifecycle interference | Original real-suspension, SIGINT restoration and lookup/transition regression tests passed. A pending browser completion during substituted SSH preserves both statuses and the newer selection |
+| Layout and scrolling | Headless 60x20/80x24/120x40 checks passed. Native WezTerm dimensions and text verified live resizing and wrapped/scrollable content; this session has no usable native pixel evidence |
+| Packaging and records | Isolated Python `-I` runs and assertions verify every imported Workbench module resides in the disposable installation, even with checkout `PYTHONPATH`; documentation and vault session/project/daily records updated |
+
+### Task 4 native fixture details
+
+The existing portable WezTerm `20240203-110809-5046fc22` ran in a new owned
+process with an explicit test configuration, no SSH/WSL domains and a clean
+PowerShell profile. `scripts/check_links.py` used fictional projects and stubbed
+Windows `os.startfile`; reported failure was also substituted because startfile
+has no failure return value. Guards rejected other browser, process and network
+actions. No real browser, website, SSH configuration, keys, inventory or host was
+used. The application dependency set and global terminal settings were untouched.
+
+Verified process/socket identity preceded CLI input. Readiness checks used
+expected terminal text and reported dimensions. The same fixture resized
+80x24 -> 60x20 -> 120x40 -> 80x24 at 96 DPI. Both actions accepted from either pane;
+failed/missing/error cases showed safe guidance at 60x20. The long fixture stayed
+at the same scroll position after an accepted request: before/after screen text
+differed only in the link-status line. A blocked request retained its original
+project number while selection/focus moved and repeated R/D reported pending.
+Q and Ctrl+Q each exited status 0 despite the indefinitely blocked stub; both
+shell input/echo checks passed. A normal no-config CLI run also exited cleanly.
+
+Some early resize snapshots preceded the application's redraw, and one expected
+text condition spanned a wrapped line; settled text and narrower readiness
+conditions confirmed the final states. No resize workaround was introduced.
+The screenshot helper could not verify the owned window as foreground, so no
+appearance claim is made. Existing Task 2 native screenshots remain valid for
+their recorded state. The owned terminal/process was closed; reproducible text
+and dimension evidence remain ignored locally.
+
+### Task 4 stubbed link checklist
+
+These commands do not open a real browser or connect to SSH:
+
+```text
+uv sync --locked
+uv run --locked ssh-workbench --help
+uv run --locked ssh-workbench --version
+uv run --locked python scripts/check_links.py
+```
+
+1. Select the accepted fixture; try R from the list and D from details, then
+   reverse them. Check literal metadata, the request result and unchanged focus.
+2. Try reported failure, raised error and missing links. Confirm useful feedback
+   with no raw exception/query data. Retry an action after its result.
+3. Use the long fixture, scroll with Page Down/End, invoke a link and verify
+   preserved scrolling. Resize to 60x20, 80x24 and 120x40 and check the footer.
+4. Choose the blocked fixture last. Press R/D again, change selection/pane and
+   confirm the original request remains identified. Q must return to the shell;
+   repeat with Ctrl+Q. The stub stays blocked until process exit.
+
+### Task 4 fixture lifetime correction, 2026-10-12
+
+The review after the original runs above returned **FIX BEFORE COMMIT**. It
+confirmed a development-fixture defect: `check_links.py` removed its external-action
+patches when `app.run()` returned, although a daemon already past its shutdown
+check could still reach dispatch. A controlled Windows reproduction reached an
+outer sentinel after teardown; no real browser opened. The original 417-test and
+WezTerm results above describe the pre-correction candidate, not this correction.
+No production application regression was confirmed.
+
+The fixture entry point now starts every guard before constructing the app and
+intentionally leaves them installed until process exit, including after normal
+return, `RuntimeError` or `KeyboardInterrupt`. It registers no restoration
+cleanup, waits for no blocked daemon and uses no forced interpreter exit.
+Importing the script installs no guards. Production application, SSH/SIGINT,
+version 0.0.1, dependencies, build requirements and CI tooling are unchanged.
+
+[Fixture regressions](../tests/test_link_fixture.py) run the actual entry point
+through a [child-only harness](../tests/link_fixture_process.py). Events pause a
+real R-triggered application worker inside URL validation, after its shutdown
+check but before dispatch. Q closes the TUI and the entry point returns or raises;
+only then does the harness release validation. Positive dispatch and completion
+events establish that the worker ran. Harmless outer sentinels remain beneath
+the fixture guards, including when testing the defective version.
+
+| Correction check | Observed result |
+| --- | --- |
+| Same six race tests against a disposable pre-correction copy | All six failed as expected: fixture dispatch 0, outer sentinel 1, guards restored; normal/error/interrupt cases on both dispatch paths |
+| Corrected fixture tests | 11 passed: six race cases, four blocked-opener exits, one import-side-effect check |
+| Race completion | Fixture dispatch 1, outer sentinel 0; all guarded callable identities retained after entry-point unwind |
+| Blocked-opener interpreter exit | Q and Ctrl+Q passed for Windows and simulated Linux; the original fixture stub remained blocked. A parent timeout fails the test, rather than supplying passing exit evidence |
+| Affected fixture/link/UI tests | 138 passed, including Windows success with `os.startfile` explicitly returning `None` |
+| Full pytest with a unique disposable base directory | 428 passed; no temporary-directory cleanup error |
+| Locked sync, Ruff lint/format, CLI help/version | Passed; 29 Python files formatted and CLI version 0.0.1 |
+| Build and isolated package validation | Passed, including installed-import assertions and existing blocked-opener Q/Ctrl+Q processes |
+| Relative documentation links/anchors and whitespace | 45 links/anchors passed; `git diff --check` passed |
+| Focused independent review | No additional correction defect found; this was a static review, not another native-platform run |
+
+The existing build warning recurred: uv 0.13.0 is outside the declared
+`uv_build>=0.12.24,<0.13.0` range. No tooling was upgraded or requirements changed
+to suppress it. The build and installed-package checks passed; the prior review's
+backend-provenance limitation remains.
+
+After the correction and regressions passed, the standalone script was exercised
+in an owned Windows pseudoterminal through the supported cmd.exe/PowerShell route.
+R from the list and D from details reported accepted fixture requests. A blocked
+request allowed repeated-action feedback, changed selection and pane focus.
+Q and Ctrl+Q each returned application status 0 to working PowerShell input; the
+owned shell then exited normally. This was a focused terminal input/return check,
+not a repeat of WezTerm resizing or screenshot verification. No new screenshots
+were taken, and obscured historical captures remain excluded.
+
+Linux-path tests simulate the platform and GIO lookup/runner on Windows; they do
+not establish native Linux desktop behavior. All browser/process dispatch in
+these fixture tests was substituted. No real browser, GIO dispatch, host or SSH
+configuration was used. At the correction handoff, changes remained unstaged and
+uncommitted on `feat/errors-and-links` at base
+`eeb6e39bf93a8ba1532503a7a2e0e565f9a9d8f2`. No Task 4 remote CI had run and no
+Task 5 work was performed. Subsequent PR and CI status belongs in the PR record.
+
+**Would open a real browser:** running the normal application with a configured
+URL and pressing R/D (or clicking its footer action). This was not tested.
+A separately approved manual test should name the URL and running environment,
+then observe actual dispatch; Workbench cannot establish page loading or closure.
+Real SSH/authentication/host-key prompts, Linux desktop dispatch, macOS execution,
+Windows Terminal handoff, other DPI settings and screen readers remain unverified.
+Jadon's earlier Windows Terminal navigation confirmation is not SSH handoff
+evidence. No Task 5, release, portfolio or infrastructure work was performed.
+
 ## Task 3: native SSH, 2026-10-12
 
 Implemented on `feat/native-ssh` from clean, fetched `main` at

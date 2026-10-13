@@ -152,10 +152,19 @@ async def test_connect_uses_selected_alias_and_restores_focus(
     "outcome, message",
     [
         (0, "SSH exited with status 0."),
-        (255, "SSH exited with status 255."),
+        (
+            255,
+            "SSH exited with status 255. "
+            "Check the SSH client's message and alias; C retries.",
+        ),
+        (
+            -2,
+            "SSH exited with status -2. "
+            "Check the SSH client's message and alias; C retries.",
+        ),
         (SSHLaunchError("SSH not found."), "SSH not found."),
         (SSHLaunchError("Could not start SSH."), "Could not start SSH."),
-        (KeyboardInterrupt(), "SSH interrupted."),
+        (KeyboardInterrupt(), "SSH interrupted. Press C to retry or Q to quit."),
     ],
 )
 async def test_all_launch_outcomes_resume_real_suspend_context(
@@ -255,9 +264,10 @@ async def test_repeated_launches_after_every_outcome_and_reentrant_guard(
         for count, message in enumerate(
             [
                 "SSH exited with status 0.",
-                "SSH exited with status 5.",
+                "SSH exited with status 5. "
+                "Check the SSH client's message and alias; C retries.",
                 "Could not start SSH.",
-                "SSH interrupted.",
+                "SSH interrupted. Press C to retry or Q to quit.",
                 "SSH exited with status 0.",
             ],
             start=1,

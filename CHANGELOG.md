@@ -7,11 +7,23 @@ release; 0.1.0 is the first usable release target.
 
 ### Fixed
 
+- The development link fixture keeps all external-action stubs installed until
+  process exit, preventing a delayed daemon from reaching restored real openers
+  after the TUI returns or raises.
+- Nonzero SSH exits and interrupted handoffs now include retry guidance while
+  retaining the exact status and existing terminal/signal safeguards.
 - Invalid configuration paths, including embedded NUL characters, now report a
   sanitized `ProjectConfigError` consistently with other file-read failures.
 
 ### Added
 
+- Explicit R / Repository and D / Documentation actions from either pane, with
+  shared URL revalidation and sanitized missing/invalid/unavailable/failure
+  results. Windows URL associations and Linux desktop GIO receive unchanged URLs.
+- One pending browser request with responsive navigation and quit, captured
+  project attribution, no automatic retry and shutdown-safe completion messages.
+- Browser-boundary, concurrency and installed-wheel exit tests, plus a guarded
+  native link fixture that never opens a real browser.
 - Explicit C / Connect action for the selected alias, launching the resolved
   native SSH client without a shell, flags or remote commands. SSH owns terminal
   I/O, authentication and host-key checks.

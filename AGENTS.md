@@ -28,8 +28,9 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Tasks 1–3 support explicit configuration, project browsing, native SSH launch
-  and return. Do not add controls for deferred roadmap features.
+- Tasks 1–4 support explicit configuration, project browsing, native SSH launch
+  and return, and explicit repository/documentation links. Do not add controls
+  for deferred roadmap features.
 - Never read real SSH configuration, keys, host inventories or remote hosts as
   part of development tests. Use temporary files and fictional fixtures.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate
@@ -39,6 +40,9 @@ checks above after relevant changes; package validation is described in
   8.2.8 context skips resumption when an exception escapes it. Verify the installed
   implementation when changing this path. Use `scripts/check_terminal.py` for
   native terminal tests without SSH.
+- Link dispatch shares the loader's URL validation. Keep it off the UI thread,
+  preserve exact URLs and avoid terminal-browser fallback. Use
+  `scripts/check_links.py` for native checks without opening a real browser.
 - Keep private paths, actual infrastructure details, credentials and workspace
   notes out of Git. `.local/` is ignored. No AI service is required at runtime.
 

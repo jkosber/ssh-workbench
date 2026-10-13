@@ -12,16 +12,18 @@ is 0.1.0; it has not been released.
 
 | Works now | Planned |
 | --- | --- |
-| Explicit `--config PATH` with TOML validation | Open useful documentation links |
-| Keyboard project selection and read-only details | Approved usability checks |
-| C to connect with native SSH and return to the browser | 0.1.0 readiness review |
+| Explicit `--config PATH` with TOML validation | Approved usability checks |
+| Keyboard project selection and read-only details | 0.1.0 readiness review |
+| C to connect with native SSH and return to the browser | |
+| R / Repository and D / Documentation browser requests | |
 | Q or Ctrl+Q to exit; `--help` and `--version` | |
 | Tests, lint/format checks and package build | |
 
 The [example configuration](examples/projects.example.toml) contains fictional
 data for trying the browser. Connections require an explicit **C / Connect**
-action. Link opening, arbitrary remote commands and infrastructure controls remain
-outside this development build. To test terminal handoff without SSH, use the
+action. Links require **R / Repository** or **D / Documentation**. Arbitrary remote
+commands and infrastructure controls remain outside this build. To test terminal
+handoff without SSH, use the
 [local child fixture](docs/validation.md#task-3-local-terminal-fixture).
 
 The application requires no Codex, ChatGPT, OpenAI API key or AI subscription.
@@ -78,8 +80,54 @@ details pane. Unicode text is preserved. Nonprinting characters, including
 newlines, tabs, terminal escapes and direction controls, appear as visible
 Python-style escapes such as `\n`, `\x1b` and `\u202e`. Only the display changes;
 the original project records are retained. Markup-like strings are literal text.
-References have no application-generated hyperlinks or actions. A terminal may
-independently recognize URL text; SSH Workbench does not open it.
+References have no application-generated hyperlinks or inline click actions.
+A terminal may independently recognize URL text. Workbench opens links only
+through the explicit footer actions described below.
+
+## Open repository and documentation links
+
+Press **R / Repository** or **D / Documentation**, or click the corresponding
+footer action, to open the selected project's optional URL. Both actions work
+from either pane. Startup, selection, focus changes, rendering and Enter never
+request a browser. Missing links and no selection show a short explanation.
+
+Workbench rechecks the same HTTP/HTTPS rules used by the loader and sends the
+exact URL, including queries, fragments and encoding, to the environment's
+browser opener. It does not fetch the page or test connectivity. The status
+**"browser request accepted"** means the opener accepted the request; Workbench
+cannot tell whether a page loaded or a browser closed. Errors omit URLs and
+underlying exception details.
+
+Windows uses the system URL association. Linux requires a desktop session
+(`DISPLAY` or `WAYLAND_DISPLAY`), GIO's `gio` command on `PATH`, and a configured
+browser. Other environments, including macOS in this version, show an unavailable
+message. There is no text-browser fallback, `BROWSER` command override or browser
+preference change. Opening happens where Workbench runs, which may differ from
+the computer displaying a remote terminal; there is no client forwarding.
+
+Only one browser request can be pending. Repeated R/D actions report that pending
+request without queuing or retrying it. Navigation, scrolling, Connect and both
+quit keys remain available. Completion identifies the original project's
+one-based list position and ID and leaves the current selection, focus and
+scrolling alone. The fixed status area can clip very long IDs; the project
+number remains visible. SSH has its own status area.
+
+Q or Ctrl+Q stops waiting and exits even if the opener is blocked. Shutdown drops
+late results and prevents requests that have not started when the shutdown check
+runs. It cannot stop an OS call already underway, retract a dispatched request
+or close an external browser. A pending request may still open after quitting.
+
+For a native terminal check that **never opens a real browser**, run:
+
+```text
+uv run --locked python scripts/check_links.py
+```
+
+The [fixture checklist](docs/validation.md#task-4-stubbed-link-checklist) covers
+accepted, failed, missing and blocked requests with fictional metadata.
+Run it as a separate process: its entry point keeps external-action stubs active
+until process exit, including when a delayed request outlives the TUI or an error.
+Importing the fixture module does not install those stubs.
 
 ## Connect with native SSH
 
@@ -100,6 +148,10 @@ same project selected, focus on the project list, and the exit status below the
 panes. Launch errors and interruptions also return to a usable browser. Missing
 SSH and process-start failures show a short message; fix the reported local
 installation problem and press C to retry.
+Nonzero exits retain the exact status and suggest checking the SSH client's
+message and alias before retrying. Workbench does not infer a cause from that
+status or capture the client's output. An interrupted handoff offers C to retry
+or Q to quit.
 
 Run this action in a local terminal. Environments that cannot release their
 terminal, including Textual Web, show an explanation without starting SSH.
@@ -180,8 +232,10 @@ uv run --locked python scripts/check_package.py
 The last check installs the wheel and locked runtime dependencies in a temporary
 environment and tests help/version, a missing configuration error, the loader,
 and headless project selection/quit through the CLI with fictional files. It also
-substitutes SSH launches to check success, nonzero exit, errors and interruption,
-then removes that environment. Headless checks do not establish native terminal
+substitutes SSH and browser launches to check outcomes and verifies process exit
+while a browser opener is blocked. Isolated Python runs verify that imports come
+from the installed wheel, even with the checkout on `PYTHONPATH`, then remove
+that environment. Headless checks do not establish native terminal
 handoff; the separate local child fixture exercises that behavior.
 CI runs these checks on Linux and Windows using the project Python version.
 See [validation evidence](docs/validation.md) for actual results and limitations.
@@ -190,11 +244,12 @@ See [validation evidence](docs/validation.md) for actual results and limitations
 
 | Path | Purpose |
 | --- | --- |
-| `src/ssh_workbench/` | Metadata loader, native SSH boundary, CLI and Textual application |
-| `tests/` | Metadata, CLI, substituted SSH and headless UI tests |
+| `src/ssh_workbench/` | Metadata loader, SSH/browser boundaries, CLI and Textual application |
+| `tests/` | Metadata, CLI, substituted external actions and headless UI tests |
 | `examples/` | Fictional supported configuration |
 | `scripts/check_package.py` | Isolated built-package check |
 | `scripts/check_terminal.py` | Interactive handoff check using harmless local children |
+| `scripts/check_links.py` | Interactive link check with guarded, substituted openers |
 | `pyproject.toml`, `uv.lock` | Package metadata, version, dependencies and resolved versions |
 | `.github/` | CI and the short pull-request template |
 
