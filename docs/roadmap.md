@@ -108,14 +108,56 @@ Acceptance criteria:
   outside the verified evidence. Jadon reviews the PR before authorizing merge.
 
 SSH launching, link opening, editing, search/filtering, discovery, tmux and file
-transfer remain outside Task 2. Do not begin Task 3 without a separate request.
+transfer remain outside Task 2. Task 3 adds the SSH action below.
 
 ## 3. Launch native SSH and return cleanly
 
-Acceptance: an explicit action launches only the selected validated alias with
-an argument list and no shell. Native SSH handles authentication and host-key
-checks. Restore the TUI after success, failure or interruption; report exit
-status. Tests substitute the process boundary and never connect to infrastructure.
+**Implemented and verified in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3).** Based on
+merged PR #2 at `4852e1c`. Version remains 0.0.1 with unchanged dependencies.
+See [Task 3 evidence](validation.md#task-3-native-ssh-2026-10-12) for automated
+checks and the real Windows terminal fixture results; no real host was contacted.
+Jadon also confirmed navigation works in Microsoft Windows Terminal on
+2026-10-12. That manual report covers navigation only.
+[Task 3 remote CI](validation.md#task-3-pr-and-remote-ci-2026-10-12) passed on
+Windows and Ubuntu for the implementation and documentation commits. The PR
+records current checks and merge status.
+
+Acceptance criteria:
+
+- [x] One explicit Connect action has a visible C binding, works from either
+  pane, requires a selection and prevents overlapping launches. Startup,
+  navigation and Enter never connect automatically.
+- [x] Revalidate at the process boundary with the loader's existing alias rule.
+  Resolve `ssh.exe` on Windows or `ssh` elsewhere; pass the absolute executable
+  and selected alias as an argument list with `shell=False`. Accept no arbitrary
+  flags or remote commands.
+- [x] Suspend the TUI while native SSH owns the terminal and inherited standard
+  input/output. Leave authentication, SSH configuration and host-key checks to
+  that client; capture no credentials or SSH output and weaken no verification.
+- [x] Preserve normal native Ctrl+C behavior, including when the child continues
+  afterward. Guard parent SIGINT throughout lookup and terminal handoff; restore
+  the prior handler after the browser reclaims the terminal.
+- [x] Restore the selected project, usable keyboard input and predictable list
+  focus after success, nonzero exit, process-start error or interruption; show
+  the exit status or launch result. Verify exceptional resumption against the
+  installed Textual suspension code, not only a replacement context manager.
+- [x] Missing SSH and unsupported terminal handoff show useful messages and
+  leave the browser usable. Keep error handling scoped to this launch path.
+- [x] Preserve Task 1/2 loading, literal display, selection, scrolling, empty/error
+  states and Q/Ctrl+Q. Keep process logic separate from rendering.
+- [x] Automated tests and installed-wheel checks substitute process boundaries
+  and use fictional fixtures. Cover exact argv, rejected aliases, no selection,
+  exits, errors, interruption, repeat launches and restoration; retain guards
+  against unrequested process, network and browser actions.
+- [x] Exercise a harmless local child in a real Windows terminal. Confirm
+  inherited input/output, Ctrl+C, restoration, retry, selection and focus, then
+  clean up only owned test windows/processes. Record platform/terminal limits.
+- [x] Run required checks, build and isolated package validation; update usage,
+  architecture, Unreleased notes, observed validation and existing Obsidian records.
+
+Link opening, editing, search, discovery, tmux, file transfer, embedded terminals,
+global settings and infrastructure changes remain deferred. Completion does not
+authorize a commit, push, PR, merge, tag or release.
 
 ## 4. Handle failures and useful documentation links
 
@@ -123,6 +165,9 @@ Acceptance: missing configuration, missing SSH, failed connections and cancelled
 actions have actionable messages. Open validated HTTP/HTTPS links only on an
 explicit action; handle absent links and browser-launch failures. Test these
 paths without opening a real browser or executing unsafe commands.
+
+Task 3 covers unavailable SSH, process-start errors and SSH return status only.
+Broader error work and all link-opening behavior remain part of this later task.
 
 ## 5. Validate usability and review 0.1.0 readiness
 

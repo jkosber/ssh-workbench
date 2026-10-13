@@ -11,9 +11,7 @@ from ssh_workbench.config import ProjectConfigError, load_projects
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="ssh-workbench",
-        description=(
-            "Browse local project metadata. SSH connections are not available yet."
-        ),
+        description="Browse local projects and explicitly connect with native SSH.",
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {version('ssh-workbench')}"

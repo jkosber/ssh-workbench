@@ -1,5 +1,175 @@
 # Validation
 
+## Task 3: native SSH, 2026-10-12
+
+Implemented on `feat/native-ssh` from clean, fetched `main` at
+`4852e1c3719700d1e5ea8d6c867bf13bd3c50eb0`. Before branching, PR #2 was verified
+merged, local main matched origin, no open PRs existed and
+[merged-main CI](https://github.com/jkosber/ssh-workbench/actions/runs/38304097388)
+had passed. That CI result applies to Task 2. Task 3 was initially held
+uncommitted for review. On 2026-10-12, Jadon authorized staging, committing,
+pushing this feature branch and opening a PR after checking the Task 3 criteria.
+
+Version remains 0.0.1; Python 3.14.7, Textual 8.2.8, dependencies and lockfile are
+unchanged. All development fixtures are fictional. Executable lookup and process
+invocation were substituted; no real SSH client, configuration, keys, inventories
+or hosts were used.
+
+| Local Windows check | Observed result |
+| --- | --- |
+| Locked sync | Passed without dependency changes |
+| Ruff lint and format check | Passed |
+| Full pytest suite, fresh explicit `.local` base directory | 289 passed: all 213 preexisting tests plus 76 launch, signal and UI cases |
+| CLI help, CLI version and module version | Passed; Connect description updated, version remains 0.0.1 |
+| No-config CLI in a Windows pseudoterminal | Correct empty message and disabled C binding; C remained inert and Q exited with status 0 |
+| Build | Source archive and wheel built successfully at 0.0.1 |
+| Isolated wheel validation | Passed outside the checkout with locked runtime dependencies: help/version, loader, missing-config errors, headless selection/quit, and substituted SSH success, status 7, start error and interruption |
+
+Local uv 0.13.0 still warns that the existing build-backend range excludes
+0.13.0; the build and isolated installation succeeded with the unchanged range.
+An initial focused test run using the shared pytest temporary directory hit the
+previously observed Windows `pytest-current` cleanup permission error. A fresh
+explicit base directory passed; no permission changes or weakened tests were
+used. The isolated package environment was removed normally.
+
+The new tests assert the exact absolute executable/one-alias argv, `shell=False`,
+inherited streams, Windows `ssh.exe` versus POSIX `ssh` lookup, alias/type
+rejection before lookup, sanitized launch errors and restoration of the original
+SIGINT handler. They retain process/network/browser guards. UI tests cover no
+selection, no automatic launch, visible C binding, selected alias, status and
+focus restoration, repeated/reentrant actions, unsupported suspension and long
+literal/scrolling content at 60x20, 80x24 and 120x40.
+
+Exception-path tests use **installed `App.suspend()`**, replacing only the
+headless driver's suspension methods. Textual 8.2.8 has a bare yield followed by
+resume, so the app catches expected errors inside the context. Assertions verify
+suspend/launch/resume ordering after success, nonzero exit, launch error and
+`KeyboardInterrupt`. Source inspection also confirmed why the parent needs a
+temporary callable SIGINT handler: asyncio may otherwise cancel its main task,
+and subprocess may terminate a still-running child during exception cleanup.
+
+Independent review found and corrected an interruption gap before the original
+signal guard: Ctrl+C during executable lookup could cancel asyncio's main task.
+The shared guard now spans lookup and the entire suspend/resume cycle. Eight
+regression cases run with asyncio's actual installed SIGINT handler, invoking
+the active handler during lookup and both driver transitions, on success and
+error paths. Cancellation counts stay zero, the original handler is restored,
+and the browser remains usable after yielding to the event loop. The focused
+review follow-up confirmed the fix with no remaining finding. The native
+terminal checks below were repeated after this correction.
+
+Final diff/whitespace and package-content checks passed; wheel modules match the
+source and both archives exclude private workspace directories. All 39 relative
+documentation links/anchors resolve. The deterministic code scan reported no
+findings; README was outside its configured prose scope and was read in review.
+
+### Real Windows terminal evidence
+
+The agent ran `scripts/check_terminal.py` through `uv run --locked python` in a
+new, isolated native WezTerm `20240203-110809-5046fc22` window on Windows. The
+terminal reported 80x24 at 96 DPI, `xterm-256color` and `truecolor`. Its fixed local
+Python children replace SSH while retaining production alias validation,
+signal handling, `App.suspend` and result rendering.
+
+| Native terminal check | Agent-observed result |
+| --- | --- |
+| Terminal ownership | Child stdin, stdout and stderr all reported `isatty=True`; typed text was echoed and read by the child, and its stderr appeared directly |
+| Normal and nonzero exit | Status 0 and 7 returned to the same project; navigation worked immediately afterward |
+| Connect from details | C launched the selected alias; afterward Down changed the project, confirming focus returned to the list |
+| Ctrl+C ending a child | Child received Ctrl+C and returned 130; the browser resumed and displayed 130 |
+| Ctrl+C while a child continues | Two successive interrupts reached the child; it stayed active, accepted more text and returned only after explicit input; the browser then displayed status 0 |
+| Missing executable and process-start error | Both showed the expected messages with the selection intact; repeated failed launches and subsequent navigation worked |
+| Injected launch interruption | `KeyboardInterrupt` returned to the browser with an interruption message and usable navigation |
+| Repeat launch and quit | A fresh interactive-shell launch connected again; Q and Ctrl+Q returned to PowerShell with app status 0, and subsequent commands were accepted and echoed |
+
+An initial `pwsh -File` harness ended after quitting because Ctrl+C had also
+cancelled the enclosing PowerShell script. Repeating with an interactive
+`-NoExit` shell established a working prompt and status 0. This was a test-harness
+correction; no application workaround or shell profile changes were made.
+All owned test windows and their shell/child processes exited. Existing user
+terminals were preserved. Text captures, terminal metadata and an evidence-check
+summary remain under ignored `.local/task3-native-20261012/`.
+
+This is native process/input evidence, not a headless or browser screenshot
+claim. Jadon separately reported on 2026-10-12 that Task 3 navigation works in
+Microsoft Windows Terminal. This is human-reported navigation evidence; it does
+not establish terminal handoff, interruption or authentication behavior in that
+terminal. Real SSH authentication,
+host-key prompts and connections remain untested and require separately approved
+targets/actions. Linux/macOS native terminal behavior, Microsoft Windows
+Terminal handoff, native resizing, other DPI settings and screen readers remain
+unverified for this change.
+
+### Task 3 local terminal fixture
+
+From an interactive terminal, run:
+
+```text
+uv run --locked python scripts/check_terminal.py
+```
+
+This script accepts only built-in fictional cases. It replaces executable lookup
+and process invocation before calling the production launcher; it never invokes
+SSH or loads a project inventory. Use this fixture for development handoff checks.
+
+1. Select **Normal exit**, press C, check that all three terminal flags are True,
+   type some text and confirm the child echoes it. Type `return` and verify status
+   0, the same selection, list focus and working arrow keys.
+2. Select **Nonzero exit**, Tab to details, press C, then type `return`. Check
+   status 7 and that Down changes the selection afterward.
+3. Select **Ctrl+C exits the child**, press C and Ctrl+C. Check status 130.
+4. Select **Ctrl+C keeps the child running**, press C and Ctrl+C twice. Confirm
+   the child still accepts text. Type `return` to resume the browser.
+5. Exercise the three simulated error/interruption entries. Check their messages,
+   preserved selection, navigation and repeated C actions.
+6. Quit with Q and confirm shell input/echo. Run the fixture again, connect and
+   return, then quit with Ctrl+Q and check the shell again.
+
+Record the terminal, operating system and actual results. This local fixture does
+not verify the native SSH client's authentication or network behavior.
+
+### Task 3 pre-PR verification, 2026-10-12
+
+Jadon authorized the commit, push and PR after confirming navigation in
+Microsoft Windows Terminal. A fresh local run found one intermittent footer
+assertion: the test queried keys while Textual was asynchronously removing and
+remounting them. The Connect action remained enabled. A probe reproduced that
+transient state once in 40 starts, and the next refresh restored the keys.
+
+The visibility test now waits for the Connect key with a bounded five-second
+timeout and retains every count, key, visibility, label, screen-region and
+no-launch assertion. Sixty startup probes across the three test sizes passed;
+six needed another readiness pause. No application code changed for this fix.
+
+After the test correction, all 289 tests and Ruff lint/format checks passed.
+Locked sync, CLI help/version, build and isolated package validation also passed,
+as did all 39 relative documentation links/anchors and whitespace checks.
+The README and PR draft received a documentation review with no actionable
+findings. The earlier native fixture evidence still applies to the unchanged
+application code.
+
+### Task 3 PR and remote CI, 2026-10-12
+
+[PR #3](https://github.com/jkosber/ssh-workbench/pull/3) was opened from
+`feat/native-ssh` into `main` after the authorized commit and push. Implementation
+commit `da64844f47a4f872ca1ece582d70049eab68a422` contains the Task 3 behavior,
+tests, fixture and documentation, including the footer-test readiness correction.
+
+[Push CI 38325768048](https://github.com/jkosber/ssh-workbench/actions/runs/38325768048)
+and [PR CI 38325776914](https://github.com/jkosber/ssh-workbench/actions/runs/38325776914)
+passed on both Windows and Ubuntu. Each job passed locked installation, Ruff,
+all 289 tests, build and isolated package validation. These results apply to
+`da64844`. The documentation follow-up at `b71423c` also passed
+[push CI 38325986119](https://github.com/jkosber/ssh-workbench/actions/runs/38325986119)
+and [PR CI 38325990481](https://github.com/jkosber/ssh-workbench/actions/runs/38325990481)
+on both platforms, including 289 tests and isolated package checks. All 40
+relative documentation links/anchors resolved. The PR records checks for later
+documentation commits, its merge commit and current status.
+
+CI verifies automated and substituted process behavior. Linux native terminal
+handoff, macOS execution, real SSH authentication and the remaining terminal
+limits above still need their own evidence.
+
 ## Task 2 PR documentation and remote CI, 2026-10-12
 
 [PR #2](https://github.com/jkosber/ssh-workbench/pull/2) contains the read-only
@@ -15,8 +185,8 @@ checks. Job logs confirm the test count and installed-package browser checks.
 
 This documentation-only follow-up records those observed results; it changes no
 application code, dependencies or version. The PR records checks for its current
-head and its merge status. Task 3 remains unimplemented, and the terminal/DPI/
-screen-reader limits recorded below still apply.
+head and its merge status. Task 3 was unimplemented at that point; its later
+implementation and verification are recorded at the top of this document.
 
 ## Task 2 final local verification, 2026-10-12
 

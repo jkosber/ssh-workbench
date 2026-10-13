@@ -1,4 +1,4 @@
-"""Check the built wheel's CLI, loader and headless browser outside the checkout."""
+"""Check the built wheel's CLI, loader and substituted SSH action in isolation."""
 
 import os
 import shutil
@@ -13,8 +13,11 @@ HEADLESS_BROWSER_CHECK = textwrap.dedent(
     """\
     import asyncio
     from contextlib import ExitStack
+    from pathlib import Path
+    from subprocess import CompletedProcess
     from unittest.mock import patch
 
+    from textual.drivers.headless_driver import HeadlessDriver
     from textual.widgets import ListView, Static
 
     from ssh_workbench.app import SSHWorkbenchApp
@@ -44,6 +47,44 @@ HEADLESS_BROWSER_CHECK = textwrap.dedent(
             assert "fictional-second" in str(alias.content)
             repository = app.query_one("#project-repository", Static)
             assert "example.invalid/first" not in str(repository.content)
+            # Use installed App.suspend with a recording driver, never a terminal
+            # or a real SSH executable in this isolated package smoke check.
+            lifecycle = []
+            def suspend(driver):
+                lifecycle.append("suspend")
+            def resume(driver):
+                lifecycle.append("resume")
+            executable = str(Path("fictional-ssh").resolve())
+            with (
+                patch.object(HeadlessDriver, "can_suspend", True),
+                patch.object(HeadlessDriver, "suspend_application_mode", suspend),
+                patch.object(HeadlessDriver, "resume_application_mode", resume),
+                patch("ssh_workbench.ssh.shutil.which", return_value=executable),
+                patch("ssh_workbench.ssh.subprocess.run") as launch,
+            ):
+                for outcome, expected in (
+                    (CompletedProcess([], 0), "status 0"),
+                    (CompletedProcess([], 7), "status 7"),
+                    (OSError("private-marker"), "Could not start SSH"),
+                    (KeyboardInterrupt(), "SSH interrupted"),
+                ):
+                    launch.reset_mock()
+                    launch.side_effect = (
+                        outcome if isinstance(outcome, BaseException) else None
+                    )
+                    launch.return_value = outcome
+                    await pilot.press("tab", "c")
+                    launch.assert_called_once_with(
+                        [executable, "fictional-second"], shell=False, check=False,
+                        stdin=None, stdout=None, stderr=None,
+                    )
+                    assert projects.index == 1
+                    assert app.focused is projects
+                    status = str(app.query_one("#connection-status", Static).content)
+                    assert expected in status and "private-marker" not in status
+                assert lifecycle == ["suspend", "resume"] * 4
+            await pilot.press("up", "down")
+            assert projects.index == 1
             await pilot.press("q")
             assert not app.is_running
             assert app.return_code == 0
@@ -52,7 +93,7 @@ HEADLESS_BROWSER_CHECK = textwrap.dedent(
         asyncio.run(check_browser(app))
 
     def reject_external_action(*args, **kwargs):
-        raise AssertionError("The read-only browser attempted an external action")
+        raise AssertionError("The package check attempted an external action")
 
     with ExitStack() as guards:
         for boundary in (
@@ -182,7 +223,7 @@ def main() -> None:
             raise SystemExit("Installed wheel modified its project configuration")
     print(
         "Built wheel: isolated installation, help/version, configuration errors, "
-        "project loader and headless project selection/quit passed."
+        "project loader, headless selection/quit and substituted SSH returns passed."
     )
 
 

@@ -12,6 +12,13 @@ release; 0.1.0 is the first usable release target.
 
 ### Added
 
+- Explicit C / Connect action for the selected alias, launching the resolved
+  native SSH client without a shell, flags or remote commands. SSH owns terminal
+  I/O, authentication and host-key checks.
+- Return to the selected project and list focus with exit status or a sanitized
+  launch error, including unavailable SSH and interruption. Repeated launches,
+  signal restoration and Textual suspension paths have automated coverage and a
+  harmless interactive local-child fixture.
 - Explicit `--config PATH` loading into a read-only project browser, with ordered
   keyboard selection, five-field details, visible focus and scrollable long text.
 - Separate no-configuration and empty-project screens; configuration errors exit

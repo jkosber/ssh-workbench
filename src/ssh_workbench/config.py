@@ -53,6 +53,14 @@ def parse_projects(text: str) -> list[Project]:
     return _validate_projects(data)
 
 
+def is_valid_ssh_alias(value: object) -> bool:
+    """Share the schema's alias rule with the native process boundary."""
+    return (
+        isinstance(value, str)
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", value) is not None
+    )
+
+
 def _validate_projects(data: dict[str, object]) -> list[Project]:
     _check_fields(data, {"schema_version", "projects"}, "configuration")
     if "schema_version" not in data:
@@ -87,7 +95,7 @@ def _validate_projects(data: dict[str, object]) -> list[Project]:
 
         name = _string(entry, "name", location)
         alias = _string(entry, "ssh_alias", location)
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", alias):
+        if not is_valid_ssh_alias(alias):
             raise ProjectConfigError(
                 f"{location}.ssh_alias: start with an ASCII letter/digit; "
                 "use only ASCII letters/digits, dots, underscores or hyphens"

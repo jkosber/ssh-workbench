@@ -1,7 +1,7 @@
 # SSH Workbench
 
 A project-aware terminal interface for keeping SSH aliases and project context
-together. The goal is to select a project, see its host and useful references,
+together. Select a project, see its host and useful references,
 and connect through the existing native SSH client. This is a first larger
 version-controlled program being developed in small, reviewable steps.
 
@@ -12,14 +12,17 @@ is 0.1.0; it has not been released.
 
 | Works now | Planned |
 | --- | --- |
-| Explicit `--config PATH` with TOML validation | Launch native SSH and return to the interface |
-| Keyboard project selection and read-only details | Open useful documentation links |
-| Q or Ctrl+Q to exit; `--help` and `--version` | Approved usability checks |
-| Tests, lint/format checks and package build | 0.1.0 readiness review |
+| Explicit `--config PATH` with TOML validation | Open useful documentation links |
+| Keyboard project selection and read-only details | Approved usability checks |
+| C to connect with native SSH and return to the browser | 0.1.0 readiness review |
+| Q or Ctrl+Q to exit; `--help` and `--version` | |
+| Tests, lint/format checks and package build | |
 
 The [example configuration](examples/projects.example.toml) contains fictional
-data for trying the browser. There are no SSH connections, remote commands,
-link-opening actions or infrastructure controls in this development build.
+data for trying the browser. Connections require an explicit **C / Connect**
+action. Link opening, arbitrary remote commands and infrastructure controls remain
+outside this development build. To test terminal handoff without SSH, use the
+[local child fixture](docs/validation.md#task-3-local-terminal-fixture).
 
 The application requires no Codex, ChatGPT, OpenAI API key or AI subscription.
 
@@ -29,6 +32,9 @@ Prerequisites: Git, [uv](https://docs.astral.sh/uv/getting-started/installation/
 and a terminal. Development uses Python **3.14.7**, recorded in `.python-version`;
 the package declares **Python >=3.14**. uv uses the matching interpreter or can
 download a project interpreter without replacing system Python.
+
+Connecting requires the native OpenSSH client on `PATH`: `ssh.exe` on Windows,
+or `ssh` on other platforms.
 
 From the repository directory, in PowerShell or a POSIX shell:
 
@@ -74,6 +80,31 @@ Python-style escapes such as `\n`, `\x1b` and `\u202e`. Only the display changes
 the original project records are retained. Markup-like strings are literal text.
 References have no application-generated hyperlinks or actions. A terminal may
 independently recognize URL text; SSH Workbench does not open it.
+
+## Connect with native SSH
+
+Select a project, then press **C** or click **Connect** in the footer. The same
+action works from either pane and is disabled without a selection. Startup,
+navigation and Enter never connect automatically. Only one connection runs at a
+time.
+
+SSH Workbench hands the terminal and standard input/output to native SSH. The
+client receives only the selected alias as one argument, revalidated with the
+same rules as the loader. Native SSH handles authentication, the SSH agent, user
+SSH configuration and host-key checks. SSH Workbench does not read those files,
+capture credentials or alter verification settings.
+
+Use SSH normally, including **Ctrl+C**. If SSH keeps running after Ctrl+C, the
+browser continues waiting. When the client exits, the browser returns with the
+same project selected, focus on the project list, and the exit status below the
+panes. Launch errors and interruptions also return to a usable browser. Missing
+SSH and process-start failures show a short message; fix the reported local
+installation problem and press C to retry.
+
+Run this action in a local terminal. Environments that cannot release their
+terminal, including Textual Web, show an explanation without starting SSH.
+See [validation](docs/validation.md#task-3-native-ssh-2026-10-12) for the tested
+platform and remaining limits.
 
 ## Load project metadata
 
@@ -148,8 +179,10 @@ uv run --locked python scripts/check_package.py
 
 The last check installs the wheel and locked runtime dependencies in a temporary
 environment and tests help/version, a missing configuration error, the loader,
-and headless project selection/quit through the CLI with fictional files. It then
-removes that environment. Headless checks do not replace a human terminal check.
+and headless project selection/quit through the CLI with fictional files. It also
+substitutes SSH launches to check success, nonzero exit, errors and interruption,
+then removes that environment. Headless checks do not establish native terminal
+handoff; the separate local child fixture exercises that behavior.
 CI runs these checks on Linux and Windows using the project Python version.
 See [validation evidence](docs/validation.md) for actual results and limitations.
 
@@ -157,10 +190,11 @@ See [validation evidence](docs/validation.md) for actual results and limitations
 
 | Path | Purpose |
 | --- | --- |
-| `src/ssh_workbench/` | Standalone metadata loader, CLI and Textual application |
-| `tests/` | Metadata, CLI and headless UI tests |
+| `src/ssh_workbench/` | Metadata loader, native SSH boundary, CLI and Textual application |
+| `tests/` | Metadata, CLI, substituted SSH and headless UI tests |
 | `examples/` | Fictional supported configuration |
 | `scripts/check_package.py` | Isolated built-package check |
+| `scripts/check_terminal.py` | Interactive handoff check using harmless local children |
 | `pyproject.toml`, `uv.lock` | Package metadata, version, dependencies and resolved versions |
 | `.github/` | CI and the short pull-request template |
 
