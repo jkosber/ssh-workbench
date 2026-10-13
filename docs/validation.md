@@ -159,8 +159,12 @@ tests, fixture and documentation, including the footer-test readiness correction
 and [PR CI 38325776914](https://github.com/jkosber/ssh-workbench/actions/runs/38325776914)
 passed on both Windows and Ubuntu. Each job passed locked installation, Ruff,
 all 289 tests, build and isolated package validation. These results apply to
-`da64844`; the PR records checks for later documentation commits and its current
-review/merge status. No merge or release was performed.
+`da64844`. The documentation follow-up at `b71423c` also passed
+[push CI 38325986119](https://github.com/jkosber/ssh-workbench/actions/runs/38325986119)
+and [PR CI 38325990481](https://github.com/jkosber/ssh-workbench/actions/runs/38325990481)
+on both platforms, including 289 tests and isolated package checks. All 40
+relative documentation links/anchors resolved. The PR records checks for later
+documentation commits, its merge commit and current status.
 
 CI verifies automated and substituted process behavior. Linux native terminal
 handoff, macOS execution, real SSH authentication and the remaining terminal

@@ -112,14 +112,15 @@ transfer remain outside Task 2. Task 3 adds the SSH action below.
 
 ## 3. Launch native SSH and return cleanly
 
-**Implemented in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3), awaiting review.** Based on
+**Implemented and verified in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3).** Based on
 merged PR #2 at `4852e1c`. Version remains 0.0.1 with unchanged dependencies.
 See [Task 3 evidence](validation.md#task-3-native-ssh-2026-10-12) for automated
 checks and the real Windows terminal fixture results; no real host was contacted.
 Jadon also confirmed navigation works in Microsoft Windows Terminal on
 2026-10-12. That manual report covers navigation only.
 [Task 3 remote CI](validation.md#task-3-pr-and-remote-ci-2026-10-12) passed on
-Windows and Ubuntu for the implementation commit. The PR records current checks.
+Windows and Ubuntu for the implementation and documentation commits. The PR
+records current checks and merge status.
 
 Acceptance criteria:
 
