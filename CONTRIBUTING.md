@@ -72,7 +72,10 @@ uv run --locked python scripts/check_package.py
   environment. Help, version and loading a fictional TOML file are exercised
   outside the checkout, along with missing-configuration errors and headless
   CLI-to-browser selection/quit and substituted SSH success, failure and
-  interruption. A build alone does not prove SSH functionality or interactive
+  interruption, plus explicit link outcomes and quit with a blocked browser
+  opener. Isolated Python mode and imported-module path assertions check the
+  wheel rather than the checkout. A build alone does not prove SSH functionality
+  or interactive
   terminal compatibility.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
@@ -88,6 +91,12 @@ It replaces executable lookup and child invocation before using the production
 launcher, so it never invokes SSH or reads SSH files. Do not use real aliases,
 keys or inventories in tests. A real connection requires separate approval for
 the specific target and action.
+
+For link actions, run `uv run --locked python scripts/check_links.py` and follow
+the [stubbed link checklist](docs/validation.md#task-4-stubbed-link-checklist).
+It replaces browser/OS boundaries, uses fictional projects and guards against
+other external actions. Real R/D actions in the normal application open a browser
+and require an explicitly approved URL for development verification.
 
 ## Recover without losing work
 

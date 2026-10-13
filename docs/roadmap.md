@@ -155,19 +155,59 @@ Acceptance criteria:
 - [x] Run required checks, build and isolated package validation; update usage,
   architecture, Unreleased notes, observed validation and existing Obsidian records.
 
-Link opening, editing, search, discovery, tmux, file transfer, embedded terminals,
-global settings and infrastructure changes remain deferred. Completion does not
+Link opening belongs to Task 4 below. Editing, search, discovery, tmux, file
+transfer, embedded terminals, global settings and infrastructure changes remain
+deferred. Completion does not
 authorize a commit, push, PR, merge, tag or release.
 
 ## 4. Handle failures and useful documentation links
+
+**Implemented on `feat/errors-and-links`; proposed for pull-request review.**
+Based on Task 3 merge `eeb6e39bf93a8ba1532503a7a2e0e565f9a9d8f2`.
+Version 0.0.1 and dependencies are unchanged.
+See [Task 4 evidence](validation.md#task-4-errors-and-links-2026-10-12) for new
+local results, native fixture limits and real-world behavior still untested.
 
 Acceptance: missing configuration, missing SSH, failed connections and cancelled
 actions have actionable messages. Open validated HTTP/HTTPS links only on an
 explicit action; handle absent links and browser-launch failures. Test these
 paths without opening a real browser or executing unsafe commands.
 
-Task 3 covers unavailable SSH, process-start errors and SSH return status only.
-Broader error work and all link-opening behavior remain part of this later task.
+- [x] Retain explicit configuration loading, sanitized failures exiting 2 and
+  configuration-independent help/version. No-config and empty states explain
+  how to supply projects. Existing missing SSH and launch-error guidance remains.
+- [x] Give neutral retry guidance after nonzero SSH exits and interrupted
+  handoffs. Preserve exact return codes and all Task 3 suspension/SIGINT, native
+  authentication, host-key, selection, focus and quit safeguards; parse no output.
+- [x] Expose R / Repository and D / Documentation with visible footer bindings
+  from either pane. No selection and absent URLs produce clear feedback.
+  Startup, navigation, selection, rendering, focus and Enter never open links.
+- [x] Capture the selected project, link kind and exact URL at invocation.
+  Keep configuration text literal, with no generated inline hyperlinks. Delayed
+  results identify the original project and leave current interaction state alone.
+- [x] Share the loader's existing HTTP/HTTPS validation at a separate browser
+  boundary. Preserve schema, errors and accepted values; reject invalid schemes,
+  credentials and prohibited controls. Pass URLs as data without shell commands,
+  metadata-supplied executable/flags, fetching, probing or normalization.
+- [x] Report invalid, missing, unavailable, reported failure, expected exception
+  and accepted results safely. Acceptance never claims page loading. Document
+  Windows/GIO support, unsupported environments and opening where Workbench runs.
+- [x] Keep potentially blocking dispatch off the UI thread, with one pending
+  request, no queue/retry and no text-browser fallback. Preserve navigation and
+  Q/Ctrl+Q; ignore stale/closed-app completions and state actual cancellation limits.
+- [x] Guard external actions in fictional unit/UI/native fixtures. Cover exact
+  URLs, both panes, all outcomes, literal messages, repeats, slow requests, changed
+  selection, shutdown, scrolling, focus, quit and coexistence with native SSH.
+- [x] Exercise keyboard behavior and layout at 60x20, 80x24 and 120x40, using
+  bounded readiness checks. Headless checks and native WezTerm text/dimensions
+  passed; attempted desktop screenshots were obscured and do not verify pixels.
+- [x] Run required checks, full suite, build and isolated installed-package checks;
+  update relevant usage, architecture, Unreleased notes, evidence and project records.
+
+Real browser/website checks, real SSH and the remaining platform/visual usability
+checks require separately authorized Task 5 work. Configuration editing, search,
+discovery, tmux, transfers, embedded terminals, global settings, infrastructure
+and release work remain outside Task 4.
 
 ## 5. Validate usability and review 0.1.0 readiness
 

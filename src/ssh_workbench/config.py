@@ -132,9 +132,15 @@ def _string(data: dict[str, object], field: str, location: str) -> str:
 def _optional_url(data: dict[str, object], field: str, location: str) -> str | None:
     if field not in data:
         return None
-    value = _string(data, field, location)
+    return validate_http_url(_string(data, field, location), f"{location}.{field}")
+
+
+def validate_http_url(value: object, location: str = "URL") -> str:
+    """Apply the same URL contract when loading and immediately before opening."""
+    if not isinstance(value, str) or not value.strip():
+        raise ProjectConfigError(f"{location}: expected a nonempty string")
     message = (
-        f"{location}.{field}: expected an absolute HTTP/HTTPS URL with a host "
+        f"{location}: expected an absolute HTTP/HTTPS URL with a host "
         "and no credentials, whitespace, control characters or backslashes"
     )
     # urlsplit strips some whitespace/controls; browsers can normalize backslashes.
@@ -146,9 +152,7 @@ def _optional_url(data: dict[str, object], field: str, location: str) -> str | N
         url = urlsplit(value)
         _ = url.port  # Accessing this property checks port syntax and range.
     except ValueError:
-        raise ProjectConfigError(
-            f"{location}.{field}: invalid URL host or port"
-        ) from None
+        raise ProjectConfigError(f"{location}: invalid URL host or port") from None
     if (
         url.scheme not in {"http", "https"}
         or not url.hostname

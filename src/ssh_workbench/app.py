@@ -1,13 +1,18 @@
-"""Project selection, literal details and an explicit native SSH action."""
+"""Project selection, literal details and explicit SSH and link actions."""
 
 from collections.abc import Sequence
+from dataclasses import dataclass
+from threading import Event, Thread
+from typing import Literal
 
 from textual.app import App, ComposeResult, SuspendNotSupported
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
+from textual.message import Message
 from textual.widgets import Footer, Header, ListItem, ListView, Static
 
 from ssh_workbench.config import Project
+from ssh_workbench.links import LinkResult, open_link
 from ssh_workbench.ssh import SSHLaunchError, launch_ssh, ssh_handoff
 
 
@@ -16,12 +21,28 @@ def _display_text(value: str) -> str:
     return "".join(char if char.isprintable() else ascii(char)[1:-1] for char in value)
 
 
+@dataclass(frozen=True)
+class LinkRequest:
+    project: Project
+    kind: Literal["Repository", "Documentation"]
+    url: str | None
+    position: int
+
+
+@dataclass
+class LinkFinished(Message):
+    request: LinkRequest
+    result: LinkResult
+
+
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     SUB_TITLE = "Project browser - unreleased"
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         Binding("c", "connect", "Connect"),
+        Binding("r", "repository", "Repository"),
+        Binding("d", "documentation", "Documentation"),
         Binding("q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
@@ -57,9 +78,12 @@ class SSHWorkbenchApp(App[None]):
     .field-value {
         margin-bottom: 1;
     }
-    #navigation-help, #connection-status {
+    #navigation-help, #connection-status, #link-status {
         height: auto;
         padding: 0 1;
+    }
+    #link-status {
+        height: 3;
     }
     #empty-content {
         padding: 1 2;
@@ -71,6 +95,8 @@ class SSHWorkbenchApp(App[None]):
         self.config_supplied = projects is not None
         self.projects = tuple(projects or ())
         self._connecting = False
+        self._link_request: LinkRequest | None = None
+        self._links_closed = Event()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -117,10 +143,15 @@ class SSHWorkbenchApp(App[None]):
                     markup=False,
                 )
         yield Static(
-            "C: connect to the selected SSH alias. References are text."
+            "C: connect to the selected SSH alias."
             if self.projects
             else "Select a project to connect.",
             id="connection-status",
+            markup=False,
+        )
+        yield Static(
+            "R: repository   D: documentation   Opens in this environment.",
+            id="link-status",
             markup=False,
         )
         yield Footer()
@@ -154,6 +185,73 @@ class SSHWorkbenchApp(App[None]):
             return True if self.query_one(ListView).index is not None else None
         return True
 
+    def action_repository(self) -> None:
+        self._open_project_link("Repository")
+
+    def action_documentation(self) -> None:
+        self._open_project_link("Documentation")
+
+    def _open_project_link(self, kind: Literal["Repository", "Documentation"]) -> None:
+        if self._links_closed.is_set():
+            return
+        status = self.query_one("#link-status", Static)
+        if self._link_request is not None:
+            request = self._link_request
+            self._show_link_result(
+                request, "browser request still pending. Wait or Q to quit."
+            )
+            return
+        index = self.query_one(ListView).index if self.projects else None
+        if index is None:
+            status.update(f"{kind}: select a project first.")
+            return
+        project = self.projects[index]
+        request = LinkRequest(project, kind, getattr(project, kind.lower()), index + 1)
+        if request.url is None:
+            self._show_link_result(request, LinkResult.MISSING.value)
+            return
+        self._link_request = request
+        self._show_link_result(request, "browser request pending. Q still quits.")
+        # Textual's executor workers can delay interpreter shutdown. One daemon
+        # thread lets Q finish even when the OS opener does not return.
+        try:
+            Thread(target=self._launch_link, args=(request,), daemon=True).start()
+        except RuntimeError:
+            self._link_request = None
+            self._show_link_result(request, LinkResult.FAILED.value)
+
+    def _launch_link(self, request: LinkRequest) -> None:
+        if self._links_closed.is_set():
+            return
+        try:
+            result = open_link(request.url)
+        except Exception:
+            # An unexpected opener error must not print private data from a
+            # background traceback into the terminal.
+            result = LinkResult.FAILED
+        if not self._links_closed.is_set():
+            try:
+                self.post_message(LinkFinished(request, result))
+            except RuntimeError:
+                # The event loop may close between the guard and enqueue.
+                pass
+
+    def on_link_finished(self, message: LinkFinished) -> None:
+        if self._links_closed.is_set() or message.request is not self._link_request:
+            return
+        self._link_request = None
+        self._show_link_result(message.request, message.result.value)
+
+    def _show_link_result(self, request: LinkRequest, result: str) -> None:
+        self.query_one("#link-status", Static).update(
+            f"{request.kind} {result} "
+            f"Project {request.position}: {_display_text(request.project.id)}"
+        )
+
+    def on_unmount(self) -> None:
+        self._links_closed.set()
+        self._link_request = None
+
     def action_connect(self) -> None:
         if self._connecting or not self.projects:
             return
@@ -173,9 +271,13 @@ class SSHWorkbenchApp(App[None]):
                     except SSHLaunchError as error:
                         message = str(error)
                     except KeyboardInterrupt:
-                        message = "SSH interrupted."
+                        message = "SSH interrupted. Press C to retry or Q to quit."
                     else:
                         message = f"SSH exited with status {status}."
+                        if status != 0:
+                            message += (
+                                " Check the SSH client's message and alias; C retries."
+                            )
             except SuspendNotSupported:
                 message = (
                     "Cannot hand off this terminal. "

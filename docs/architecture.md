@@ -15,15 +15,17 @@ terminal startup. There is no default configuration, discovery, or file writing.
 them in a tuple; `None` means no configuration was supplied and an empty sequence
 means a loaded configuration contains no projects. Those states have different
 informative screens. The app reads no files and makes no network calls. Its
-explicit Connect action delegates process I/O to the small native SSH boundary.
+explicit Connect action delegates process I/O to the small native SSH boundary;
+R/D delegate URL dispatch to a separate browser boundary.
 
 A Textual `ListView` starts focused on the first project. Its `Highlighted` event
 updates five literal `Static` field values in a `VerticalScroll` details pane and
 resets that pane to the top. Tab/Shift+Tab switch panes; details use Textual's
 standard scrolling keys. List rows shorten long names while details wrap the
 full value. Selection uses the list's highlight and focus uses an accent border.
-The footer shows C / Connect and retains Q/Ctrl+Q exit. Textual owns the event
-loop and terminal lifecycle; reference-opening actions remain deferred.
+The footer shows C / Connect, R / Repository, D / Documentation and Q / Quit,
+with Ctrl+Q as an additional exit key. Textual owns the event loop and terminal
+lifecycle. Link actions do not change pane focus or selection.
 
 `_display_text` escapes nonprinting characters using Python-style representations,
 including C0/C1 controls, formatting controls and nonprinting separators. It is
@@ -49,7 +51,64 @@ Common process, connection and browser entry points fail that smoke check if
 called unexpectedly. During explicit Connect checks, only executable resolution
 and the process runner are substituted; installed suspension code exercises
 success, nonzero exit, launch error and interruption. The package check does not
-establish native terminal behavior or launch real SSH.
+establish native terminal behavior or launch real SSH. Link smoke checks replace
+the opener and exercise outcomes from both panes. Separate isolated processes
+verify Q/Ctrl+Q exit with a permanently blocked stub. Python `-I` and module-path
+assertions verify wheel imports while `PYTHONPATH` deliberately names the checkout.
+
+## Implemented browser boundary
+
+`links.open_link(url)` returns one `LinkResult`: missing, invalid, unavailable,
+failed or accepted. It reuses `config.validate_http_url`, extracted unchanged
+from the loader. The schema, field-specific configuration errors and accepted
+values are unchanged. No lookup, process or browser action occurs for invalid
+input. Accepted URLs remain exact data; no query/fragment normalization, fetching,
+redirect handling or page-existence check occurs.
+
+On Windows, `os.startfile(url)` dispatches through the URL association, as used
+by Python 3.14.7's `webbrowser.WindowsDefault`. On Linux with `DISPLAY` or
+`WAYLAND_DISPLAY`, `shutil.which("gio")` finds the fixed desktop helper and
+`subprocess.run([executable, "open", "--", url], shell=False, check=False, ...)`
+waits for its dispatch result. All three streams use `DEVNULL` and the helper
+starts a separate session. A zero helper status is acceptance, not page loading.
+OS errors become safe results; no underlying exception text or helper output is
+shown. No browser executable, flags or commands come from metadata.
+
+Generic `webbrowser.open` and `xdg-open` are deliberately avoided because they
+can fall back to text browsers. No `BROWSER` overrides, automatic retries,
+system preference changes or forwarding to a terminal client are implemented.
+Linux without the desktop environment or GIO, macOS and other platforms report
+unavailable. Dispatch uses the environment running Workbench, including its
+browser associations; the application cannot inspect external page state.
+
+Each explicit R/D action captures a frozen `LinkRequest` containing the project,
+kind, exact URL and one-based list position. One daemon thread calls the boundary;
+repeated actions receive a pending message without starting another request.
+Installed Textual 8.2.8 thread workers use asyncio's default executor, whose
+shutdown can wait for blocked calls. The daemon avoids that quit delay and
+communicates only through Textual's thread-safe `post_message`. The event handler
+alone updates UI state, accepts only the current request identity, and never
+restores selection or focus. Fixed three-row link status prevents completion
+from resizing the panes; a project number remains visible even if its ID clips.
+The separate SSH status cannot be overwritten by a link completion.
+
+Unmount sets a thread-safe shutdown event and clears the request. The thread
+checks before dispatch and before posting; closed-loop posting errors are
+discarded. A dispatch already past the shutdown check may still run. Quitting
+does not wait for the daemon, cancel an OS request, kill the helper or close a
+browser. There is no invented browser-cancellation or page-loading signal.
+Browser actions do not install signal handlers or suspend Textual.
+
+`scripts/check_links.py` supplies fictional cases, stubs OS dispatch and guards
+other execution/network entry points. It never invokes real browser or SSH
+actions. Its standalone entry point installs all guards before constructing the
+app and keeps them active until process exit, including after normal return or
+exception unwinding. Scoped teardown could restore a real opener while a delayed
+daemon still runs. There is no guard cleanup or daemon join; importing the module
+does not install patches. Isolated child tests hold a worker before dispatch,
+unwind the entry point, then release it into the still-active fixture guards.
+Automated checks separately cover changed selection, repeat requests,
+shutdown races, layout and simultaneous SSH lifecycle results.
 
 ## Implemented native SSH boundary
 
@@ -92,6 +151,8 @@ The separate `scripts/check_terminal.py` replaces resolution and process
 invocation with fixed local Python children. It exercises real terminal handoff,
 including a child that continues after Ctrl+C, without SSH resources. Its
 [observed results](validation.md#task-3-native-ssh-2026-10-12) are platform-specific.
+Task 4 adds only retry guidance for nonzero status and interruption; the launcher,
+suspension handling, signal guard and restoration remain unchanged.
 
 ## Implemented project metadata loader
 
@@ -173,6 +234,17 @@ literal rendering and the details pane's scrolling bindings.
 Installed Textual 8.2.8 application, Windows/Linux driver and Python 3.14.7
 asyncio/subprocess sources were inspected for exceptional restoration and signal
 handling. Source inspection of the Linux driver is not a Linux terminal test.
+
+## References checked for task 4
+
+- [Python browser fallback and blocking behavior](https://docs.python.org/3.14/library/webbrowser.html)
+- [Python OS URL dispatch](https://docs.python.org/3.14/library/os.html#os.startfile)
+- [Textual worker threading and messages](https://textual.textualize.io/guide/workers/)
+- [GIO desktop URI dispatch implementation](https://github.com/GNOME/glib/blob/main/gio/gio-tool-open.c)
+
+Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
+shutdown sources were inspected. Linux dispatch is covered with substituted
+boundaries; it has not been exercised on a Linux desktop.
 
 ## References checked during bootstrap
 
