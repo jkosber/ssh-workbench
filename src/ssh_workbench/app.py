@@ -1,13 +1,14 @@
-"""Read-only project selection and details; no configuration or process I/O."""
+"""Project selection, literal details and an explicit native SSH action."""
 
 from collections.abc import Sequence
 
-from textual.app import App, ComposeResult
+from textual.app import App, ComposeResult, SuspendNotSupported
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Footer, Header, ListItem, ListView, Static
 
 from ssh_workbench.config import Project
+from ssh_workbench.ssh import SSHLaunchError, launch_ssh, ssh_handoff
 
 
 def _display_text(value: str) -> str:
@@ -20,6 +21,7 @@ class SSHWorkbenchApp(App[None]):
     SUB_TITLE = "Project browser - unreleased"
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
+        Binding("c", "connect", "Connect"),
         Binding("q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
@@ -55,7 +57,7 @@ class SSHWorkbenchApp(App[None]):
     .field-value {
         margin-bottom: 1;
     }
-    #navigation-help {
+    #navigation-help, #connection-status {
         height: auto;
         padding: 0 1;
     }
@@ -68,6 +70,7 @@ class SSHWorkbenchApp(App[None]):
         super().__init__()
         self.config_supplied = projects is not None
         self.projects = tuple(projects or ())
+        self._connecting = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -97,8 +100,7 @@ class SSHWorkbenchApp(App[None]):
                             id=f"project-{field}", classes="field-value", markup=False
                         )
             yield Static(
-                "Up/Down: select   Tab: switch pane   Up/Down in details: scroll\n"
-                "Read only. References are text; SSH is not available.",
+                "Up/Down: select   Tab: switch pane   Up/Down in details: scroll",
                 id="navigation-help",
                 markup=False,
             )
@@ -110,11 +112,17 @@ class SSHWorkbenchApp(App[None]):
                     if self.config_supplied
                     else "No configuration selected.\n\n"
                     "To browse projects, restart with --config PATH.\n"
-                    "Try: ssh-workbench --config examples/projects.example.toml\n\n"
-                    "Development build: project browsing only; SSH is not available.",
+                    "Try: ssh-workbench --config examples/projects.example.toml",
                     id="empty-state",
                     markup=False,
                 )
+        yield Static(
+            "C: connect to the selected SSH alias. References are text."
+            if self.projects
+            else "Select a project to connect.",
+            id="connection-status",
+            markup=False,
+        )
         yield Footer()
 
     def on_mount(self) -> None:
@@ -122,6 +130,7 @@ class SSHWorkbenchApp(App[None]):
             self.query_one("#project-list", ListView).focus()
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        self.refresh_bindings()
         index = event.list_view.index
         if index is None:
             return
@@ -137,3 +146,43 @@ class SSHWorkbenchApp(App[None]):
                 _display_text(value) if value is not None else "Not provided"
             )
         self.query_one("#project-details", VerticalScroll).scroll_home(animate=False)
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "connect":
+            if self._connecting or not self.projects:
+                return None
+            return True if self.query_one(ListView).index is not None else None
+        return True
+
+    def action_connect(self) -> None:
+        if self._connecting or not self.projects:
+            return
+        project_list = self.query_one(ListView)
+        index = project_list.index
+        if index is None:
+            return
+        self._connecting = True
+        self.refresh_bindings()
+        with ssh_handoff():
+            try:
+                with self.suspend():
+                    # Textual 8.2.8 resumes only on a normal context exit. Handle
+                    # launch errors here so they cannot skip terminal restoration.
+                    try:
+                        status = launch_ssh(self.projects[index].ssh_alias)
+                    except SSHLaunchError as error:
+                        message = str(error)
+                    except KeyboardInterrupt:
+                        message = "SSH interrupted."
+                    else:
+                        message = f"SSH exited with status {status}."
+            except SuspendNotSupported:
+                message = (
+                    "Cannot hand off this terminal. "
+                    "Run SSH Workbench in a local terminal."
+                )
+            finally:
+                self._connecting = False
+                project_list.focus()
+                self.refresh_bindings()
+            self.query_one("#connection-status", Static).update(message)

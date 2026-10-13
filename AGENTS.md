@@ -28,13 +28,17 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Bootstrap supports startup, help, version and keyboard exit only. Do not add
-  working-looking controls for planned features.
+- Tasks 1–3 support explicit configuration, project browsing, native SSH launch
+  and return. Do not add controls for deferred roadmap features.
 - Never read real SSH configuration, keys, host inventories or remote hosts as
   part of development tests. Use temporary files and fictional fixtures.
-- Native SSH will own authentication and host-key checks. Future launch code
-  must validate aliases and pass argument lists without a shell. Never disable
+- Native SSH owns authentication and host-key checks. Launch code must revalidate
+  aliases and pass argument lists without a shell. Never disable
   host-key verification or store passwords/private keys.
+- Keep expected launch errors inside Textual's suspension block: the locked
+  8.2.8 context skips resumption when an exception escapes it. Verify the installed
+  implementation when changing this path. Use `scripts/check_terminal.py` for
+  native terminal tests without SSH.
 - Keep private paths, actual infrastructure details, credentials and workspace
   notes out of Git. `.local/` is ignored. No AI service is required at runtime.
 

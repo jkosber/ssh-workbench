@@ -14,15 +14,16 @@ terminal startup. There is no default configuration, discovery, or file writing.
 `SSHWorkbenchApp(projects)` receives validated records in file order. It retains
 them in a tuple; `None` means no configuration was supplied and an empty sequence
 means a loaded configuration contains no projects. Those states have different
-informative screens. The app itself does no file, network or process I/O.
+informative screens. The app reads no files and makes no network calls. Its
+explicit Connect action delegates process I/O to the small native SSH boundary.
 
 A Textual `ListView` starts focused on the first project. Its `Highlighted` event
 updates five literal `Static` field values in a `VerticalScroll` details pane and
 resets that pane to the top. Tab/Shift+Tab switch panes; details use Textual's
 standard scrolling keys. List rows shorten long names while details wrap the
 full value. Selection uses the list's highlight and focus uses an accent border.
-The header and footer retain Q/Ctrl+Q exit. Textual owns the event loop and
-terminal lifecycle; no SSH or reference-opening action exists.
+The footer shows C / Connect and retains Q/Ctrl+Q exit. Textual owns the event
+loop and terminal lifecycle; reference-opening actions remain deferred.
 
 `_display_text` escapes nonprinting characters using Python-style representations,
 including C0/C1 controls, formatting controls and nonprinting separators. It is
@@ -45,7 +46,52 @@ the checkout, where it checks help/version, missing-configuration errors, and th
 loader. It also substitutes the terminal-run boundary with Textual's headless
 pilot to exercise CLI loading, initial selection, navigation and quit at 80x24.
 Common process, connection and browser entry points fail that smoke check if
-called. It does not establish human visual verification or launch SSH.
+called unexpectedly. During explicit Connect checks, only executable resolution
+and the process runner are substituted; installed suspension code exercises
+success, nonzero exit, launch error and interruption. The package check does not
+establish native terminal behavior or launch real SSH.
+
+## Implemented native SSH boundary
+
+`ssh_workbench.ssh.launch_ssh(alias)` is synchronous and runs on the main thread.
+It shares `config.is_valid_ssh_alias` with the loader, rechecking immediately before
+executable lookup. `shutil.which` finds `ssh.exe` on Windows or `ssh` elsewhere;
+the resulting absolute path and the unchanged alias form the entire argument
+list. The Windows lookup explicitly requests an executable rather than a batch
+file. `subprocess.run` uses `shell=False`, `check=False` and inherited stdin,
+stdout and stderr. No timeout, pipe, new process group or new session interferes
+with native SSH's terminal behavior.
+
+Missing executables and OS launch errors become sanitized `SSHLaunchError`
+messages. A started client's integer return code is returned unchanged, including
+nonzero or negative signal statuses. Output, authentication and SSH configuration
+are owned entirely by the native client.
+
+The shared `ssh_handoff` context temporarily installs a callable SIGINT handler
+in the parent and restores the exact prior handler in `finally`. The app uses it
+across suspension, lookup, child execution and resumption; the standalone launcher
+also uses it, nesting safely inside the app's guard. This shields Textual's
+asyncio task even during slow executable lookup or driver transitions. The child
+receives normal Ctrl+C behavior. Using `SIG_IGN` could make the child inherit
+ignored interrupts. SSH can handle Ctrl+C and keep running, so the parent waits
+for actual child completion rather than treating Ctrl+C as an exit.
+
+The app has one Connect action, bound to C and exposed by the footer. It requires
+a selection and guards against reentrant launches. The synchronous action enters
+`App.suspend()`, invokes the boundary and records the result. Expected launch
+errors and `KeyboardInterrupt` are caught **inside** the suspension block:
+installed Textual 8.2.8 resumes after a bare `yield`, without a `finally`, so an
+escaping exception would skip restoration. `SuspendNotSupported` is handled
+outside the block without launching a process. Afterward the selection and
+details scroll remain intact, focus returns to the list, the launch guard clears
+and a literal status message appears below the panes.
+
+Headless tests retain the installed `App.suspend` implementation and substitute
+only the driver's terminal methods to assert suspend/launch/resume ordering.
+The separate `scripts/check_terminal.py` replaces resolution and process
+invocation with fixed local Python children. It exercises real terminal handoff,
+including a child that continues after Ctrl+C, without SSH resources. Its
+[observed results](validation.md#task-3-native-ssh-2026-10-12) are platform-specific.
 
 ## Implemented project metadata loader
 
@@ -78,25 +124,16 @@ are supported; the original string is retained. All metadata stays inert until
 a later, explicitly requested action uses it. No private file is created or
 overwritten, and underlying parser/file exception text is suppressed.
 
-## Proposed boundaries
-
-Develop these only as the corresponding [roadmap](roadmap.md) tasks are selected:
-
-1. **SSH launcher:** accept a validated alias after an explicit user action,
-   temporarily release terminal ownership to native SSH and restore the TUI on
-   completion. Design the exact terminal handoff when that task is implemented.
-
-No launcher or plugin layer is prebuilt.
 No database, telemetry, service account, cloud service or AI API is required.
 
 ## Security and privacy boundaries
 
-Native SSH will handle credentials, agents, user SSH configuration and host-key
-checks. SSH Workbench will not store passwords or private keys, parse private
+Native SSH handles credentials, agents, user SSH configuration and host-key
+checks. SSH Workbench does not store passwords or private keys, parse private
 keys, or disable host-key verification. Bootstrap and automated tests must never
 read real SSH files or access real hosts.
 
-For future subprocess code, validate aliases as data and use an argument list
+For subprocess code, validate aliases as data and use an argument list
 with a resolved executable and `shell=False`. Reject values that could be flags,
 commands or multiple arguments. Never build shell command strings from project
 metadata. Do not accept arbitrary SSH flags or remote commands from configuration.
@@ -124,6 +161,18 @@ portable relative links and contains no private vault or lab paths.
 
 Installed Textual 8.2.8 source was also checked for selection events, focus,
 literal rendering and the details pane's scrolling bindings.
+
+## References checked for task 3
+
+- [Textual terminal suspension](https://textual.textualize.io/api/app/#textual.app.App.suspend)
+- [Python subprocess arguments, inherited streams and signals](https://docs.python.org/3.14/library/subprocess.html)
+- [Python signal handlers](https://docs.python.org/3.14/library/signal.html)
+- [Windows console handler inheritance](https://learn.microsoft.com/en-us/windows/console/setconsolectrlhandler)
+- [Windows Ctrl+C delivery](https://learn.microsoft.com/en-us/windows/console/ctrl-c-and-ctrl-break-signals)
+
+Installed Textual 8.2.8 application, Windows/Linux driver and Python 3.14.7
+asyncio/subprocess sources were inspected for exceptional restoration and signal
+handling. Source inspection of the Linux driver is not a Linux terminal test.
 
 ## References checked during bootstrap
 

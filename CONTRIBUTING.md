@@ -71,8 +71,9 @@ uv run --locked python scripts/check_package.py
   then install the wheel with locked runtime dependencies in a temporary virtual
   environment. Help, version and loading a fictional TOML file are exercised
   outside the checkout, along with missing-configuration errors and headless
-  CLI-to-browser selection/quit. A build alone does not prove SSH functionality or
-  interactive terminal compatibility.
+  CLI-to-browser selection/quit and substituted SSH success, failure and
+  interruption. A build alone does not prove SSH functionality or interactive
+  terminal compatibility.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
 itself, with and without `--config examples/projects.example.toml`; check
@@ -80,6 +81,13 @@ selection, details, scrolling and both exit shortcuts. Record what was actually
 observed in [validation](docs/validation.md). CI uses the same commands on Linux
 and Windows with the Python version in `.python-version`; a queued run is not a
 passing run.
+
+For native terminal handoff, run `uv run --locked python scripts/check_terminal.py`
+in a real terminal and follow the [fixture checklist](docs/validation.md#task-3-local-terminal-fixture).
+It replaces executable lookup and child invocation before using the production
+launcher, so it never invokes SSH or reads SSH files. Do not use real aliases,
+keys or inventories in tests. A real connection requires separate approval for
+the specific target and action.
 
 ## Recover without losing work
 
