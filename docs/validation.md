@@ -148,6 +148,24 @@ The README and PR draft received a documentation review with no actionable
 findings. The earlier native fixture evidence still applies to the unchanged
 application code.
 
+### Task 3 PR and remote CI, 2026-10-12
+
+[PR #3](https://github.com/jkosber/ssh-workbench/pull/3) was opened from
+`feat/native-ssh` into `main` after the authorized commit and push. Implementation
+commit `da64844f47a4f872ca1ece582d70049eab68a422` contains the Task 3 behavior,
+tests, fixture and documentation, including the footer-test readiness correction.
+
+[Push CI 38325768048](https://github.com/jkosber/ssh-workbench/actions/runs/38325768048)
+and [PR CI 38325776914](https://github.com/jkosber/ssh-workbench/actions/runs/38325776914)
+passed on both Windows and Ubuntu. Each job passed locked installation, Ruff,
+all 289 tests, build and isolated package validation. These results apply to
+`da64844`; the PR records checks for later documentation commits and its current
+review/merge status. No merge or release was performed.
+
+CI verifies automated and substituted process behavior. Linux native terminal
+handoff, macOS execution, real SSH authentication and the remaining terminal
+limits above still need their own evidence.
+
 ## Task 2 PR documentation and remote CI, 2026-10-12
 
 [PR #2](https://github.com/jkosber/ssh-workbench/pull/2) contains the read-only

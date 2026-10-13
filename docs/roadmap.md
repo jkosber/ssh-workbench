@@ -112,12 +112,14 @@ transfer remain outside Task 2. Task 3 adds the SSH action below.
 
 ## 3. Launch native SSH and return cleanly
 
-**Implemented on `feat/native-ssh`, ready for PR review.** Based on
+**Implemented in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3), awaiting review.** Based on
 merged PR #2 at `4852e1c`. Version remains 0.0.1 with unchanged dependencies.
 See [Task 3 evidence](validation.md#task-3-native-ssh-2026-10-12) for automated
 checks and the real Windows terminal fixture results; no real host was contacted.
 Jadon also confirmed navigation works in Microsoft Windows Terminal on
 2026-10-12. That manual report covers navigation only.
+[Task 3 remote CI](validation.md#task-3-pr-and-remote-ci-2026-10-12) passed on
+Windows and Ubuntu for the implementation commit. The PR records current checks.
 
 Acceptance criteria:
 
