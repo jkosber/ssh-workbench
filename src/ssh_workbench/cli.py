@@ -1,6 +1,8 @@
 """Command-line entry point."""
 
 import argparse
+import os
+import sys
 from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
@@ -8,7 +10,25 @@ from pathlib import Path
 from ssh_workbench.config import ProjectConfigError, load_projects
 
 
+def default_config_path() -> Path | None:
+    """Locate the per-user projects file without reading or creating anything."""
+    if sys.platform == "win32":
+        root = Path(os.environ.get("APPDATA", ""))
+    else:
+        # The XDG specification says to ignore relative values.
+        root = Path(os.environ.get("XDG_CONFIG_HOME", ""))
+        if not root.is_absolute():
+            try:
+                root = Path.home() / ".config"
+            except RuntimeError:
+                return None
+    if not root.is_absolute():
+        return None
+    return root / "ssh-workbench" / "projects.toml"
+
+
 def main(argv: Sequence[str] | None = None) -> int:
+    default_config = default_config_path()
     parser = argparse.ArgumentParser(
         prog="ssh-workbench",
         description="Browse local projects and explicitly connect with native SSH.",
@@ -20,7 +40,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--config",
         type=Path,
         metavar="PATH",
-        help="read projects from this TOML file (no default file or discovery)",
+        # argparse formats help with %, so a literal % in the path is doubled.
+        help="read projects from this TOML file "
+        + (
+            f"(default: {str(default_config).replace('%', '%%')})"
+            if default_config is not None
+            else "(no default location available)"
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -30,9 +56,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             projects = load_projects(args.config)
         except ProjectConfigError as error:
             parser.error(str(error))
+    elif default_config is not None and default_config.is_file():
+        try:
+            projects = load_projects(default_config)
+        except ProjectConfigError as error:
+            detail = str(error).removeprefix("configuration: ")
+            parser.error(f"default configuration file: {detail}")
 
     from ssh_workbench.app import SSHWorkbenchApp
 
-    app = SSHWorkbenchApp(projects)
+    app = SSHWorkbenchApp(projects, default_config=default_config)
     app.run()
     return app.return_code

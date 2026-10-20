@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from threading import Event, Thread
 from typing import Literal
 
@@ -90,9 +91,14 @@ class SSHWorkbenchApp(App[None]):
     }
     """
 
-    def __init__(self, projects: Sequence[Project] | None = None) -> None:
+    def __init__(
+        self,
+        projects: Sequence[Project] | None = None,
+        default_config: Path | None = None,
+    ) -> None:
         super().__init__()
         self.config_supplied = projects is not None
+        self.default_config = default_config
         self.projects = tuple(projects or ())
         self._connecting = False
         self._link_request: LinkRequest | None = None
@@ -131,17 +137,24 @@ class SSHWorkbenchApp(App[None]):
                 markup=False,
             )
         else:
-            with VerticalScroll(id="empty-content"):
-                yield Static(
+            if self.config_supplied:
+                message = (
                     "No projects in this configuration.\n\n"
                     "Add project entries to the file, then restart with --config PATH."
-                    if self.config_supplied
-                    else "No configuration selected.\n\n"
-                    "To browse projects, restart with --config PATH.\n"
-                    "Try: ssh-workbench --config examples/projects.example.toml",
-                    id="empty-state",
-                    markup=False,
                 )
+            elif self.default_config is not None:
+                message = (
+                    "No configuration selected.\n\nCreate a projects file at:\n"
+                    f"{_display_text(str(self.default_config))}\n\n"
+                    "or restart with --config PATH. The README describes the format."
+                )
+            else:
+                message = (
+                    "No configuration selected.\n\n"
+                    "To browse projects, restart with --config PATH."
+                )
+            with VerticalScroll(id="empty-content"):
+                yield Static(message, id="empty-state", markup=False)
         yield Static(
             "C: connect to the selected SSH alias."
             if self.projects
