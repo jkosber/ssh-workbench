@@ -93,7 +93,7 @@ only the roadmap, this record and the Unreleased changelog changed in Git.
 | --- | --- |
 | Automated | Configuration, selection/details, focus/scroll/quit, sanitized failures, SSH/browser boundary contracts and package installation pass on this revision. These support the baseline, not the required real-world observations. |
 | Substituted boundaries / native fixtures | Current pseudoterminal checks exercise local handoff, recovery and stubbed dispatch. Historical WezTerm resize/text results retain their recorded scope; obscured Task 4 screenshots remain excluded. |
-| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. An authorized agent check of the installed build in Windows Terminal (2026-10-20) covered live SSH return, navigation, resizing, detail scrolling and both quit keys with shell checks. In Windows Terminal, R/D opened the chosen GitHub repository and README pages in Chrome. |
+| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. An authorized agent check of the installed build in Windows Terminal (2026-10-20) covered live SSH return, navigation, resizing, detail scrolling and both quit keys with shell checks. In Windows Terminal, R/D opened the chosen GitHub repository and README pages in Chrome. Mouse clicks on the footer's Connect (local-child fixture), Repository, Documentation and Quit actions also worked. |
 | Still unverified / unavailable | Linux GIO browser dispatch and a native Linux desktop; other DPI settings and screen readers. Authentication mechanisms and host-key prompts were not separately examined. macOS browser dispatch is explicitly unavailable in this version. Ubuntu CI does not validate a Linux desktop. Agent observation is not a human visual review. |
 | Documentation, issues and readiness review | Checklist steps A-D are complete with no material defect found. Scope and privacy boundaries were reviewed; final readiness and the unselected license remain open. No release/version/visibility decision is made. |
 | Outside initial-release requirements | Deferred editing/search, discovery, tmux, transfers, cloud sync, embedded terminals, AI, Proxmox controls and plugins. Manual checks use Microsoft Windows Terminal; this task adds no all-platform or accessibility certification requirement. |
@@ -204,6 +204,27 @@ Run notes:
 No application defect was found. The link status after R on the second project
 kept naming project 2 when the selection moved back to project 1, as documented:
 link results stay attributed to the project that requested them.
+
+### Task 5 footer click check, 2026-10-20
+
+The README says the footer's Connect, Repository and Documentation actions can be
+clicked. Automated tests only confirm those footer keys exist and are visible,
+so the agent clicked them with the mouse in a new owned Windows Terminal window,
+using the same setup as the check above. Source is unchanged from that check.
+Each click targeted the label's on-screen bounds from UI Automation and
+was refused unless that point belonged to the owned window. The cursor was
+restored afterwards.
+
+| Click | Agent-observed result |
+| --- | --- |
+| Connect, in `scripts/check_terminal.py` (local child, no SSH) | The first fixture project handed off to the local child with terminal stdin/stdout/stderr. After `return`, Workbench showed `SSH exited with status 0.` with the same project selected and list focus |
+| Quit, in the fixture | Exited 0; `Write-Output` worked |
+| Repository, installed build, list focused | `Repository browser request accepted. Project 1: manual-target`; Chrome showed `github.com/jkosber/ssh-workbench` |
+| Documentation, installed build, details focused | Matching acceptance; Chrome showed the README URL. Details kept focus and the selection was unchanged |
+| Quit, installed build | Exited 0; `Write-Output` worked |
+
+Connect was clicked only in the local-child fixture, so no SSH connection was
+made. Screenshots are in ignored `.local/task5-session/wt-footer-20261020/`.
 
 ### Task 5 user-executed manual session
 
