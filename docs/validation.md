@@ -30,6 +30,17 @@ per-user file was untouched:
 The alias name and screenshots stay in ignored `.local/task6-session/`. Linux
 and macOS were not exercised natively.
 
+Two fresh reviewers then checked the branch for plan compliance and quality. One
+defect was fixed after a failing test: `--help` crashed with `UnicodeEncodeError`
+when redirected output used a code page that cannot encode the default path. The
+path is now escaped for the output encoding. Documentation fixes followed for the
+agent check list, the example file header, the Linux quick start and two stale or
+wrong statements. Remaining minor findings are listed under 0.1.x candidates in
+the roadmap. After the fixes: 446 tests passed, Ruff and links were clean, the
+build and package check passed again, and redirected help with a fictional
+non-cp1252 `APPDATA` exited 0 with the path escaped. The native smoke test was
+not repeated; the fix changes only help text.
+
 ## Task 5: preparation and safe local verification, 2026-10-12
 
 **Task 5 is complete and merged in PR #5.** Initial preparation merged Task 4, verified the
