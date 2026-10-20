@@ -7,6 +7,11 @@ release; 0.1.0 is the first usable release target.
 
 ### Fixed
 
+- On Windows, C no longer runs an `ssh.exe` found in the folder Workbench was
+  started from or through a relative `PATH` entry; only absolute `PATH` entries
+  supply the SSH client.
+- Configuration files saved as UTF-8 with a byte-order mark (Windows PowerShell
+  5.1 `-Encoding UTF8`) now load instead of failing at line 1, column 1.
 - The development link fixture keeps all external-action stubs installed until
   process exit, preventing a delayed daemon from reaching restored real openers
   after the TUI returns or raises.
@@ -19,9 +24,9 @@ release; 0.1.0 is the first usable release target.
 
 - Task 5 manual validation checklist, placeholder configuration and locked
   installed-wheel session instructions. Recorded user-reported Windows Terminal
-  SSH return and an authorized agent Windows Terminal pass covering real browser
-  links, SSH, resizing and both quit keys. The final readiness review remains
-  pending.
+  SSH return and authorized agent Windows Terminal checks covering real browser
+  links, three SSH targets including a timeout, resizing, footer clicks and both
+  quit keys. The release scope and license decision remain pending.
 - Explicit R / Repository and D / Documentation actions from either pane, with
   shared URL revalidation and sanitized missing/invalid/unavailable/failure
   results. Windows URL associations and Linux desktop GIO receive unchanged URLs.

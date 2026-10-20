@@ -7,8 +7,20 @@ baseline with substituted external actions, and prepared the user-run session
 below. No real SSH connection or browser/GIO dispatch occurred during that
 preparation. Later user-reported and explicitly authorized agent checks in
 Windows Terminal are recorded separately below.
-The agent has not read SSH configuration, keys or inventories. These Task 5
-records stayed uncommitted until 2026-10-20.
+On 2026-10-20, at Jadon's request, the agent listed only the `Host` names in his
+SSH configuration so he could choose test targets. It printed no host names,
+users or key paths, and has read no keys or inventories. These Task 5 records
+stayed uncommitted until 2026-10-20.
+
+| Task 5 item | Status | Evidence |
+| --- | --- | --- |
+| Approved real-world targets | Done | One alias (2026-10-12); the GitHub repository and README URLs and two more aliases (2026-10-20). Alias names stay in the ignored configuration |
+| Checklist A-D in Windows Terminal | Done | [Windows Terminal check](#task-5-authorized-windows-terminal-check-2026-10-20); step C is also [user-reported](#task-5-user-executed-manual-session) |
+| Footer mouse clicks | Done | [Footer click check](#task-5-footer-click-check-2026-10-20) |
+| More SSH targets and a real nonzero exit | Done | [Additional targets](#task-5-additional-ssh-targets-and-review-fixes-2026-10-20) |
+| Project review and material fixes | Done | Same section: SSH lookup in the launch folder and UTF-8 byte-order-mark configs, each fixed after a failing test |
+| Documentation accuracy pass | Done | 2026-10-20 |
+| Release scope and license decision | Open | Jadon decides in the 0.1.0 review |
 
 ### Verified Task 4 merge and CI
 
@@ -59,7 +71,7 @@ resizing or SSH handoff. No screenshots were taken during that preparation.
 | `uv sync --locked` | Passed; existing lockfile and project Python |
 | `uv run --locked ssh-workbench --help` / `--version` | Passed; 0.0.1 |
 | `uv run --locked ssh-workbench` | No-config screen; Q returned status 0 and usable shell input; no external action invoked |
-| `uv run --locked ruff check .` / `ruff format --check .` | Passed; 29 Python files already formatted |
+| `uv run --locked ruff check .` / `ruff format --check .` | Passed; 29 files (20 Python, 9 Markdown) already formatted |
 | `uv run --locked pytest --basetemp .local/task5-session/pytest` | 428 passed in 67.09s; fresh ignored directory avoided the previously documented shared-temp cleanup issue |
 | `uv build` | Source archive and wheel built |
 | `uv run --locked python scripts/check_package.py` | Passed isolated wheel/import provenance, CLI/configuration, headless selection/quit, substituted SSH/link outcomes and blocked-opener Q/Ctrl+Q interpreter exit |
@@ -225,6 +237,39 @@ restored afterwards.
 
 Connect was clicked only in the local-child fixture, so no SSH connection was
 made. Screenshots are in ignored `.local/task5-session/wt-footer-20261020/`.
+
+### Task 5 additional SSH targets and review fixes, 2026-10-20
+
+**Review.** Three read-only reviews covered the whole project: code and tests,
+documentation accuracy, and privacy. No crash or bad-state bug was found. Git
+history on all branches, the PR text and the built package contain no private
+paths, hosts, aliases, tokens or AI attribution. The reviews confirmed two defects,
+each fixed after a failing test was committed (`b753e3b`):
+
+| Defect | Fix |
+| --- | --- |
+| On Windows, `shutil.which` checks the current directory before `PATH` unless `NoDefaultCurrentDirectoryInExePath` is set, so C could run an `ssh.exe` sitting in the folder Workbench was started from. A relative `PATH` entry had the same effect on any platform | `2653323`: a relative lookup result is discarded and only absolute `PATH` entries are searched |
+| A configuration saved as UTF-8 with a byte-order mark (Windows PowerShell 5.1 `-Encoding UTF8`) failed with "invalid syntax at line 1, column 1" | `b8a4218`: a leading byte-order mark is removed before parsing |
+
+At `b8a4218`, locked sync, Ruff lint/format, 431 tests, `uv build` and
+`scripts/check_package.py` passed.
+
+**More SSH targets.** Jadon approved two more aliases for machines outside his
+homelab; their names stay in the ignored configuration. The agent ran the current
+checkout with `uv run --locked ssh-workbench` in a new owned Windows Terminal
+window, under the same rules as the earlier check. It printed no remote output and
+took no screenshots of SSH sessions.
+
+| Target | Agent-observed result |
+| --- | --- |
+| Second alias, first attempt (the workstation's VPN was off) | Native SSH reported a connection timeout. Workbench returned with `SSH exited with status 255. Check the SSH client's message and alias; C retries.` and kept the project selected. This is the first real-world check of the nonzero-exit path |
+| Second alias, retry with the VPN on | A remote shell prompt appeared with no password or host-key prompt; `exit` returned `SSH exited with status 0.` with the selection kept. Ctrl+Q then exited 0 and `Write-Output` worked |
+| Third alias | Same as the retry: remote prompt, `exit`, status 0, selection kept. Q exited 0 and `Write-Output` worked |
+
+A harness bug sent one extra Ctrl+C after the third alias's `exit`. It reached
+Workbench after SSH had returned, and Textual showed its built-in "Do you want to
+quit? Press ctrl+q to quit the app" notice. Workbench kept running and no input
+reached the remote host. The harness was corrected.
 
 ### Task 5 user-executed manual session
 
@@ -406,7 +451,7 @@ the fixture guards, including when testing the defective version.
 | Blocked-opener interpreter exit | Q and Ctrl+Q passed for Windows and simulated Linux; the original fixture stub remained blocked. A parent timeout fails the test, rather than supplying passing exit evidence |
 | Affected fixture/link/UI tests | 138 passed, including Windows success with `os.startfile` explicitly returning `None` |
 | Full pytest with a unique disposable base directory | 428 passed; no temporary-directory cleanup error |
-| Locked sync, Ruff lint/format, CLI help/version | Passed; 29 Python files formatted and CLI version 0.0.1 |
+| Locked sync, Ruff lint/format, CLI help/version | Passed; 29 files (20 Python, 9 Markdown) formatted and CLI version 0.0.1 |
 | Build and isolated package validation | Passed, including installed-import assertions and existing blocked-opener Q/Ctrl+Q processes |
 | Relative documentation links/anchors and whitespace | 45 links/anchors passed; `git diff --check` passed |
 | Focused independent review | No additional correction defect found; this was a static review, not another native-platform run |
@@ -981,11 +1026,15 @@ and head and whose tree matched the head. Job logs confirmed dependency sync,
 lint, formatting, 176 tests, build and installed-package validation. These remote
 results apply to that snapshot; the follow-up requires its own CI after pushing.
 
-The shared Serena project settings are included for development. Cache files,
-local overrides and memories remain ignored. No private configuration is needed
-by the application or tests.
+At this point the shared Serena project settings were committed for development;
+they were removed on 2026-10-20. No private configuration is needed by the
+application or tests.
 
-## Bootstrap environment: 2026-10-09
+## Bootstrap, 2026-10-09
+
+The records below describe the initial 0.0.1 scaffold, before any product feature.
+
+### Bootstrap environment
 
 Local commands execute on a Windows 11 Home Insider Preview x64 workstation
 (OS build 10.0.26340), using PowerShell 7.6.6. No remote machine is involved.
@@ -996,7 +1045,7 @@ Resolved direct dependencies: Textual 8.2.8; development tools pytest 9.1.1,
 pytest-asyncio 1.4.0 and Ruff 0.16.10. `uv.lock` records exact transitive versions.
 The uv build backend requirement was generated by uv: >=0.12.24,<0.13.0.
 
-## Automated checks
+### Bootstrap automated checks
 
 | Check | Observed result |
 | --- | --- |
@@ -1023,7 +1072,7 @@ checks passed. An independent source/documentation review found no blocking
 issues. These checks reduce accidental disclosure risk but do not replace review
 of future changes.
 
-## Manual verification and limits
+### Bootstrap manual verification and limits
 
 On 2026-10-09, Jadon confirmed that the application's appearance, Q exit and
 Ctrl+Q exit work in manual testing. This is user-confirmed verification of the
@@ -1034,7 +1083,7 @@ The earlier tool-based interactive launch was blocked when Windows returned
 "Access is denied" while creating the terminal process. That tool-launch failure
 was not an observed application exception; the manual check is now complete.
 
-No real SSH feature exists, and no SSH configuration, keys, known_hosts,
+At bootstrap no real SSH feature existed, and no SSH configuration, keys, known_hosts,
 infrastructure or vault data is used by tests. macOS and other Python versions
 have not been tested.
 
@@ -1048,10 +1097,11 @@ verified through their official GitHub
 release/tag APIs: actions/checkout v7.0.1 and astral-sh/setup-uv v10.2.0; full
 commit references are recorded in the workflow. Permissions are `contents: read`.
 
-## Future approved manual SSH checklist
+### Bootstrap's planned manual SSH checklist
 
-These checks are **not performed** during bootstrap. Obtain approval for the
-specific hosts and connection actions first, and record date, platform and result.
+Superseded by the [Task 5 checklist](#task-5-user-executed-manual-session) and
+its recorded real SSH and browser checks. Kept as the original plan. These checks
+were **not performed** during bootstrap.
 
 - Select a fictional/local fixture, then an approved real project; verify the
   shown alias and context match the intended target before connecting.
