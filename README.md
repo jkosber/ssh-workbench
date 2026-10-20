@@ -209,3 +209,7 @@ and the release checklist.
 | [Changelog](CHANGELOG.md) | Changes by release |
 | [AGENTS](AGENTS.md) | Instructions for coding agents |
 | [Publishing](docs/publishing.md) | Checklist before any public release |
+
+## License
+
+MIT. See [LICENSE](LICENSE).

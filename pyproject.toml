@@ -1,7 +1,9 @@
 [project]
 name = "ssh-workbench"
-version = "0.0.1"
-description = "Project-aware SSH TUI: unreleased development scaffold"
+version = "0.1.0"
+description = "Keyboard-driven terminal interface for project SSH aliases and links"
+license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

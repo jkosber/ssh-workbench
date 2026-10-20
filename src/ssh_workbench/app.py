@@ -38,7 +38,7 @@ class LinkFinished(Message):
 
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
-    SUB_TITLE = "Project browser - unreleased"
+    SUB_TITLE = "Project browser"
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         Binding("c", "connect", "Connect"),

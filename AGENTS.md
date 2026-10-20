@@ -1,6 +1,7 @@
 # SSH Workbench
 
-This is an unreleased Python/Textual scaffold. Read [the roadmap](docs/roadmap.md)
+SSH Workbench is a Python/Textual terminal interface; 0.1.0 is its first
+release, tagged privately. Read [the roadmap](docs/roadmap.md)
 for the single backlog and [the architecture](docs/architecture.md) for boundaries.
 Implement only the requested task; keep the `src/` layout and runtime dependencies small.
 
@@ -59,8 +60,9 @@ Keep detailed acceptance criteria in the roadmap; Obsidian holds personal contex
 and links, not a second backlog.
 
 Keep the application version authoritative in `pyproject.toml`; the CLI reads
-installed metadata. Do not bump versions per edit or session. No license is
-selected; resolve that before a public release.
+installed metadata. Do not bump versions per edit or session. The project uses
+the MIT license in `LICENSE`; publication still needs the
+[publishing checklist](docs/publishing.md) and the user's approval.
 
 Commits, pushes, tags, releases, publication, visibility changes and
 infrastructure changes require the user's applicable authorization. Follow the

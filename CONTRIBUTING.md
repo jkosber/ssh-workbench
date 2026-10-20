@@ -120,13 +120,13 @@ second version file, bump versions per session, or create numbered source folder
 
 | Version | Meaning |
 | --- | --- |
-| 0.0.1 | Current unreleased development scaffold |
-| 0.1.0 | Target for the first genuinely usable release |
+| 0.0.1 | Development scaffold before the first release |
+| 0.1.0 | First usable release, tagged privately |
 | 0.1.1 | Example later bug-fix release |
 | 0.2.0 | Example later feature milestone |
 | 1.0.0 | A deliberately chosen stable release later |
 
-These describe policy, not completed or promised releases. Until stability is
+Rows after 0.1.0 describe policy, not promised releases. Until stability is
 deliberately declared, document compatibility changes explicitly.
 
 Manual release checklist:

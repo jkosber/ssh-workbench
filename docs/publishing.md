@@ -2,8 +2,8 @@
 
 The private development repository is the technical source of truth. Personal
 planning, questions and troubleshooting reflections belong in Obsidian. Neither
-the scaffold nor its generated documentation is a finished portfolio case study
-or a homelab guide.
+the application nor its documentation is a finished portfolio case study or a
+homelab guide.
 
 ## Portfolio checklist
 
@@ -13,8 +13,9 @@ or a homelab guide.
   from actual runs; label mockups and planned behavior.
 - [ ] Explain the problem, one or two design choices and verified limitations.
 - [ ] Remove private paths, addresses, host aliases, account details and secrets.
-- [ ] Resolve the license decision and obtain human approval for the exact
-  content, destination and any repository visibility change before publishing.
+- [x] Choose a license: MIT, decided on 2026-10-20.
+- [ ] Obtain human approval for the exact content, destination and any
+  repository visibility change before publishing.
 
 ## Homelab guide/helper checklist
 
@@ -33,4 +34,4 @@ Keep private evidence outside Git until sanitized. Record questions Jadon wants
 to investigate; do not invent reflections, test results or claims of experience.
 
 Publication requires deliberate human approval even after these checks pass.
-No site, release automation or public publication is part of bootstrap.
+The project has no site, release automation or public publication.
