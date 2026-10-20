@@ -58,8 +58,8 @@ new terminal. To upgrade a clone install, run `git pull`, then
    notepad "$env:APPDATA\ssh-workbench\projects.toml"
    ```
 
-   On Linux or macOS, run `mkdir -p ~/.config/ssh-workbench` and edit
-   `~/.config/ssh-workbench/projects.toml`.
+   On Linux or macOS, run `mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/ssh-workbench"`
+   and create `projects.toml` in that folder.
 3. Add a project:
 
    ```toml
@@ -76,8 +76,9 @@ new terminal. To upgrade a clone install, run `git pull`, then
 4. Run `ssh-workbench`, select the project and press **C**. Type `exit` in the
    remote shell to come back.
 
-`ssh-workbench --help` prints the exact path of the projects file on your
-machine. [examples/projects.example.toml](examples/projects.example.toml) has
+`ssh-workbench --help` shows where Workbench looks for the projects file on
+your machine; a long path may wrap onto the next line.
+[examples/projects.example.toml](examples/projects.example.toml) has
 another example, including a project without links.
 
 ## Configuration

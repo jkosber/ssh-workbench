@@ -344,8 +344,8 @@ The authorized Windows Terminal check above is complete within its recorded scop
 Report further observations briefly and without sensitive details: step A/B/C/D, pass/fail/not tested, expected
 versus observed behavior, version/commit/terminal and any minimal reproduction.
 Label them **user-reported**; keep agent fixture and automated evidence separate.
-Browser acceptance alone is not proof of page loading. Task 5 stays in progress
-until the readiness review (scope, privacy, license) is complete.
+Browser acceptance alone is not proof of page loading. The readiness review
+(scope, privacy, license) closed Task 5 on 2026-10-20.
 
 ## Task 4: errors and links, 2026-10-12
 

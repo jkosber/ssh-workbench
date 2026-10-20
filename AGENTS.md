@@ -12,7 +12,7 @@ Use the project Python in `.python-version` and uv; do not modify global Python.
 
 ```text
 uv sync --locked
-uv run --locked ssh-workbench
+uv run --locked ssh-workbench --config examples/projects.example.toml
 uv run --locked ssh-workbench --help
 uv run --locked ssh-workbench --version
 uv run --locked ruff check .

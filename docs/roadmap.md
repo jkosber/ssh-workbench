@@ -289,6 +289,12 @@ explicit task.
 - `--config` pointing at a folder reports "permission denied" on Windows.
 - URLs containing U+202E or U+200B pass validation; display already escapes them.
 - Update the `uv_build` range and the uv version pinned in CI together.
+- An empty default file says to restart with `--config PATH`; a folder at the
+  default path still says to create a file there.
+- `--help` wraps a long default path at hyphens; print it on its own line.
+- Test that `--help` and `--version` ignore an invalid default file.
+- README: escaping also covers format characters and non-ASCII spaces; add an
+  upgrade step for installs from a Git tag.
 
 Re-planning 0.2.0 from the deferred ideas below is the next task after 0.1.0.
 

@@ -18,7 +18,7 @@
 | `.github/` | CI and the pull-request template |
 
 `cli` imports `config` and, after argument parsing, `app`. `app` uses `ssh` and
-`links`, which both reuse validation from `config`. No package module imports `cli`.
+`links`, which both reuse validation from `config`. Only `__main__` imports `cli`.
 
 ## Implemented CLI and project browser
 
