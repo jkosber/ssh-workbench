@@ -4,9 +4,24 @@ import socket
 import subprocess
 import webbrowser
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
+
+
+@pytest.fixture(scope="session")
+def empty_user_config(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("no-user-config")
+
+
+@pytest.fixture(autouse=True)
+def isolated_user_config(
+    monkeypatch: pytest.MonkeyPatch, empty_user_config: Path
+) -> None:
+    """Keep every test, and the processes it starts, away from the real user file."""
+    monkeypatch.setenv("APPDATA", str(empty_user_config))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(empty_user_config))
 
 
 @pytest.fixture
