@@ -1,5 +1,251 @@
 # Validation
 
+## Task 5: preparation and safe local verification, 2026-10-12
+
+**Task 5 remains in progress.** Initial preparation merged Task 4, verified the
+baseline with substituted external actions, and prepared the user-run session
+below. No real SSH connection or browser/GIO dispatch occurred during that
+preparation. Later user-reported and explicitly authorized agent SSH checks are
+recorded separately below.
+The agent has not read SSH configuration, keys or inventories. These Task 5
+records stayed uncommitted until 2026-10-20.
+
+### Verified Task 4 merge and CI
+
+The starting checkout was clean on `feat/errors-and-links`, at reviewed head
+`0fe97d169a59094dbfdce179480d6889efb4dcdb`. Origin and ownership were verified as
+private `jkosber/ssh-workbench`; GitHub authenticated as `jkosber`. PR #4 was open,
+not a draft, into `main`, with that exact head, no GitHub reviews/comments or
+unresolved review threads, and `CLEAN` / `MERGEABLE` status. The branch API
+reported main unprotected; the rules endpoint was unavailable for this private
+repository's plan. No requirements or settings were changed.
+
+Both named Windows/Ubuntu jobs passed in
+[push CI 38334751595](https://github.com/jkosber/ssh-workbench/actions/runs/38334751595)
+and [PR CI 38334807914](https://github.com/jkosber/ssh-workbench/actions/runs/38334807914).
+Each log confirmed 428 tests, build and isolated package checks. PR checkout
+`e1328ec3c837b2ebca6d0fb1fea2a7ee2cea82be` had prior main `eeb6e39` and reviewed
+head `0fe97d1` as parents, with the same tree as the reviewed head.
+
+[PR #4](https://github.com/jkosber/ssh-workbench/pull/4) merged normally at
+2026-10-13 02:14:39 UTC (2026-10-12 locally), as
+**`9b28e86c0d6c980c6058297f60e6ff623e657031`**. The CLI's author-email override was
+rejected before merging; the successful REST merge used `merge_method=merge`
+and `sha=0fe97d169a59094dbfdce179480d6889efb4dcdb` as the equivalent head guard.
+GitHub attributed the merge author to Jadon Kosberg's `jkosber` account and used
+its server committer. Local/global Git identity settings were preserved. There
+was no admin override, auto-merge, branch deletion or visibility change.
+
+Fetch confirmed the merge's two expected parents and a tree identical to the
+reviewed feature head. Local main fast-forwarded to origin/main;
+`test/task5-validation` was created at the same merge. The repository remains
+private. New [merged-main CI 38335955509](https://github.com/jkosber/ssh-workbench/actions/runs/38335955509)
+completed successfully for **`9b28e86`**, with Windows and Ubuntu each passing
+428 tests, locked sync, Ruff, build and isolated installed-package validation.
+This is a separate run from Task 4's push/PR checks.
+
+### Merged-baseline local evidence
+
+Every result in this table tests merge **`9b28e86`**, before Task 5 documentation
+edits. Environment: Windows 11 Home Insider Preview build 26340, PowerShell
+7.6.6, Python 3.14.7, Textual 8.2.8, uv 0.13.0, Ruff 0.16.10 and pytest 9.1.1.
+Microsoft Windows Terminal 1.25.2733.0 is installed, but the initial preparation's
+interactive checks used an owned Windows pseudoterminal with a profile-free
+PowerShell through cmd.exe. They do not establish Windows Terminal pixels,
+resizing or SSH handoff. No screenshots were taken during that preparation.
+
+| Command/check | Agent-observed result |
+| --- | --- |
+| `uv sync --locked` | Passed; existing lockfile and project Python |
+| `uv run --locked ssh-workbench --help` / `--version` | Passed; 0.0.1 |
+| `uv run --locked ssh-workbench` | No-config screen; Q returned status 0 and usable shell input; no external action invoked |
+| `uv run --locked ruff check .` / `ruff format --check .` | Passed; 29 Python files already formatted |
+| `uv run --locked pytest --basetemp .local/task5-session/pytest` | 428 passed in 67.09s; fresh ignored directory avoided the previously documented shared-temp cleanup issue |
+| `uv build` | Source archive and wheel built |
+| `uv run --locked python scripts/check_package.py` | Passed isolated wheel/import provenance, CLI/configuration, headless selection/quit, substituted SSH/link outcomes and blocked-opener Q/Ctrl+Q interpreter exit |
+| `uv run --locked python scripts/check_links.py` | Standalone fixture: R from list, D from details, accepted/failed/error/missing results, blocked request with changed selection/focus and repeat feedback; Q and Ctrl+Q each returned 0 to usable shell input |
+| `uv run --locked python scripts/check_terminal.py` | Local Python children only: inherited terminal I/O, typed input, exits 0/7/130, C from details, two Ctrl+C events while the child continued, normal return, simulated missing/start/interruption errors, retry and both quit keys; selection and list focus restored |
+| Persistent session wheel installation below | Locked runtime install passed; help/version and Python `-I` site-packages provenance passed. No-config startup and Ctrl+Q returned 0 to usable shell input |
+| Local placeholder TOML | Installed loader accepted two projects; only the explicit new file was read, with no external action |
+
+The existing warning remains: installed uv 0.13.0 is outside
+`uv_build>=0.12.24,<0.13.0`. Build and package checks passed; tooling and the
+previously recorded backend-provenance limitation are unchanged. No production
+defect was confirmed during this preparation. No code, tests, dependencies or
+new test harnesses were added. The owned fixture shell and children exited;
+the isolated package check removed its temporary environment. The separate
+manual environment is retained for Jadon.
+
+Fixture entry points were inspected before execution. The link fixture starts
+guards before app construction and retains them until interpreter exit; the
+full suite includes all 11 lifetime/exit/import regressions. The terminal fixture
+substitutes executable lookup and invocation with fixed local Python children.
+New fixture results above are distinct from historical WezTerm evidence below.
+
+At the preparation handoff, all 23 relative links/anchors in the three changed
+Markdown files passed validation, and the documented TOML matched the then-current
+ignored placeholder template. Final diff/whitespace and empty-index checks passed;
+only the roadmap, this record and the Unreleased changelog changed in Git.
+
+### Task 5 evidence gaps against the existing acceptance
+
+| Evidence class | Supported now / remaining gap |
+| --- | --- |
+| Automated | Configuration, selection/details, focus/scroll/quit, sanitized failures, SSH/browser boundary contracts and package installation pass on this revision. These support the baseline, not the required real-world observations. |
+| Substituted boundaries / native fixtures | Current pseudoterminal checks exercise local handoff, recovery and stubbed dispatch. Historical WezTerm resize/text results retain their recorded scope; obscured Task 4 screenshots remain excluded. |
+| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. A separately authorized agent check of the installed build in WezTerm confirmed live SSH return, navigation, resizing, detail scrolling and both quit-key/shell checks, with Workbench-only Windows screenshots. URL choices and real browser results remain pending. |
+| Still unverified / unavailable | Real browser/GIO behavior; native Linux desktop; Windows Terminal resizing and both quit keys after live SSH; other DPI settings and screen readers. Authentication mechanisms and host-key prompts were not separately examined. macOS browser dispatch is explicitly unavailable in this version. Ubuntu CI does not validate a Linux desktop. |
+| Documentation, issues and readiness review | Checklist/configuration preparation is complete. Material issues found by the live pass must be recorded and resolved under separate fix authorization. Scope and privacy boundaries were reviewed; final readiness and the unselected license remain open. No release/version/visibility decision is made. |
+| Outside initial-release requirements | Deferred editing/search, discovery, tmux, transfers, cloud sync, embedded terminals, AI, Proxmox controls and plugins. WezTerm is a useful optional comparison, not an additional mandatory platform; this task adds no all-platform or accessibility certification requirement. |
+
+### Task 5 installed build and local configuration
+
+Use Microsoft Windows Terminal for the first real pass. Run these commands from
+the repository in PowerShell. The session directory was absent before preparation
+and `git check-ignore -v` verified `.local/` ignores the configuration, environment
+and exported requirements. Existing local files were preserved. Keep real target
+details only in `.local/task5-session/projects.toml`, never in tracked examples.
+
+The following **local installation steps have already passed**. They mirror the
+existing package-check installation sequence and do not alter global Python.
+For another installation, choose a fresh ignored directory; do not overwrite an
+existing environment, requirements export or configuration.
+
+```powershell
+uv sync --locked
+uv build
+uv venv --python .venv\Scripts\python.exe .local\task5-session\venv
+uv export --locked --no-dev --no-emit-project --output-file .local\task5-session\runtime-requirements.txt
+uv pip sync --python .local\task5-session\venv\Scripts\python.exe .local\task5-session\runtime-requirements.txt
+uv pip install --python .local\task5-session\venv\Scripts\python.exe --no-deps dist\ssh_workbench-0.0.1-py3-none-any.whl
+```
+
+The retained installed wheel was built from `9b28e86`, version 0.0.1, SHA-256
+`71d1522a22fb6c9549ad7b0a7ca18650b247a37f495eaa5e82c3e8a35aadf589`.
+Documentation edits afterward do not change that installed artifact.
+
+The original schema-correct template below is retained as a fictional reference.
+Jadon subsequently chose an existing alias; both local records now use that alias,
+and their optional URLs are omitted until he chooses destinations. Actual target
+details stay in the ignored file. The second row supports navigation and missing
+references without another host. When reusing this template, replace its alias
+and URL placeholders before C/R/D; restart Workbench after editing the file.
+
+```toml
+schema_version = 1
+
+[[projects]]
+id = "manual-target"
+name = "Manual target"
+ssh_alias = "CHOOSE_EXISTING_ALIAS"
+repository = "https://example.invalid/choose-repository"
+documentation = "https://example.invalid/choose-documentation"
+
+[[projects]]
+id = "navigation-check"
+name = "Navigation check - use the same existing alias; no links on this row"
+ssh_alias = "CHOOSE_EXISTING_ALIAS"
+# Optional URLs omitted to check the 'Not provided' display.
+```
+
+Jadon can now use the installed build without rebuilding or activating a venv:
+
+```powershell
+git rev-parse HEAD
+& .\.local\task5-session\venv\Scripts\ssh-workbench.exe --version
+& .\.local\task5-session\venv\Scripts\ssh-workbench.exe --config .local\task5-session\projects.toml
+```
+
+Launching/selection reads that file without contacting a target. **C contacts
+the configured SSH destination; R/D open a real browser.** These actions below
+are for Jadon to perform. No passwords, private keys, MFA codes, sensitive
+transcripts or screenshots are requested. Pause unexpected host-key/trust prompts
+for independent verification; do not auto-accept, remove warnings, edit
+known_hosts or disable checking. An actual login may create normal session or
+audit records; use the existing trusted workflow without extra remote operations.
+
+### Task 5 authorized WezTerm check, 2026-10-12
+
+After choosing the alias in the ignored configuration, Jadon explicitly authorized
+an agent test in WezTerm using that same configuration and the Windows screenshot
+API. This check used the retained installed wheel above: **0.0.1 from `9b28e86`**,
+Python 3.14.7 and Textual 8.2.8, in the existing portable WezTerm
+`20240203-110809-5046fc22` with PowerShell 7.6.6 on Windows build 26340.
+The existing portable terminal was reused; dependencies and global settings
+were unchanged.
+
+| Agent-observed check | Result |
+| --- | --- |
+| Live C / Connect | The selected user-chosen alias reached a native SSH shell; the agent entered only `exit` to leave normally. No credential entry or trust acceptance was needed from the agent. |
+| Return | Workbench displayed `SSH exited with status 0`, retained the original project and restored list focus. Up/Down selected the second project and returned to the original. |
+| Focus and scrolling | Tab reached details; paced Down presses exposed the final documentation field at 60x20. Tab returned to the list, with selection still usable. |
+| Resizing | Observed 80x24, 60x20 and 120x40 terminal dimensions, then restored 80x24. Navigation continued after resizing. The small layout truncated the title/long name, wrapped help text, kept footer controls visible and allowed details to scroll. |
+| Quit and shell restoration | Q after the live return exited 0 to usable PowerShell input. A separate installed-build launch exited 0 with Ctrl+Q and again accepted shell input. |
+| Appearance | Windows `Graphics.CopyFromScreen` captured only the foreground owned test window before/after SSH and during resize/scroll checks. The agent inspected seven Workbench-only PNGs retained under ignored `.local/task5-session/`; no authentication or remote-session screen was captured. |
+
+WezTerm CLI input and Windows window APIs controlled only the owned test window.
+The reused optional size-file callback did not resize it, so the checks used
+Windows window resizing and verified WezTerm's reported dimensions. Rapidly
+batched Down input initially moved one animated scroll step; paced presses
+confirmed normal scrolling. Neither observation establishes an application defect.
+
+The SSH session, both Workbench launches and owned PowerShell/WezTerm process
+exited normally. Automatic approval review blocked removal of WezTerm's leftover
+socket file with only `blocked by policy`; that file was left in place. Existing
+user terminals were preserved. No browser was opened. The agent did not read SSH
+configuration, keys or inventories, or change host-key/security settings.
+Authentication mechanisms and unexpected trust prompts were not separately tested.
+This pass confirms the recorded WezTerm behavior; Windows Terminal resize/quit,
+real browser/GIO, other DPI settings and screen readers retain their stated gaps.
+After this follow-up, all 24 relative documentation links/anchors, the fictional
+TOML example, target-privacy and whitespace checks passed. Only the same three
+documentation files changed; the index remains empty and no code was changed.
+
+### Task 5 user-executed manual session
+
+Results below distinguish user reports from agent observations. This manual
+session follows the prepared installed build, version 0.0.1 from `9b28e86`;
+the agent did not observe the user's executable or authentication session.
+
+**User-reported, 2026-10-12:** In Microsoft Windows Terminal running PowerShell,
+C switched to SSH in the same terminal session. Exiting SSH returned directly
+to Workbench, kept the same project selected, accepted Up/Down immediately, and
+displayed `SSH exited with status 0`. This completes the reported handoff/normal
+return check; it does not establish browser dispatch, resize or quit restoration.
+No sensitive transcript or screenshot was requested or collected for this report.
+
+The checklist below retains the Windows Terminal session's status. The separate
+agent WezTerm pass above covers its own baseline, live handoff and restoration;
+it does not turn unreported Windows Terminal observations into passes.
+
+- [ ] **A. Baseline (local):** Record 0.0.1, the tested commit, Windows version and
+  Windows Terminal version. Fill the private configuration, launch with the command
+  above, and check Up/Down selection, details, Tab/Shift+Tab focus and detail scrolling.
+- [ ] **B. Browser (opens real destinations):** Select `manual-target`; explicitly
+  invoke R / Repository and D / Documentation. Observe the intended destination
+  and page result in the browser separately from Workbench's dispatch message.
+  Return to the terminal, check navigation and Q, then relaunch for C.
+- [x] **C. SSH (user-reported pass; contacts the chosen real system):** Use one existing noncritical
+  host and the account already used there. If a direct baseline is needed, Jadon
+  runs `ssh CHOOSE_EXISTING_ALIAS` after replacing the placeholder, authenticates
+  privately and leaves normally. In Workbench use C / Connect, authenticate,
+  leave normally, and verify the same selection, list focus, status and further use.
+- [ ] **D. Restoration (local):** After returning, resize the terminal and check
+  navigation. Test Q and Ctrl+Q in separate launches; after each, confirm usable
+  shell input, for example `Write-Output 'shell input works'`.
+
+For deliberate failures, blocked openers and aggressive interruption, use only
+the existing [link fixture](#task-4-stubbed-link-checklist) and
+[local-child fixture](#task-3-local-terminal-fixture). Do not use wrong credentials,
+interrupt unrelated remote work, stop services, change host keys or create outages.
+The authorized WezTerm comparison above is complete within its recorded scope.
+
+Report short sanitized observations: step A/B/C/D, pass/fail/not tested, expected
+versus observed behavior, version/commit/terminal and any minimal reproduction.
+Label them **user-reported**; keep agent fixture and automated evidence separate.
+Browser acceptance alone is not proof of page loading. Until these observations
+and the remaining readiness review are complete, Task 5 stays in progress.
+
 ## Task 4: errors and links, 2026-10-12
 
 Starting state was inspected and fetched: clean `main` and `origin/main` both

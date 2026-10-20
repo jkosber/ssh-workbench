@@ -17,6 +17,10 @@ release; 0.1.0 is the first usable release target.
 
 ### Added
 
+- Task 5 manual validation checklist, placeholder configuration and locked
+  installed-wheel session instructions. Recorded user-reported Windows Terminal
+  SSH return and an authorized agent WezTerm SSH/resize/quit pass. Real browser
+  observations and the final readiness review remain pending.
 - Explicit R / Repository and D / Documentation actions from either pane, with
   shared URL revalidation and sanitized missing/invalid/unavailable/failure
   results. Windows URL associations and Linux desktop GIO receive unchanged URLs.

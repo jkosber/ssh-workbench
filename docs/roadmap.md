@@ -162,11 +162,15 @@ authorize a commit, push, PR, merge, tag or release.
 
 ## 4. Handle failures and useful documentation links
 
-**Implemented on `feat/errors-and-links`; proposed for pull-request review.**
+**Merged in [PR #4](https://github.com/jkosber/ssh-workbench/pull/4)** as
+`9b28e86c0d6c980c6058297f60e6ff623e657031`, containing reviewed feature head
+`0fe97d169a59094dbfdce179480d6889efb4dcdb`. The merge tree matches that head.
 Based on Task 3 merge `eeb6e39bf93a8ba1532503a7a2e0e565f9a9d8f2`.
 Version 0.0.1 and dependencies are unchanged.
 See [Task 4 evidence](validation.md#task-4-errors-and-links-2026-10-12) for new
 local results, native fixture limits and real-world behavior still untested.
+The [Task 5 preparation record](validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
+verifies the merge and its own Windows/Ubuntu CI separately from PR checks.
 
 Acceptance: missing configuration, missing SSH, failed connections and cancelled
 actions have actionable messages. Open validated HTTP/HTTPS links only on an
@@ -210,6 +214,25 @@ discovery, tmux, transfers, embedded terminals, global settings, infrastructure
 and release work remain outside Task 4.
 
 ## 5. Validate usability and review 0.1.0 readiness
+
+**In progress: preparation complete; manual validation started.**
+`test/task5-validation` starts at Task 4 merge `9b28e86`. The merged baseline
+passed 428 local tests, build, isolated package checks and Windows/Ubuntu main CI.
+Existing local-child and stubbed-opener fixtures passed their recorded checks;
+they do not establish real SSH or browser behavior.
+
+In the [manual session](validation.md#task-5-user-executed-manual-session), Jadon
+selected an existing alias in the ignored configuration and reported C handing
+off to SSH in Microsoft Windows Terminal/PowerShell, then returning with the
+same selection, immediate arrow navigation and exit status 0. A separately
+authorized [agent WezTerm check](validation.md#task-5-authorized-wezterm-check-2026-10-12)
+confirmed live SSH return, navigation, resizing, scrolling and both quit keys
+with usable shell input; Windows screenshots verified the recorded layouts.
+Browser URL choices and actual page results, plus Windows Terminal resize/quit
+observations, remain pending. No material usability defect was confirmed. Any
+resulting production fix needs separate authorization; release scope, privacy
+and the unresolved license still need final review. Version remains 0.0.1,
+unreleased; preparation does not complete Task 5.
 
 Acceptance: obtain approval for named real-world test targets and actions, then
 record observed behavior using [the manual checklist](validation.md). Fix material
