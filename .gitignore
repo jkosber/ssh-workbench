@@ -35,6 +35,12 @@ inventories/
 *.log
 logs/
 
+# Coding-agent and tool state
+.claude/
+.codex/
+.serena/
+.playwright-mcp/
+
 # Editors and operating systems
 .idea/
 .vscode/
