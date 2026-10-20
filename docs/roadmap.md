@@ -224,10 +224,7 @@ they do not establish real SSH or browser behavior.
 In the [manual session](validation.md#task-5-user-executed-manual-session), Jadon
 selected an existing alias in the ignored configuration and reported C handing
 off to SSH in Microsoft Windows Terminal/PowerShell, then returning with the
-same selection, immediate arrow navigation and exit status 0. A separately
-authorized [agent WezTerm check](validation.md#task-5-authorized-wezterm-check-2026-10-12)
-confirmed live SSH return, navigation, resizing, scrolling and both quit keys
-with usable shell input; Windows screenshots verified the recorded layouts.
+same selection, immediate arrow navigation and exit status 0.
 On 2026-10-20 an authorized [agent Windows Terminal check](validation.md#task-5-authorized-windows-terminal-check-2026-10-20)
 completed checklist steps A-D. R/D opened the chosen GitHub repository and README
 pages in Chrome. SSH returned with status 0. Resizing through 60x20, 120x40 and

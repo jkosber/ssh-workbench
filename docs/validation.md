@@ -5,8 +5,8 @@
 **Task 5 remains in progress.** Initial preparation merged Task 4, verified the
 baseline with substituted external actions, and prepared the user-run session
 below. No real SSH connection or browser/GIO dispatch occurred during that
-preparation. Later user-reported and explicitly authorized agent checks
-(WezTerm SSH; Windows Terminal SSH and browser) are recorded separately below.
+preparation. Later user-reported and explicitly authorized agent checks in
+Windows Terminal are recorded separately below.
 The agent has not read SSH configuration, keys or inventories. These Task 5
 records stayed uncommitted until 2026-10-20.
 
@@ -93,10 +93,10 @@ only the roadmap, this record and the Unreleased changelog changed in Git.
 | --- | --- |
 | Automated | Configuration, selection/details, focus/scroll/quit, sanitized failures, SSH/browser boundary contracts and package installation pass on this revision. These support the baseline, not the required real-world observations. |
 | Substituted boundaries / native fixtures | Current pseudoterminal checks exercise local handoff, recovery and stubbed dispatch. Historical WezTerm resize/text results retain their recorded scope; obscured Task 4 screenshots remain excluded. |
-| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. Authorized agent checks of the installed build covered WezTerm (2026-10-12) and Windows Terminal (2026-10-20): live SSH return, navigation, resizing, detail scrolling and both quit keys with shell checks. In Windows Terminal, R/D opened the chosen GitHub repository and README pages in Chrome. |
+| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. An authorized agent check of the installed build in Windows Terminal (2026-10-20) covered live SSH return, navigation, resizing, detail scrolling and both quit keys with shell checks. In Windows Terminal, R/D opened the chosen GitHub repository and README pages in Chrome. |
 | Still unverified / unavailable | Linux GIO browser dispatch and a native Linux desktop; other DPI settings and screen readers. Authentication mechanisms and host-key prompts were not separately examined. macOS browser dispatch is explicitly unavailable in this version. Ubuntu CI does not validate a Linux desktop. Agent observation is not a human visual review. |
 | Documentation, issues and readiness review | Checklist steps A-D are complete with no material defect found. Scope and privacy boundaries were reviewed; final readiness and the unselected license remain open. No release/version/visibility decision is made. |
-| Outside initial-release requirements | Deferred editing/search, discovery, tmux, transfers, cloud sync, embedded terminals, AI, Proxmox controls and plugins. WezTerm is a useful optional comparison, not an additional mandatory platform; this task adds no all-platform or accessibility certification requirement. |
+| Outside initial-release requirements | Deferred editing/search, discovery, tmux, transfers, cloud sync, embedded terminals, AI, Proxmox controls and plugins. Manual checks use Microsoft Windows Terminal; this task adds no all-platform or accessibility certification requirement. |
 
 ### Task 5 installed build and local configuration
 
@@ -205,43 +205,6 @@ No application defect was found. The link status after R on the second project
 kept naming project 2 when the selection moved back to project 1, as documented:
 link results stay attributed to the project that requested them.
 
-### Task 5 authorized WezTerm check, 2026-10-12
-
-After choosing the alias in the ignored configuration, Jadon explicitly authorized
-an agent test in WezTerm using that same configuration and the Windows screenshot
-API. This check used the retained installed wheel above: **0.0.1 from `9b28e86`**,
-Python 3.14.7 and Textual 8.2.8, in the existing portable WezTerm
-`20240203-110809-5046fc22` with PowerShell 7.6.6 on Windows build 26340.
-The existing portable terminal was reused; dependencies and global settings
-were unchanged.
-
-| Agent-observed check | Result |
-| --- | --- |
-| Live C / Connect | The selected user-chosen alias reached a native SSH shell; the agent entered only `exit` to leave normally. No credential entry or trust acceptance was needed from the agent. |
-| Return | Workbench displayed `SSH exited with status 0`, retained the original project and restored list focus. Up/Down selected the second project and returned to the original. |
-| Focus and scrolling | Tab reached details; paced Down presses exposed the final documentation field at 60x20. Tab returned to the list, with selection still usable. |
-| Resizing | Observed 80x24, 60x20 and 120x40 terminal dimensions, then restored 80x24. Navigation continued after resizing. The small layout truncated the title/long name, wrapped help text, kept footer controls visible and allowed details to scroll. |
-| Quit and shell restoration | Q after the live return exited 0 to usable PowerShell input. A separate installed-build launch exited 0 with Ctrl+Q and again accepted shell input. |
-| Appearance | Windows `Graphics.CopyFromScreen` captured only the foreground owned test window before/after SSH and during resize/scroll checks. The agent inspected seven Workbench-only PNGs retained under ignored `.local/task5-session/`; no authentication or remote-session screen was captured. |
-
-WezTerm CLI input and Windows window APIs controlled only the owned test window.
-The reused optional size-file callback did not resize it, so the checks used
-Windows window resizing and verified WezTerm's reported dimensions. Rapidly
-batched Down input initially moved one animated scroll step; paced presses
-confirmed normal scrolling. Neither observation establishes an application defect.
-
-The SSH session, both Workbench launches and owned PowerShell/WezTerm process
-exited normally. Automatic approval review blocked removal of WezTerm's leftover
-socket file with only `blocked by policy`; that file was left in place. Existing
-user terminals were preserved. No browser was opened. The agent did not read SSH
-configuration, keys or inventories, or change host-key/security settings.
-Authentication mechanisms and unexpected trust prompts were not separately tested.
-This pass confirms the recorded WezTerm behavior; Windows Terminal resize/quit,
-real browser/GIO, other DPI settings and screen readers retain their stated gaps.
-After this follow-up, all 24 relative documentation links/anchors, the fictional
-TOML example, target-privacy and whitespace checks passed. Only the same three
-documentation files changed; the index remains empty and no code was changed.
-
 ### Task 5 user-executed manual session
 
 Results below distinguish user reports from agent observations. This manual
@@ -280,8 +243,7 @@ For deliberate failures, blocked openers and aggressive interruption, use only
 the existing [link fixture](#task-4-stubbed-link-checklist) and
 [local-child fixture](#task-3-local-terminal-fixture). Do not use wrong credentials,
 interrupt unrelated remote work, stop services, change host keys or create outages.
-The authorized WezTerm and Windows Terminal checks above are complete within
-their recorded scope.
+The authorized Windows Terminal check above is complete within its recorded scope.
 
 Report further observations briefly and without sensitive details: step A/B/C/D, pass/fail/not tested, expected
 versus observed behavior, version/commit/terminal and any minimal reproduction.
