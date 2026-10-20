@@ -429,3 +429,26 @@ def test_help_shows_default_path_with_percent(cli: str, tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.stderr == ""
     assert str(folder / "ssh-workbench" / "projects.toml") in result.stdout
+
+
+def test_help_escapes_unencodable_default_path(cli: str, tmp_path: Path) -> None:
+    folder = tmp_path / "u-Ł中"
+    environment = os.environ | {
+        "APPDATA": str(folder),
+        "XDG_CONFIG_HOME": str(folder),
+        "COLUMNS": "500",
+        "PYTHONIOENCODING": "cp1252",
+    }
+
+    result = subprocess.run(
+        [cli, "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert "u-\u0141\u4e2d" in result.stdout
