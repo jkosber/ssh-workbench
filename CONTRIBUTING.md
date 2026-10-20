@@ -20,16 +20,12 @@ Use `uv add PACKAGE` for a runtime dependency or `uv add --dev PACKAGE` for a
 development tool. Add a dependency only when the current task needs it. Review
 and commit both metadata and lockfile changes together when authorized.
 
-`.serena/project.yml` contains shared settings for the optional Serena development
-tool. Its cache, local overrides and memories are ignored. Serena is not needed
-to install, run or test SSH Workbench.
-
-## Everyday Git and Codex workflow
+## Everyday Git and coding-agent workflow
 
 1. Inspect `git status --short --branch` and read any existing changes. Preserve
    unrelated work. If a prior change is unclear, resolve that before mixing work.
-2. Choose one task from [the roadmap](docs/roadmap.md). Ask Codex to implement
-   that task and its acceptance tests, stating what is outside scope.
+2. Choose one task from [the roadmap](docs/roadmap.md). Ask the coding agent to
+   implement that task and its acceptance tests, stating what is outside scope.
 3. From a clean, current `main`, make a short-lived branch such as
    `git switch -c feat/project-config`. A branch names a line of development;
    it is not a numbered copy of the project directory.
@@ -42,10 +38,10 @@ to install, run or test SSH Workbench.
    A commit is a local snapshot; `git push -u origin BRANCH` sends it to GitHub
    and needs the applicable push authorization. Inspect CI before merging.
 
-Future commits, pushes, merges, tags, releases and publication are separate
-decisions. The bootstrap's one-time authorization does not carry forward.
-Start future Codex sessions from this repository. Codex assists development;
-the installed application works without a coding agent or AI account.
+Commits, pushes, merges, tags, releases and publication are separate decisions,
+each needing Jadon's authorization. Start coding-agent sessions from this
+repository so the agent reads [AGENTS.md](AGENTS.md). The agent assists
+development; the installed application works without a coding agent or AI account.
 
 ## Run and interpret checks
 
@@ -75,8 +71,7 @@ uv run --locked python scripts/check_package.py
   interruption, plus explicit link outcomes and quit with a blocked browser
   opener. Isolated Python mode and imported-module path assertions check the
   wheel rather than the checkout. A build alone does not prove SSH functionality
-  or interactive
-  terminal compatibility.
+  or interactive terminal compatibility.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
 itself, with and without `--config examples/projects.example.toml`; check

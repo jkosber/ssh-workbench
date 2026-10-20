@@ -39,7 +39,8 @@ checks above after relevant changes; package validation is described in
 - Keep expected launch errors inside Textual's suspension block: the locked
   8.2.8 context skips resumption when an exception escapes it. Verify the installed
   implementation when changing this path. Use `scripts/check_terminal.py` for
-  native terminal tests without SSH.
+  native terminal tests without SSH. Run native checks in Microsoft Windows
+  Terminal; a real SSH target or browser URL needs Jadon's approval by name.
 - Link dispatch shares the loader's URL validation. Keep it off the UI thread,
   preserve exact URLs and avoid terminal-browser fallback. Use
   `scripts/check_links.py` for native checks without opening a real browser.
@@ -58,7 +59,6 @@ Keep the application version authoritative in `pyproject.toml`; the CLI reads
 installed metadata. Do not bump versions per edit or session. No license is
 selected; resolve that before a public release.
 
-The initial bootstrap commit and push are authorized for this setup only.
-Future commits, pushes, tags, releases, publication, visibility changes and
+Commits, pushes, tags, releases, publication, visibility changes and
 infrastructure changes require the user's applicable authorization. Follow the
 manual release checklist in [CONTRIBUTING.md](CONTRIBUTING.md).

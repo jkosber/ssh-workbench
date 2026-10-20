@@ -165,6 +165,16 @@ def test_file_access_errors(
     )
 
 
+def test_utf8_byte_order_mark_is_accepted(tmp_path: Path) -> None:
+    # Windows PowerShell 5.1 `Set-Content -Encoding UTF8` writes this prefix.
+    path = tmp_path / "projects.toml"
+    path.write_bytes(b"\xef\xbb\xbf" + project_config().encode("utf-8"))
+
+    assert load_projects(path) == [
+        Project("garden-demo", "Garden demo", "garden-demo-host")
+    ]
+
+
 def test_invalid_utf8(tmp_path: Path) -> None:
     path = tmp_path / "projects.toml"
     path.write_bytes(b"schema_version = 1\n# \xff")

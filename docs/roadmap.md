@@ -56,11 +56,11 @@ a direct test without a file):
 
 ## 2. Select projects and inspect details
 
-**Implemented and verified in [PR #2](https://github.com/jkosber/ssh-workbench/pull/2).**
+**Merged in [PR #2](https://github.com/jkosber/ssh-workbench/pull/2)** as `4852e1c`.
 The [final local checks](validation.md#task-2-final-local-verification-2026-10-12)
 and [initial Task 2 validation](validation.md#task-2-project-browser-2026-10-09)
 record the local evidence. [Task 2 remote CI](validation.md#task-2-pr-documentation-and-remote-ci-2026-10-12)
-also passed on Windows and Ubuntu. The PR records the current merge and check status.
+also passed on Windows and Ubuntu.
 
 The [2026-10-12 console follow-up](validation.md#task-2-interactive-console-follow-up-2026-10-12)
 also verifies real 80x24 terminal input, scrolling, errors and return to a working
@@ -112,15 +112,14 @@ transfer remain outside Task 2. Task 3 adds the SSH action below.
 
 ## 3. Launch native SSH and return cleanly
 
-**Implemented and verified in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3).** Based on
+**Merged in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3)** as `eeb6e39`. Based on
 merged PR #2 at `4852e1c`. Version remains 0.0.1 with unchanged dependencies.
 See [Task 3 evidence](validation.md#task-3-native-ssh-2026-10-12) for automated
 checks and the real Windows terminal fixture results; no real host was contacted.
 Jadon also confirmed navigation works in Microsoft Windows Terminal on
 2026-10-12. That manual report covers navigation only.
 [Task 3 remote CI](validation.md#task-3-pr-and-remote-ci-2026-10-12) passed on
-Windows and Ubuntu for the implementation and documentation commits. The PR
-records current checks and merge status.
+Windows and Ubuntu for the implementation and documentation commits.
 
 Acceptance criteria:
 
@@ -162,11 +161,15 @@ authorize a commit, push, PR, merge, tag or release.
 
 ## 4. Handle failures and useful documentation links
 
-**Implemented on `feat/errors-and-links`; proposed for pull-request review.**
+**Merged in [PR #4](https://github.com/jkosber/ssh-workbench/pull/4)** as
+`9b28e86c0d6c980c6058297f60e6ff623e657031`, containing reviewed feature head
+`0fe97d169a59094dbfdce179480d6889efb4dcdb`. The merge tree matches that head.
 Based on Task 3 merge `eeb6e39bf93a8ba1532503a7a2e0e565f9a9d8f2`.
 Version 0.0.1 and dependencies are unchanged.
 See [Task 4 evidence](validation.md#task-4-errors-and-links-2026-10-12) for new
 local results, native fixture limits and real-world behavior still untested.
+The [Task 5 preparation record](validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
+verifies the merge and its own Windows/Ubuntu CI separately from PR checks.
 
 Acceptance: missing configuration, missing SSH, failed connections and cancelled
 actions have actionable messages. Open validated HTTP/HTTPS links only on an
@@ -211,11 +214,34 @@ and release work remain outside Task 4.
 
 ## 5. Validate usability and review 0.1.0 readiness
 
-Acceptance: obtain approval for named real-world test targets and actions, then
-record observed behavior using [the manual checklist](validation.md). Fix material
-usability issues, update documentation and review release scope, privacy and the
-license decision. A passing test or completed task does not authorize a release.
-Follow [the manual release checklist](../CONTRIBUTING.md) only when requested.
+**In progress: testing and fixes complete; release scope and license open.**
+`test/task5-validation` starts at Task 4 merge `9b28e86`. The
+[Task 5 status table](validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
+links each record. Version remains 0.0.1, unreleased.
+
+Acceptance:
+
+- [x] Obtain approval for named real-world test targets and actions. Jadon chose
+  three SSH aliases and the repository/README URLs; alias names stay in the
+  ignored configuration.
+- [x] Record observed behavior with [the manual checklist](validation.md#task-5-user-executed-manual-session).
+  Jadon reported the first SSH handoff in Windows Terminal. The
+  [agent Windows Terminal check](validation.md#task-5-authorized-windows-terminal-check-2026-10-20)
+  completed steps A-D: R/D opened the chosen pages in Chrome, SSH returned with
+  status 0, and resizing through 60x20, 120x40 and 80x24 and both quit keys kept
+  the shell usable. [Footer clicks](validation.md#task-5-footer-click-check-2026-10-20)
+  and [two more SSH targets](validation.md#task-5-additional-ssh-targets-and-review-fixes-2026-10-20),
+  including a real timeout with status 255, also passed.
+- [x] Fix material usability issues. The manual checks found none. A whole-project
+  review found two defects, fixed after failing tests: an `ssh.exe` in the launch
+  folder could run on Windows, and UTF-8 configurations with a byte-order mark
+  failed to load.
+- [x] Update documentation: accuracy pass on 2026-10-20.
+- [x] Review privacy: no private data in history, PRs or the built package.
+- [ ] Review release scope and decide the license (Jadon, in the 0.1.0 review).
+
+A passing test or completed task does not authorize a release. Follow
+[the manual release checklist](../CONTRIBUTING.md) only when requested.
 
 ## Deferred ideas
 

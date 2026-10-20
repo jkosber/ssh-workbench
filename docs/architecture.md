@@ -117,7 +117,10 @@ It shares `config.is_valid_ssh_alias` with the loader, rechecking immediately be
 executable lookup. `shutil.which` finds `ssh.exe` on Windows or `ssh` elsewhere;
 the resulting absolute path and the unchanged alias form the entire argument
 list. The Windows lookup explicitly requests an executable rather than a batch
-file. `subprocess.run` uses `shell=False`, `check=False` and inherited stdin,
+file. On Windows, `shutil.which` checks the current directory before `PATH`
+unless `NoDefaultCurrentDirectoryInExePath` is set, and a relative `PATH` entry
+has the same effect anywhere. A relative result is therefore discarded and only
+absolute `PATH` entries are searched, so an `ssh.exe` in the launch folder never runs. `subprocess.run` uses `shell=False`, `check=False` and inherited stdin,
 stdout and stderr. No timeout, pipe, new process group or new session interferes
 with native SSH's terminal behavior.
 
@@ -157,7 +160,8 @@ suspension handling, signal guard and restoration remain unchanged.
 ## Implemented project metadata loader
 
 `ssh_workbench.config.load_projects(path: Path) -> list[Project]` reads only the
-explicit UTF-8 file. `parse_projects(text)` uses standard-library `tomllib` and
+explicit UTF-8 file and drops a leading byte-order mark, which Windows PowerShell
+5.1 and some editors write. `parse_projects(text)` uses standard-library `tomllib` and
 passes the resulting data to a separate schema validator. The frozen `Project`
 dataclass stores the five documented fields; the list preserves file order.
 Neither loading nor validation depends on Textual, subprocesses or network I/O.

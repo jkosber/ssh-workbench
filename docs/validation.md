@@ -1,5 +1,322 @@
 # Validation
 
+## Task 5: preparation and safe local verification, 2026-10-12
+
+**Task 5 remains in progress.** Initial preparation merged Task 4, verified the
+baseline with substituted external actions, and prepared the user-run session
+below. No real SSH connection or browser/GIO dispatch occurred during that
+preparation. Later user-reported and explicitly authorized agent checks in
+Windows Terminal are recorded separately below.
+On 2026-10-20, at Jadon's request, the agent listed only the `Host` names in his
+SSH configuration so he could choose test targets. It printed no host names,
+users or key paths, and has read no keys or inventories. These Task 5 records
+stayed uncommitted until 2026-10-20.
+
+| Task 5 item | Status | Evidence |
+| --- | --- | --- |
+| Approved real-world targets | Done | One alias (2026-10-12); the GitHub repository and README URLs and two more aliases (2026-10-20). Alias names stay in the ignored configuration |
+| Checklist A-D in Windows Terminal | Done | [Windows Terminal check](#task-5-authorized-windows-terminal-check-2026-10-20); step C is also [user-reported](#task-5-user-executed-manual-session) |
+| Footer mouse clicks | Done | [Footer click check](#task-5-footer-click-check-2026-10-20) |
+| More SSH targets and a real nonzero exit | Done | [Additional targets](#task-5-additional-ssh-targets-and-review-fixes-2026-10-20) |
+| Project review and material fixes | Done | Same section: SSH lookup in the launch folder and UTF-8 byte-order-mark configs, each fixed after a failing test |
+| Documentation accuracy pass | Done | 2026-10-20 |
+| Release scope and license decision | Open | Jadon decides in the 0.1.0 review |
+
+### Verified Task 4 merge and CI
+
+The starting checkout was clean on `feat/errors-and-links`, at reviewed head
+`0fe97d169a59094dbfdce179480d6889efb4dcdb`. Origin and ownership were verified as
+private `jkosber/ssh-workbench`; GitHub authenticated as `jkosber`. PR #4 was open,
+not a draft, into `main`, with that exact head, no GitHub reviews/comments or
+unresolved review threads, and `CLEAN` / `MERGEABLE` status. The branch API
+reported main unprotected; the rules endpoint was unavailable for this private
+repository's plan. No requirements or settings were changed.
+
+Both named Windows/Ubuntu jobs passed in
+[push CI 38334751595](https://github.com/jkosber/ssh-workbench/actions/runs/38334751595)
+and [PR CI 38334807914](https://github.com/jkosber/ssh-workbench/actions/runs/38334807914).
+Each log confirmed 428 tests, build and isolated package checks. PR checkout
+`e1328ec3c837b2ebca6d0fb1fea2a7ee2cea82be` had prior main `eeb6e39` and reviewed
+head `0fe97d1` as parents, with the same tree as the reviewed head.
+
+[PR #4](https://github.com/jkosber/ssh-workbench/pull/4) merged normally at
+2026-10-13 02:14:39 UTC (2026-10-12 locally), as
+**`9b28e86c0d6c980c6058297f60e6ff623e657031`**. The CLI's author-email override was
+rejected before merging; the successful REST merge used `merge_method=merge`
+and `sha=0fe97d169a59094dbfdce179480d6889efb4dcdb` as the equivalent head guard.
+GitHub attributed the merge author to Jadon Kosberg's `jkosber` account and used
+its server committer. Local/global Git identity settings were preserved. There
+was no admin override, auto-merge, branch deletion or visibility change.
+
+Fetch confirmed the merge's two expected parents and a tree identical to the
+reviewed feature head. Local main fast-forwarded to origin/main;
+`test/task5-validation` was created at the same merge. The repository remains
+private. New [merged-main CI 38335955509](https://github.com/jkosber/ssh-workbench/actions/runs/38335955509)
+completed successfully for **`9b28e86`**, with Windows and Ubuntu each passing
+428 tests, locked sync, Ruff, build and isolated installed-package validation.
+This is a separate run from Task 4's push/PR checks.
+
+### Merged-baseline local evidence
+
+Every result in this table tests merge **`9b28e86`**, before Task 5 documentation
+edits. Environment: Windows 11 Home Insider Preview build 26340, PowerShell
+7.6.6, Python 3.14.7, Textual 8.2.8, uv 0.13.0, Ruff 0.16.10 and pytest 9.1.1.
+Microsoft Windows Terminal 1.25.2733.0 is installed, but the initial preparation's
+interactive checks used an owned Windows pseudoterminal with a profile-free
+PowerShell through cmd.exe. They do not establish Windows Terminal pixels,
+resizing or SSH handoff. No screenshots were taken during that preparation.
+
+| Command/check | Agent-observed result |
+| --- | --- |
+| `uv sync --locked` | Passed; existing lockfile and project Python |
+| `uv run --locked ssh-workbench --help` / `--version` | Passed; 0.0.1 |
+| `uv run --locked ssh-workbench` | No-config screen; Q returned status 0 and usable shell input; no external action invoked |
+| `uv run --locked ruff check .` / `ruff format --check .` | Passed; 29 files (20 Python, 9 Markdown) already formatted |
+| `uv run --locked pytest --basetemp .local/task5-session/pytest` | 428 passed in 67.09s; fresh ignored directory avoided the previously documented shared-temp cleanup issue |
+| `uv build` | Source archive and wheel built |
+| `uv run --locked python scripts/check_package.py` | Passed isolated wheel/import provenance, CLI/configuration, headless selection/quit, substituted SSH/link outcomes and blocked-opener Q/Ctrl+Q interpreter exit |
+| `uv run --locked python scripts/check_links.py` | Standalone fixture: R from list, D from details, accepted/failed/error/missing results, blocked request with changed selection/focus and repeat feedback; Q and Ctrl+Q each returned 0 to usable shell input |
+| `uv run --locked python scripts/check_terminal.py` | Local Python children only: inherited terminal I/O, typed input, exits 0/7/130, C from details, two Ctrl+C events while the child continued, normal return, simulated missing/start/interruption errors, retry and both quit keys; selection and list focus restored |
+| Persistent session wheel installation below | Locked runtime install passed; help/version and Python `-I` site-packages provenance passed. No-config startup and Ctrl+Q returned 0 to usable shell input |
+| Local placeholder TOML | Installed loader accepted two projects; only the explicit new file was read, with no external action |
+
+The existing warning remains: installed uv 0.13.0 is outside
+`uv_build>=0.12.24,<0.13.0`. Build and package checks passed; tooling and the
+previously recorded backend-provenance limitation are unchanged. No production
+defect was confirmed during this preparation. No code, tests, dependencies or
+new test harnesses were added. The owned fixture shell and children exited;
+the isolated package check removed its temporary environment. The separate
+manual environment is retained for Jadon.
+
+Fixture entry points were inspected before execution. The link fixture starts
+guards before app construction and retains them until interpreter exit; the
+full suite includes all 11 lifetime/exit/import regressions. The terminal fixture
+substitutes executable lookup and invocation with fixed local Python children.
+New fixture results above are distinct from historical WezTerm evidence below.
+
+At the preparation handoff, all 23 relative links/anchors in the three changed
+Markdown files passed validation, and the documented TOML matched the then-current
+ignored placeholder template. Final diff/whitespace and empty-index checks passed;
+only the roadmap, this record and the Unreleased changelog changed in Git.
+
+### Task 5 evidence gaps against the existing acceptance
+
+| Evidence class | Supported now / remaining gap |
+| --- | --- |
+| Automated | Configuration, selection/details, focus/scroll/quit, sanitized failures, SSH/browser boundary contracts and package installation pass on this revision. These support the baseline, not the required real-world observations. |
+| Substituted boundaries / native fixtures | Current pseudoterminal checks exercise local handoff, recovery and stubbed dispatch. Historical WezTerm resize/text results retain their recorded scope; obscured Task 4 screenshots remain excluded. |
+| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. An authorized agent check of the installed build in Windows Terminal (2026-10-20) covered live SSH return, navigation, resizing, detail scrolling and both quit keys with shell checks. In Windows Terminal, R/D opened the chosen GitHub repository and README pages in Chrome. Mouse clicks on the footer's Connect (local-child fixture), Repository, Documentation and Quit actions also worked. |
+| Still unverified / unavailable | Linux GIO browser dispatch and a native Linux desktop; other DPI settings and screen readers. Authentication mechanisms and host-key prompts were not separately examined. macOS browser dispatch is explicitly unavailable in this version. Ubuntu CI does not validate a Linux desktop. Agent observation is not a human visual review. |
+| Documentation, issues and readiness review | Checklist steps A-D are complete with no material defect found. Scope and privacy boundaries were reviewed; final readiness and the unselected license remain open. No release/version/visibility decision is made. |
+| Outside initial-release requirements | Deferred editing/search, discovery, tmux, transfers, cloud sync, embedded terminals, AI, Proxmox controls and plugins. Manual checks use Microsoft Windows Terminal; this task adds no all-platform or accessibility certification requirement. |
+
+### Task 5 installed build and local configuration
+
+Use Microsoft Windows Terminal for the first real pass. Run these commands from
+the repository in PowerShell. The session directory was absent before preparation
+and `git check-ignore -v` verified `.local/` ignores the configuration, environment
+and exported requirements. Existing local files were preserved. Keep real target
+details only in `.local/task5-session/projects.toml`, never in tracked examples.
+
+The following **local installation steps have already passed**. They mirror the
+existing package-check installation sequence and do not alter global Python.
+For another installation, choose a fresh ignored directory; do not overwrite an
+existing environment, requirements export or configuration.
+
+```powershell
+uv sync --locked
+uv build
+uv venv --python .venv\Scripts\python.exe .local\task5-session\venv
+uv export --locked --no-dev --no-emit-project --output-file .local\task5-session\runtime-requirements.txt
+uv pip sync --python .local\task5-session\venv\Scripts\python.exe .local\task5-session\runtime-requirements.txt
+uv pip install --python .local\task5-session\venv\Scripts\python.exe --no-deps dist\ssh_workbench-0.0.1-py3-none-any.whl
+```
+
+The retained installed wheel was built from `9b28e86`, version 0.0.1, SHA-256
+`71d1522a22fb6c9549ad7b0a7ca18650b247a37f495eaa5e82c3e8a35aadf589`.
+Documentation edits afterward do not change that installed artifact.
+
+The original schema-correct template below is retained as a fictional reference.
+Jadon subsequently chose an existing alias; both local records use that alias.
+On 2026-10-20 he chose the repository and README URLs for the first record; the
+second still omits them. Actual target details stay in the ignored file. The second row supports navigation and missing
+references without another host. When reusing this template, replace its alias
+and URL placeholders before C/R/D; restart Workbench after editing the file.
+
+```toml
+schema_version = 1
+
+[[projects]]
+id = "manual-target"
+name = "Manual target"
+ssh_alias = "CHOOSE_EXISTING_ALIAS"
+repository = "https://example.invalid/choose-repository"
+documentation = "https://example.invalid/choose-documentation"
+
+[[projects]]
+id = "navigation-check"
+name = "Navigation check - use the same existing alias; no links on this row"
+ssh_alias = "CHOOSE_EXISTING_ALIAS"
+# Optional URLs omitted to check the 'Not provided' display.
+```
+
+Jadon can now use the installed build without rebuilding or activating a venv:
+
+```powershell
+git rev-parse HEAD
+& .\.local\task5-session\venv\Scripts\ssh-workbench.exe --version
+& .\.local\task5-session\venv\Scripts\ssh-workbench.exe --config .local\task5-session\projects.toml
+```
+
+Launching/selection reads that file without contacting a target. **C contacts
+the configured SSH destination; R/D open a real browser.** These actions below
+are for Jadon to perform. No passwords, private keys, MFA codes, sensitive
+transcripts or screenshots are requested. Pause unexpected host-key/trust prompts
+for independent verification; do not auto-accept, remove warnings, edit
+known_hosts or disable checking. An actual login may create normal session or
+audit records; use the existing trusted workflow without extra remote operations.
+
+### Task 5 authorized Windows Terminal check, 2026-10-20
+
+Jadon chose the repository and README URLs below and authorized one live SSH
+connection to the alias already in the ignored configuration. The agent ran
+checklist steps A, B, C and D in one owned Microsoft Windows Terminal 1.25.2733.0
+window with PowerShell 7.6.7 on Windows build 26340. The installed wheel above
+(0.0.1 from `9b28e86`) was used; `src/`, `pyproject.toml`, `uv.lock` and `README.md`
+are unchanged between `9b28e86` and the tested branch head `5378fcd`.
+
+The first row of the ignored configuration gained
+`repository = "https://github.com/jkosber/ssh-workbench"` and
+`documentation = "https://github.com/jkosber/ssh-workbench/blob/main/README.md"`.
+The second row still omits both. A dated backup of the prior file was kept.
+
+| Step | Agent-observed result |
+| --- | --- |
+| A. Baseline | `--version` printed 0.0.1. Startup selected the first project with list focus. Up/Down switched details between both projects; the second showed `Not provided` twice. Tab moved the accent border to details; Down/End scrolled the one overflowing line and Home returned. Shift+Tab restored list navigation. |
+| B. Browser | R reported `Repository browser request accepted. Project 1: manual-target`. Windows' URL association opened Google Chrome 155.0.8059.85, whose address bar showed `github.com/jkosber/ssh-workbench` and whose title was the repository page. D reported the matching acceptance and Chrome showed `github.com/jkosber/ssh-workbench/blob/main/README.md` with the README title. The private repository loaded in Chrome's existing signed-in session. R on the second project showed `Repository link not configured. Add it to the configuration and restart.` with `Project 2: navigation-check`. Navigation continued after returning from the browser, and Q exited 0 to usable shell input. |
+| C. SSH | After a relaunch, C handed the terminal to native SSH. A remote shell prompt appeared with no password, MFA or host-key prompt. The agent typed only `exit`. Workbench returned with `SSH exited with status 0.`, the same project selected and list focus; Up/Down worked immediately. |
+| D. Restoration | In the same session after the SSH return, the window was resized to 60x20, 120x40 and back to 80x24, with dimensions confirmed from the rendered screen. Up/Down worked at each size. At 60x20 the title and second name truncated, help text wrapped, the footer stayed visible, and details scrolled to the wrapped README URL. Q then exited 0 and `Write-Output` worked. A separate launch exited 0 with Ctrl+Q and `Write-Output` again worked. |
+
+How it ran: Win32 `SendInput` keystrokes were sent only while the owned window
+was in the foreground, and the run stopped otherwise. Screen text came from Windows UI Automation
+and screenshots from `Graphics.CopyFromScreen` of that window only. Window size
+was set with `SetWindowPos`. Fifteen Workbench-only PNGs are kept under ignored
+`.local/task5-session/wt-20261020/`. No screenshot covered the SSH session or the
+browser, and remote output was not recorded.
+
+Run notes:
+
+- The agent's environment sets `NO_COLOR=1`, which the new window inherited, so the
+  first launch rendered monochrome. The variable was removed in that test shell
+  only and the checks were repeated with normal colors.
+- Jadon accidentally typed into the window during size calibration, before
+  Workbench started. That only affected a calibration command in the shell.
+- The Chrome tabs opened by R/D were left open. The test window was closed with `exit`.
+
+No application defect was found. The link status after R on the second project
+kept naming project 2 when the selection moved back to project 1, as documented:
+link results stay attributed to the project that requested them.
+
+### Task 5 footer click check, 2026-10-20
+
+The README says the footer's Connect, Repository and Documentation actions can be
+clicked. Automated tests only confirm those footer keys exist and are visible,
+so the agent clicked them with the mouse in a new owned Windows Terminal window,
+using the same setup as the check above. Source is unchanged from that check.
+Each click targeted the label's on-screen bounds from UI Automation and
+was refused unless that point belonged to the owned window. The cursor was
+restored afterwards.
+
+| Click | Agent-observed result |
+| --- | --- |
+| Connect, in `scripts/check_terminal.py` (local child, no SSH) | The first fixture project handed off to the local child with terminal stdin/stdout/stderr. After `return`, Workbench showed `SSH exited with status 0.` with the same project selected and list focus |
+| Quit, in the fixture | Exited 0; `Write-Output` worked |
+| Repository, installed build, list focused | `Repository browser request accepted. Project 1: manual-target`; Chrome showed `github.com/jkosber/ssh-workbench` |
+| Documentation, installed build, details focused | Matching acceptance; Chrome showed the README URL. Details kept focus and the selection was unchanged |
+| Quit, installed build | Exited 0; `Write-Output` worked |
+
+Connect was clicked only in the local-child fixture, so no SSH connection was
+made. Screenshots are in ignored `.local/task5-session/wt-footer-20261020/`.
+
+### Task 5 additional SSH targets and review fixes, 2026-10-20
+
+**Review.** Three read-only reviews covered the whole project: code and tests,
+documentation accuracy, and privacy. No crash or bad-state bug was found. Git
+history on all branches, the PR text and the built package contain no private
+paths, hosts, aliases, tokens or AI attribution. The reviews confirmed two defects,
+each fixed after a failing test was committed (`b753e3b`):
+
+| Defect | Fix |
+| --- | --- |
+| On Windows, `shutil.which` checks the current directory before `PATH` unless `NoDefaultCurrentDirectoryInExePath` is set, so C could run an `ssh.exe` sitting in the folder Workbench was started from. A relative `PATH` entry had the same effect on any platform | `2653323`: a relative lookup result is discarded and only absolute `PATH` entries are searched |
+| A configuration saved as UTF-8 with a byte-order mark (Windows PowerShell 5.1 `-Encoding UTF8`) failed with "invalid syntax at line 1, column 1" | `b8a4218`: a leading byte-order mark is removed before parsing |
+
+At `b8a4218`, locked sync, Ruff lint/format, 431 tests, `uv build` and
+`scripts/check_package.py` passed.
+
+**More SSH targets.** Jadon approved two more aliases for machines outside his
+homelab; their names stay in the ignored configuration. The agent ran the current
+checkout with `uv run --locked ssh-workbench` in a new owned Windows Terminal
+window, under the same rules as the earlier check. It printed no remote output and
+took no screenshots of SSH sessions.
+
+| Target | Agent-observed result |
+| --- | --- |
+| Second alias, first attempt (the workstation's VPN was off) | Native SSH reported a connection timeout. Workbench returned with `SSH exited with status 255. Check the SSH client's message and alias; C retries.` and kept the project selected. This is the first real-world check of the nonzero-exit path |
+| Second alias, retry with the VPN on | A remote shell prompt appeared with no password or host-key prompt; `exit` returned `SSH exited with status 0.` with the selection kept. Ctrl+Q then exited 0 and `Write-Output` worked |
+| Third alias | Same as the retry: remote prompt, `exit`, status 0, selection kept. Q exited 0 and `Write-Output` worked |
+
+A harness bug sent one extra Ctrl+C after the third alias's `exit`. It reached
+Workbench after SSH had returned, and Textual showed its built-in "Do you want to
+quit? Press ctrl+q to quit the app" notice. Workbench kept running and no input
+reached the remote host. The harness was corrected.
+
+### Task 5 user-executed manual session
+
+Results below distinguish user reports from agent observations. This manual
+session follows the prepared installed build, version 0.0.1 from `9b28e86`;
+the agent did not observe the user's executable or authentication session.
+
+**User-reported, 2026-10-12:** In Microsoft Windows Terminal running PowerShell,
+C switched to SSH in the same terminal session. Exiting SSH returned directly
+to Workbench, kept the same project selected, accepted Up/Down immediately, and
+displayed `SSH exited with status 0`. This completes the reported handoff/normal
+return check; it does not establish browser dispatch, resize or quit restoration.
+No sensitive transcript or screenshot was requested or collected for this report.
+
+The checklist below records Windows Terminal status. Step C is Jadon's report.
+Steps A, B and D passed in the
+[agent Windows Terminal check](#task-5-authorized-windows-terminal-check-2026-10-20),
+which also repeated C. Those are agent observations, not user reports.
+
+- [x] **A. Baseline (local; agent-observed pass, 2026-10-20):** Record 0.0.1, the tested commit, Windows version and
+  Windows Terminal version. Fill the private configuration, launch with the command
+  above, and check Up/Down selection, details, Tab/Shift+Tab focus and detail scrolling.
+- [x] **B. Browser (opens real destinations; agent-observed pass, 2026-10-20):** Select `manual-target`; explicitly
+  invoke R / Repository and D / Documentation. Observe the intended destination
+  and page result in the browser separately from Workbench's dispatch message.
+  Return to the terminal, check navigation and Q, then relaunch for C.
+- [x] **C. SSH (user-reported pass; contacts the chosen real system):** Use one existing noncritical
+  host and the account already used there. If a direct baseline is needed, Jadon
+  runs `ssh CHOOSE_EXISTING_ALIAS` after replacing the placeholder, authenticates
+  privately and leaves normally. In Workbench use C / Connect, authenticate,
+  leave normally, and verify the same selection, list focus, status and further use.
+- [x] **D. Restoration (local; agent-observed pass, 2026-10-20):** After returning, resize the terminal and check
+  navigation. Test Q and Ctrl+Q in separate launches; after each, confirm usable
+  shell input, for example `Write-Output 'shell input works'`.
+
+For deliberate failures, blocked openers and aggressive interruption, use only
+the existing [link fixture](#task-4-stubbed-link-checklist) and
+[local-child fixture](#task-3-local-terminal-fixture). Do not use wrong credentials,
+interrupt unrelated remote work, stop services, change host keys or create outages.
+The authorized Windows Terminal check above is complete within its recorded scope.
+
+Report further observations briefly and without sensitive details: step A/B/C/D, pass/fail/not tested, expected
+versus observed behavior, version/commit/terminal and any minimal reproduction.
+Label them **user-reported**; keep agent fixture and automated evidence separate.
+Browser acceptance alone is not proof of page loading. Task 5 stays in progress
+until the readiness review (scope, privacy, license) is complete.
+
 ## Task 4: errors and links, 2026-10-12
 
 Starting state was inspected and fetched: clean `main` and `origin/main` both
@@ -134,7 +451,7 @@ the fixture guards, including when testing the defective version.
 | Blocked-opener interpreter exit | Q and Ctrl+Q passed for Windows and simulated Linux; the original fixture stub remained blocked. A parent timeout fails the test, rather than supplying passing exit evidence |
 | Affected fixture/link/UI tests | 138 passed, including Windows success with `os.startfile` explicitly returning `None` |
 | Full pytest with a unique disposable base directory | 428 passed; no temporary-directory cleanup error |
-| Locked sync, Ruff lint/format, CLI help/version | Passed; 29 Python files formatted and CLI version 0.0.1 |
+| Locked sync, Ruff lint/format, CLI help/version | Passed; 29 files (20 Python, 9 Markdown) formatted and CLI version 0.0.1 |
 | Build and isolated package validation | Passed, including installed-import assertions and existing blocked-opener Q/Ctrl+Q processes |
 | Relative documentation links/anchors and whitespace | 45 links/anchors passed; `git diff --check` passed |
 | Focused independent review | No additional correction defect found; this was a static review, not another native-platform run |
@@ -709,11 +1026,15 @@ and head and whose tree matched the head. Job logs confirmed dependency sync,
 lint, formatting, 176 tests, build and installed-package validation. These remote
 results apply to that snapshot; the follow-up requires its own CI after pushing.
 
-The shared Serena project settings are included for development. Cache files,
-local overrides and memories remain ignored. No private configuration is needed
-by the application or tests.
+At this point the shared Serena project settings were committed for development;
+they were removed on 2026-10-20. No private configuration is needed by the
+application or tests.
 
-## Bootstrap environment: 2026-10-09
+## Bootstrap, 2026-10-09
+
+The records below describe the initial 0.0.1 scaffold, before any product feature.
+
+### Bootstrap environment
 
 Local commands execute on a Windows 11 Home Insider Preview x64 workstation
 (OS build 10.0.26340), using PowerShell 7.6.6. No remote machine is involved.
@@ -724,7 +1045,7 @@ Resolved direct dependencies: Textual 8.2.8; development tools pytest 9.1.1,
 pytest-asyncio 1.4.0 and Ruff 0.16.10. `uv.lock` records exact transitive versions.
 The uv build backend requirement was generated by uv: >=0.12.24,<0.13.0.
 
-## Automated checks
+### Bootstrap automated checks
 
 | Check | Observed result |
 | --- | --- |
@@ -751,7 +1072,7 @@ checks passed. An independent source/documentation review found no blocking
 issues. These checks reduce accidental disclosure risk but do not replace review
 of future changes.
 
-## Manual verification and limits
+### Bootstrap manual verification and limits
 
 On 2026-10-09, Jadon confirmed that the application's appearance, Q exit and
 Ctrl+Q exit work in manual testing. This is user-confirmed verification of the
@@ -762,7 +1083,7 @@ The earlier tool-based interactive launch was blocked when Windows returned
 "Access is denied" while creating the terminal process. That tool-launch failure
 was not an observed application exception; the manual check is now complete.
 
-No real SSH feature exists, and no SSH configuration, keys, known_hosts,
+At bootstrap no real SSH feature existed, and no SSH configuration, keys, known_hosts,
 infrastructure or vault data is used by tests. macOS and other Python versions
 have not been tested.
 
@@ -776,10 +1097,11 @@ verified through their official GitHub
 release/tag APIs: actions/checkout v7.0.1 and astral-sh/setup-uv v10.2.0; full
 commit references are recorded in the workflow. Permissions are `contents: read`.
 
-## Future approved manual SSH checklist
+### Bootstrap's planned manual SSH checklist
 
-These checks are **not performed** during bootstrap. Obtain approval for the
-specific hosts and connection actions first, and record date, platform and result.
+Superseded by the [Task 5 checklist](#task-5-user-executed-manual-session) and
+its recorded real SSH and browser checks. Kept as the original plan. These checks
+were **not performed** during bootstrap.
 
 - Select a fictional/local fixture, then an approved real project; verify the
   shown alias and context match the intended target before connecting.

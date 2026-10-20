@@ -12,12 +12,13 @@ is 0.1.0; it has not been released.
 
 | Works now | Planned |
 | --- | --- |
-| Explicit `--config PATH` with TOML validation | Approved usability checks |
-| Keyboard project selection and read-only details | 0.1.0 readiness review |
+| Explicit `--config PATH` with TOML validation | 0.1.0 readiness review: release scope and license |
+| Keyboard project selection and read-only details | |
 | C to connect with native SSH and return to the browser | |
 | R / Repository and D / Documentation browser requests | |
 | Q or Ctrl+Q to exit; `--help` and `--version` | |
 | Tests, lint/format checks and package build | |
+| Manual checks in Windows Terminal with real SSH and browser links | |
 
 The [example configuration](examples/projects.example.toml) contains fictional
 data for trying the browser. Connections require an explicit **C / Connect**
@@ -26,7 +27,7 @@ commands and infrastructure controls remain outside this build. To test terminal
 handoff without SSH, use the
 [local child fixture](docs/validation.md#task-3-local-terminal-fixture).
 
-The application requires no Codex, ChatGPT, OpenAI API key or AI subscription.
+The application needs no AI service, API key or subscription.
 
 ## Install and run
 
@@ -36,7 +37,8 @@ the package declares **Python >=3.14**. uv uses the matching interpreter or can
 download a project interpreter without replacing system Python.
 
 Connecting requires the native OpenSSH client on `PATH`: `ssh.exe` on Windows,
-or `ssh` on other platforms.
+or `ssh` on other platforms. Only absolute `PATH` folders count: an `ssh.exe` in
+the folder you start Workbench from is never run.
 
 From the repository directory, in PowerShell or a POSIX shell:
 
@@ -155,8 +157,8 @@ or Q to quit.
 
 Run this action in a local terminal. Environments that cannot release their
 terminal, including Textual Web, show an explanation without starting SSH.
-See [validation](docs/validation.md#task-3-native-ssh-2026-10-12) for the tested
-platform and remaining limits.
+See [Task 5 validation](docs/validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
+for real Windows Terminal results and remaining limits.
 
 ## Load project metadata
 
@@ -169,7 +171,8 @@ uv run --locked python -c "from pathlib import Path; from ssh_workbench.config i
 uv run --locked pytest tests/test_config.py -q
 ```
 
-`load_projects(path)` reads UTF-8 TOML and returns a `list[Project]` in file order.
+`load_projects(path)` reads UTF-8 TOML, with or without a byte-order mark, and
+returns a `list[Project]` in file order.
 Each frozen record contains `id`, `name`, `ssh_alias`, `repository` and
 `documentation`; absent optional references are `None`. `parse_projects(text)`
 performs the same parsing and validation on an existing string. Both report
