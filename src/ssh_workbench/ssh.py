@@ -1,5 +1,6 @@
 """Launch native SSH synchronously on the main thread with inherited terminal I/O."""
 
+import os
 import shutil
 import signal
 import subprocess
@@ -22,6 +23,16 @@ def _wait_for_ssh(signum: int, frame: FrameType | None) -> None:
     pass
 
 
+def _which_on_absolute_path(command: str) -> str | None:
+    # A directory part stops shutil.which from adding the current directory.
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        if os.path.isabs(directory):
+            found = shutil.which(os.path.join(directory, command))
+            if found is not None:
+                return found
+    return None
+
+
 @contextmanager
 def ssh_handoff() -> Iterator[None]:
     """Shield the parent until the browser has reclaimed the terminal."""
@@ -41,7 +52,12 @@ def launch_ssh(alias: str) -> int:
                 "hyphens, starting with a letter/digit."
             )
         try:
-            executable = shutil.which("ssh.exe" if sys.platform == "win32" else "ssh")
+            command = "ssh.exe" if sys.platform == "win32" else "ssh"
+            executable = shutil.which(command)
+            if executable is not None and not os.path.isabs(executable):
+                # Windows tries the launch directory before PATH, and a relative
+                # PATH entry does the same anywhere. Never run a client found so.
+                executable = _which_on_absolute_path(command)
             if executable is None:
                 raise SSHLaunchError(
                     "SSH not found. Install OpenSSH and add it to PATH."
