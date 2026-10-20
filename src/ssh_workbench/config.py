@@ -38,7 +38,8 @@ def load_projects(path: Path) -> list[Project]:
         raise ProjectConfigError("configuration: expected UTF-8 text") from None
     except ValueError:
         raise ProjectConfigError("configuration: invalid file path") from None
-    return parse_projects(text)
+    # Some Windows editors and PowerShell 5.1 prefix UTF-8 with a byte-order mark.
+    return parse_projects(text.removeprefix("﻿"))
 
 
 def parse_projects(text: str) -> list[Project]:
