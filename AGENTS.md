@@ -28,11 +28,14 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Tasks 1–4 support explicit configuration, project browsing, native SSH launch
-  and return, and explicit repository/documentation links. Do not add controls
-  for deferred roadmap features.
-- Never read real SSH configuration, keys, host inventories or remote hosts as
-  part of development tests. Use temporary files and fictional fixtures.
+- Tasks 1–6 support explicit or per-user default configuration, project
+  browsing, native SSH launch and return, and explicit repository/documentation
+  links. Do not add controls for deferred roadmap features.
+- Never read real SSH configuration, keys, host inventories, remote hosts or the
+  real per-user projects file as part of development tests. Use temporary files
+  and fictional fixtures; the test suite points `APPDATA` and `XDG_CONFIG_HOME`
+  at an empty folder. Without `--config`, `uv run --locked ssh-workbench` loads
+  the developer's real projects file if one exists.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate
   aliases and pass argument lists without a shell. Never disable
   host-key verification or store passwords/private keys.

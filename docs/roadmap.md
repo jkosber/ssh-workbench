@@ -14,7 +14,7 @@ for evidence and remaining verification limits.
 
 **Merged in PR #1** at `84d392f`; final Task 1 head `c08259a`. The standalone
 loader and its tests are complete. No SSH, discovery, network requests, URL opening or project-selection
-UI was added. See [schema and usage](../README.md#load-project-metadata) and
+UI was added. See the [schema](../README.md#schema), [Python API](architecture.md#python-api) and
 [task 1 evidence](validation.md#task-1-local-project-metadata-2026-10-09).
 
 Acceptance criteria:

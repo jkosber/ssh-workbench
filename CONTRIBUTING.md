@@ -16,6 +16,12 @@ package in editable mode, so source changes are available on the next run.
 `pyproject.toml` declares dependencies; `uv.lock` records the resolved versions.
 `--locked` fails if those files disagree instead of silently changing the lock.
 
+Without `--config`, the development command loads your real per-user projects
+file if it exists; `ssh-workbench --help` shows its path. The test suite never
+reads it. Keep private configuration and machine-specific notes in the ignored
+`.local/` folder, and review files before staging: ignore rules cannot catch
+every possible secret.
+
 Use `uv add PACKAGE` for a runtime dependency or `uv add --dev PACKAGE` for a
 development tool. Add a dependency only when the current task needs it. Review
 and commit both metadata and lockfile changes together when authorized.
@@ -127,7 +133,9 @@ Manual release checklist:
 
 1. Review completed scope and validation, then choose a version. Resolve the
    license and privacy checklist before a public release; visibility changes
-   need their own approval.
+   need their own approval. Run `git grep -n -i -E "unreleased|scaffold"` and
+   update every line that describes the current state, including the
+   `pyproject.toml` description and the app subtitle.
 2. Update `pyproject.toml`, run `uv lock` as needed and `uv sync --locked`, and
    review the metadata/lockfile diff.
 3. Run the full checks above, including a fresh build and isolated installation.

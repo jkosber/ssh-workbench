@@ -1,268 +1,211 @@
 # SSH Workbench
 
-A project-aware terminal interface for keeping SSH aliases and project context
-together. Select a project, see its host and useful references,
-and connect through the existing native SSH client. This is a first larger
-version-controlled program being developed in small, reviewable steps.
+A keyboard-driven terminal interface for the machines you work on. Keep a short
+list of projects, each with its SSH alias and optional repository and
+documentation links. Pick one, press **C**, and your own OpenSSH client takes
+over the terminal. When the session ends, you are back in the list with the same
+project selected.
 
-## Current status
+Workbench reads one TOML file and starts `ssh` with a single alias argument.
+Passwords, keys, the SSH agent and host-key checks all stay with OpenSSH.
 
-**0.0.1 is an unreleased development scaffold.** The first usable release target
-is 0.1.0; it has not been released.
+## Platform support
 
-| Works now | Planned |
+| Platform | Status |
 | --- | --- |
-| Explicit `--config PATH` with TOML validation | 0.1.0 readiness review: release scope and license |
-| Keyboard project selection and read-only details | |
-| C to connect with native SSH and return to the browser | |
-| R / Repository and D / Documentation browser requests | |
-| Q or Ctrl+Q to exit; `--help` and `--version` | |
-| Tests, lint/format checks and package build | |
-| Manual checks in Windows Terminal with real SSH and browser links | |
+| Windows 11 | Tested in Windows Terminal with real SSH hosts and browser links |
+| Linux | Automated tests in CI only. Opening links needs a desktop session with `gio` and is untested on a real desktop |
+| macOS | Untested. Links report "browser unavailable" |
 
-The [example configuration](examples/projects.example.toml) contains fictional
-data for trying the browser. Connections require an explicit **C / Connect**
-action. Links require **R / Repository** or **D / Documentation**. Arbitrary remote
-commands and infrastructure controls remain outside this build. To test terminal
-handoff without SSH, use the
-[local child fixture](docs/validation.md#task-3-local-terminal-fixture).
+## Requirements
 
-The application needs no AI service, API key or subscription.
+- [uv](https://docs.astral.sh/uv/getting-started/installation/). It downloads
+  Python 3.14 for Workbench if you don't have it.
+- The OpenSSH client: `ssh.exe` on Windows (the built-in "OpenSSH Client"
+  optional feature), `ssh` elsewhere. Only absolute `PATH` entries count, so an
+  `ssh.exe` in the folder you start Workbench from is never run.
+- Hosts you can already reach with `ssh <alias>`.
 
-## Install and run
+## Install
 
-Prerequisites: Git, [uv](https://docs.astral.sh/uv/getting-started/installation/)
-and a terminal. Development uses Python **3.14.7**, recorded in `.python-version`;
-the package declares **Python >=3.14**. uv uses the matching interpreter or can
-download a project interpreter without replacing system Python.
-
-Connecting requires the native OpenSSH client on `PATH`: `ssh.exe` on Windows,
-or `ssh` on other platforms. Only absolute `PATH` folders count: an `ssh.exe` in
-the folder you start Workbench from is never run.
-
-From the repository directory, in PowerShell or a POSIX shell:
+From a clone:
 
 ```text
-uv sync --locked
-uv run --locked ssh-workbench --help
-uv run --locked ssh-workbench --version
-uv run --locked ssh-workbench
-uv run --locked ssh-workbench --config examples/projects.example.toml
+git clone https://github.com/jkosber/ssh-workbench.git
+cd ssh-workbench
+uv tool install .
+ssh-workbench --version
 ```
 
-Press **Q** or **Ctrl+Q** to close the screen. `uv sync` creates the local `.venv`
-and installs the package and development tools. No environment activation is
-needed when using `uv run`. Initial dependency installation needs network access;
-the installed application runs locally.
-
-Without `--config`, an informative empty development screen explains how to load
-projects. No default file is read and the example is never loaded automatically.
-An explicit path is relative to the current directory unless absolute; quote
-paths containing spaces. The application only reads the requested file and never
-creates or overwrites configuration. An invalid or unreadable file produces a
-concise error on stderr and exits with status 2 before starting the TUI.
-`--help` and `--version` exit without reading configuration, even when `--config`
-is also supplied.
-
-## Browse projects
-
-The list preserves file order, with the first project selected and focused at
-startup. **Up/Down** changes the selection and immediately updates the details.
-The highlighted row marks the selection; the accent border marks keyboard focus.
-**Tab** and **Shift+Tab** move focus between the list and details. In the details
-pane, use **Up/Down**, **Page Up/Page Down**, or **Home/End** to scroll.
-
-Details show the selected project's ID, name, SSH alias, repository and
-documentation. Missing optional references show `Not provided`. A configuration
-with `projects = []` shows a separate empty-project message. Restart the app to
-read file changes; editing and reloading are not implemented.
-
-Long names are shortened visually in the list; full values wrap in the scrollable
-details pane. Unicode text is preserved. Nonprinting characters, including
-newlines, tabs, terminal escapes and direction controls, appear as visible
-Python-style escapes such as `\n`, `\x1b` and `\u202e`. Only the display changes;
-the original project records are retained. Markup-like strings are literal text.
-References have no application-generated hyperlinks or inline click actions.
-A terminal may independently recognize URL text. Workbench opens links only
-through the explicit footer actions described below.
-
-## Open repository and documentation links
-
-Press **R / Repository** or **D / Documentation**, or click the corresponding
-footer action, to open the selected project's optional URL. Both actions work
-from either pane. Startup, selection, focus changes, rendering and Enter never
-request a browser. Missing links and no selection show a short explanation.
-
-Workbench rechecks the same HTTP/HTTPS rules used by the loader and sends the
-exact URL, including queries, fragments and encoding, to the environment's
-browser opener. It does not fetch the page or test connectivity. The status
-**"browser request accepted"** means the opener accepted the request; Workbench
-cannot tell whether a page loaded or a browser closed. Errors omit URLs and
-underlying exception details.
-
-Windows uses the system URL association. Linux requires a desktop session
-(`DISPLAY` or `WAYLAND_DISPLAY`), GIO's `gio` command on `PATH`, and a configured
-browser. Other environments, including macOS in this version, show an unavailable
-message. There is no text-browser fallback, `BROWSER` command override or browser
-preference change. Opening happens where Workbench runs, which may differ from
-the computer displaying a remote terminal; there is no client forwarding.
-
-Only one browser request can be pending. Repeated R/D actions report that pending
-request without queuing or retrying it. Navigation, scrolling, Connect and both
-quit keys remain available. Completion identifies the original project's
-one-based list position and ID and leaves the current selection, focus and
-scrolling alone. The fixed status area can clip very long IDs; the project
-number remains visible. SSH has its own status area.
-
-Q or Ctrl+Q stops waiting and exits even if the opener is blocked. Shutdown drops
-late results and prevents requests that have not started when the shutdown check
-runs. It cannot stop an OS call already underway, retract a dispatched request
-or close an external browser. A pending request may still open after quitting.
-
-For a native terminal check that **never opens a real browser**, run:
+Or directly from GitHub, which needs access to the private repository:
 
 ```text
-uv run --locked python scripts/check_links.py
+uv tool install git+https://github.com/jkosber/ssh-workbench@v0.1.0
 ```
 
-The [fixture checklist](docs/validation.md#task-4-stubbed-link-checklist) covers
-accepted, failed, missing and blocked requests with fictional metadata.
-Run it as a separate process: its entry point keeps external-action stubs active
-until process exit, including when a delayed request outlives the TUI or an error.
-Importing the fixture module does not install those stubs.
+If your shell can't find `ssh-workbench`, run `uv tool update-shell` and open a
+new terminal. To upgrade a clone install, run `git pull`, then
+`uv tool install --reinstall .`. To remove Workbench, run
+`uv tool uninstall ssh-workbench`; your projects file stays where it is.
 
-## Connect with native SSH
+## Quick start
 
-Select a project, then press **C** or click **Connect** in the footer. The same
-action works from either pane and is disabled without a selection. Startup,
-navigation and Enter never connect automatically. Only one connection runs at a
-time.
+1. Check that `ssh <alias>` connects on its own.
+2. Create the projects file. On Windows, in PowerShell:
 
-SSH Workbench hands the terminal and standard input/output to native SSH. The
-client receives only the selected alias as one argument, revalidated with the
-same rules as the loader. Native SSH handles authentication, the SSH agent, user
-SSH configuration and host-key checks. SSH Workbench does not read those files,
-capture credentials or alter verification settings.
+   ```powershell
+   New-Item -ItemType Directory -Force "$env:APPDATA\ssh-workbench"
+   notepad "$env:APPDATA\ssh-workbench\projects.toml"
+   ```
 
-Use SSH normally, including **Ctrl+C**. If SSH keeps running after Ctrl+C, the
-browser continues waiting. When the client exits, the browser returns with the
-same project selected, focus on the project list, and the exit status below the
-panes. Launch errors and interruptions also return to a usable browser. Missing
-SSH and process-start failures show a short message; fix the reported local
-installation problem and press C to retry.
-Nonzero exits retain the exact status and suggest checking the SSH client's
-message and alias before retrying. Workbench does not infer a cause from that
-status or capture the client's output. An interrupted handoff offers C to retry
-or Q to quit.
+   On Linux or macOS, run `mkdir -p ~/.config/ssh-workbench` and edit
+   `~/.config/ssh-workbench/projects.toml`.
+3. Add a project:
 
-Run this action in a local terminal. Environments that cannot release their
-terminal, including Textual Web, show an explanation without starting SSH.
-See [Task 5 validation](docs/validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
-for real Windows Terminal results and remaining limits.
+   ```toml
+   schema_version = 1
 
-## Load project metadata
+   [[projects]]
+   id = "web"
+   name = "Web server"
+   ssh_alias = "web"
+   repository = "https://example.com/web.git"
+   documentation = "https://example.com/web/docs"
+   ```
 
-The standalone Python API accepts an explicit `pathlib.Path`. It uses the same
-loader as `--config`, with no default search path. From the repository directory,
-exercise the fictional example without the TUI with:
+4. Run `ssh-workbench`, select the project and press **C**. Type `exit` in the
+   remote shell to come back.
 
-```text
-uv run --locked python -c "from pathlib import Path; from ssh_workbench.config import load_projects; print(load_projects(Path('examples/projects.example.toml')))"
-uv run --locked pytest tests/test_config.py -q
-```
+`ssh-workbench --help` prints the exact path of the projects file on your
+machine. [examples/projects.example.toml](examples/projects.example.toml) has
+another example, including a project without links.
 
-`load_projects(path)` reads UTF-8 TOML, with or without a byte-order mark, and
-returns a `list[Project]` in file order.
-Each frozen record contains `id`, `name`, `ssh_alias`, `repository` and
-`documentation`; absent optional references are `None`. `parse_projects(text)`
-performs the same parsing and validation on an existing string. Both report
-configuration problems through `ProjectConfigError`. Neither uses the metadata
-to connect, execute commands, inspect repository locations or open links.
+## Configuration
 
-Schema version 1:
+### Where the file lives
+
+| Platform | Default projects file |
+| --- | --- |
+| Windows | `%APPDATA%\ssh-workbench\projects.toml` |
+| Linux, macOS | `$XDG_CONFIG_HOME/ssh-workbench/projects.toml`, or `~/.config/ssh-workbench/projects.toml` when `XDG_CONFIG_HOME` is unset or relative |
+
+`ssh-workbench --config PATH` reads a different file instead, and the default
+file is then not checked at all. Workbench only reads: it never creates or
+changes either file. Restart it to pick up edits. Without a file, the start
+screen shows where to create one.
+
+### Schema
+
+The file is UTF-8 TOML; a byte-order mark is fine. Schema version 1:
 
 | Field | Rule |
 | --- | --- |
-| `schema_version` | Required integer `1`; booleans and floats are rejected |
-| `projects` | Required array of tables, usually written as `[[projects]]`; `projects = []` returns an empty list |
-| `projects[].id` | Required, unique lowercase ASCII letters/digits, with single hyphens between groups |
-| `projects[].name` | Required string with at least one non-whitespace character |
-| `projects[].ssh_alias` | Required string starting with an ASCII letter/digit, followed only by ASCII letters/digits, dots, underscores or hyphens |
-| `projects[].repository` | Optional nonempty absolute HTTP/HTTPS URL without embedded credentials |
-| `projects[].documentation` | Same URL rules as `repository` |
+| `schema_version` | Required, the integer `1` |
+| `projects` | Required array of tables, usually written as `[[projects]]` blocks. `projects = []` is valid and shows an empty-list message |
+| `id` | Required and unique. Lowercase ASCII letters and digits, with single hyphens between groups, such as `web-server` |
+| `name` | Required. Any text with at least one non-space character |
+| `ssh_alias` | Required. See [SSH aliases](#ssh-aliases) |
+| `repository` | Optional absolute `http://` or `https://` URL without a username or password |
+| `documentation` | Optional, with the same rules as `repository` |
 
-Unknown fields are rejected at both levels. References require a host and a valid
-port if specified; raw whitespace, control characters and backslashes are
-rejected. HTTP and HTTPS scheme matching is case-insensitive. Encoded spaces in
-URL paths, query strings and fragments are allowed. These are syntax checks;
-the loader does not resolve hosts or check whether a resource exists. Repository
-paths and arbitrary SSH arguments remain deferred by the schema. Supplied values
-are preserved, with no trimming or case conversion.
+Unknown fields are errors, so a typo such as `ssh-alias` is reported instead of
+silently ignored. Links can't contain raw spaces, control characters or
+backslashes; write a space as `%20`. Values appear exactly as written, except
+that control characters show as escapes such as `\x1b`. Nothing in the file is
+treated as markup or turned into a clickable link.
 
-Parsing checks TOML syntax and converts it to Python values. Validation checks
-those values against the schema. This configuration passes both:
+### SSH aliases
 
-```toml
-schema_version = 1
+Workbench runs `ssh <ssh_alias>` with the alias as the only argument, so the
+alias can be anything `ssh` accepts as a destination: usually a `Host` entry in
+your SSH config (`~/.ssh/config`, or `%USERPROFILE%\.ssh\config` on Windows), or
+a plain hostname.
 
-[[projects]]
-id = "garden-demo"
-name = "Garden demo"
-ssh_alias = "garden-demo-host"
-```
-
-Changing the last line to `ssh_alias = "--help"` still parses as TOML, but fails
-validation at `projects[1].ssh_alias` because an alias cannot start with a dash.
-A missing closing quote would instead be a parsing error.
-
-Errors identify a field and a **one-based** project position where possible;
-syntax errors give a line and column. Messages omit file paths, private values
-and unknown key names; unknown-field errors list the allowed fields. The loader
-stops at the first error and never returns partial results. It never creates or
-overwrites configuration. Keep private files outside Git, for example in ignored
-`.local/projects.toml`.
-
-## Check a change
+To keep it a single safe argument, an alias must start with an ASCII letter or
+digit and contain only ASCII letters, digits, dots, underscores and hyphens.
+That rules out `user@host`, ports and options. Put those in a `Host` entry
+instead:
 
 ```text
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-uv run --locked pytest
-uv build
-uv run --locked python scripts/check_package.py
+Host web
+    HostName web.example.com
+    User deploy
+    Port 2222
 ```
 
-The last check installs the wheel and locked runtime dependencies in a temporary
-environment and tests help/version, a missing configuration error, the loader,
-and headless project selection/quit through the CLI with fictional files. It also
-substitutes SSH and browser launches to check outcomes and verifies process exit
-while a browser opener is blocked. Isolated Python runs verify that imports come
-from the installed wheel, even with the checkout on `PYTHONPATH`, then remove
-that environment. Headless checks do not establish native terminal
-handoff; the separate local child fixture exercises that behavior.
-CI runs these checks on Linux and Windows using the project Python version.
-See [validation evidence](docs/validation.md) for actual results and limitations.
+Then set `ssh_alias = "web"`.
 
-## Find your way around
+## Keys
 
-| Path | Purpose |
+| Key | Action |
 | --- | --- |
-| `src/ssh_workbench/` | Metadata loader, SSH/browser boundaries, CLI and Textual application |
-| `tests/` | Metadata, CLI, substituted external actions and headless UI tests |
-| `examples/` | Fictional supported configuration |
-| `scripts/check_package.py` | Isolated built-package check |
-| `scripts/check_terminal.py` | Interactive handoff check using harmless local children |
-| `scripts/check_links.py` | Interactive link check with guarded, substituted openers |
-| `pyproject.toml`, `uv.lock` | Package metadata, version, dependencies and resolved versions |
-| `.github/` | CI and the short pull-request template |
+| Up / Down | Select a project; in the details pane, scroll |
+| Tab / Shift+Tab | Move between the project list and the details pane |
+| Page Up / Page Down, Home / End | Scroll the details pane |
+| C | Connect to the selected project |
+| R | Open the repository link |
+| D | Open the documentation link |
+| Q or Ctrl+Q | Quit |
 
-- [CONTRIBUTING](CONTRIBUTING.md): everyday development, Git recovery and releases.
-- [AGENTS](AGENTS.md): project-specific coding-agent instructions.
-- [Changelog](CHANGELOG.md): meaningful changes under Unreleased.
-- [Architecture](docs/architecture.md): design decisions and SSH safety boundaries.
-- [Roadmap](docs/roadmap.md): the single backlog and task acceptance criteria.
-- [Publishing](docs/publishing.md): future portfolio and guide readiness.
+C, R, D and Q also appear in the footer and can be clicked. Startup, selection
+and Enter never connect or open anything.
 
-Private configuration and machine-specific notes belong in ignored `.local/`.
-Review files before staging; ignore rules cannot identify every possible secret.
-No license has been selected. Resolve licensing before any public release.
+## Connecting
+
+C suspends Workbench and runs SSH in the same terminal window. Everything during
+the session belongs to SSH: password and key prompts, host-key confirmation and
+Ctrl+C. When SSH exits, Workbench comes back with the same project selected and
+shows the exit status below the panes. Only one connection runs at a time.
+
+Run Workbench in a local terminal. Environments that can't hand the terminal
+over, such as Textual Web, show a message instead of starting SSH.
+
+## Opening links
+
+R and D pass the selected project's URL to the system: the default browser on
+Windows, or `gio open` on a Linux desktop where `DISPLAY` or `WAYLAND_DISPLAY`
+is set. "browser request accepted" means the system took the request, not that
+the page loaded. The browser opens on the machine running Workbench, which over
+a remote terminal may not be the one in front of you. One request can be
+pending at a time, and Q still quits while it waits.
+
+## Troubleshooting
+
+Configuration errors appear before the screen starts, and Workbench exits with
+status 2.
+
+| Message | What to do |
+| --- | --- |
+| `configuration: file not found` | Check the path given to `--config` |
+| `configuration: permission denied` | The file can't be read. On Windows this also appears when the path is a folder |
+| `configuration: expected UTF-8 text` | Save the file as UTF-8 |
+| `TOML: invalid syntax at line L, column C` | Fix the TOML at that position; a missing quote or bracket is the usual cause |
+| `projects[N].field: ...` | Fix that field in project N, counting from 1. Messages never repeat the value, to keep private data off the screen |
+| `default configuration file: ...` | One of the errors above, from the default projects file; `ssh-workbench --help` shows its path |
+| `SSH not found. Install OpenSSH and add it to PATH.` | Install the OpenSSH client. On Windows 11: Settings > System > Optional features > OpenSSH Client |
+| `SSH exited with status 255. ...` | SSH couldn't connect or authenticate. Run `ssh <alias>` directly to see its message |
+| `Cannot hand off this terminal. ...` | Start Workbench from a local terminal |
+| `browser unavailable. ...` | Links work only on Windows and on Linux desktops with `gio` |
+| `link not configured. ...` | Add `repository` or `documentation` to the project and restart |
+| `ssh-workbench` not found after installing | Run `uv tool update-shell` and open a new terminal |
+
+## Privacy
+
+Workbench reads only its projects file. It doesn't read your SSH config, keys or
+`known_hosts`, store credentials, change host-key settings, collect telemetry or
+need an AI service. Network traffic comes only from the SSH sessions and browser
+requests you start.
+
+## Development
+
+[CONTRIBUTING](CONTRIBUTING.md) covers setup, checks, the terminal test fixtures
+and the release checklist.
+
+| Document | Contents |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Module map, design decisions, safety boundaries and the Python API |
+| [Roadmap](docs/roadmap.md) | The backlog and each task's acceptance criteria |
+| [Validation](docs/validation.md) | Dated test evidence |
+| [Changelog](CHANGELOG.md) | Changes by release |
+| [AGENTS](AGENTS.md) | Instructions for coding agents |
+| [Publishing](docs/publishing.md) | Checklist before any public release |
