@@ -1,8 +1,38 @@
 # Validation
 
+## Task 6: 0.1.0 readiness, 2026-10-20
+
+Branch `feat/task6-0.1.0-readiness`. Environment: Windows 11 Home Insider
+Preview build 26340, PowerShell 7.6.7, Microsoft Windows Terminal 1.25.2733.0,
+Python 3.14.7, Textual 8.2.8, uv 0.13.3, Ruff 0.16.10 and pytest 9.1.1.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New default-file tests before implementation | 12 failed for the missing feature; the precedence and no-path guards and all existing tests passed |
+| `uv sync --locked`, Ruff check and format | Passed; 29 files already formatted |
+| `uv run --locked pytest` | 445 passed (431 before Task 6) |
+| `uv build` | Source archive and wheel for 0.1.0. Wheel metadata shows `License-Expression: MIT` and `License-File: LICENSE`; both archives contain `LICENSE`. The known `uv_build<0.13.0` warning from uv 0.13.3 remains |
+| `uv run --locked python scripts/check_package.py` | Passed |
+| Relative Markdown links | 61 checked, 0 broken |
+| `uv tool install .`, then `--reinstall .` | Installed `ssh-workbench.exe` into the uv tool folder; `ssh-workbench --version` printed `ssh-workbench 0.1.0` from another folder |
+
+Installed-tool smoke test in an owned 80x24 Windows Terminal window, with
+`NO_COLOR` cleared and `APPDATA` pointed at ignored `.local/` folders so the real
+per-user file was untouched:
+
+| Step | Result |
+| --- | --- |
+| No default file, no `--config` | No-configuration screen named the default path under the overridden `APPDATA`, wrapping cleanly at 80 columns; Q exited with status 0 |
+| Default file holding one approved SSH alias | Project loaded without `--config` |
+| C, then `exit` at the remote prompt | No password or host-key prompt appeared. Workbench returned with `SSH exited with status 0.` and the same project selected |
+| Ctrl+Q | Exited with status 0 to a usable prompt; the window was then closed |
+
+The alias name and screenshots stay in ignored `.local/task6-session/`. Linux
+and macOS were not exercised natively.
+
 ## Task 5: preparation and safe local verification, 2026-10-12
 
-**Task 5 remains in progress.** Initial preparation merged Task 4, verified the
+**Task 5 is complete and merged in PR #5.** Initial preparation merged Task 4, verified the
 baseline with substituted external actions, and prepared the user-run session
 below. No real SSH connection or browser/GIO dispatch occurred during that
 preparation. Later user-reported and explicitly authorized agent checks in
@@ -20,7 +50,7 @@ stayed uncommitted until 2026-10-20.
 | More SSH targets and a real nonzero exit | Done | [Additional targets](#task-5-additional-ssh-targets-and-review-fixes-2026-10-20) |
 | Project review and material fixes | Done | Same section: SSH lookup in the launch folder and UTF-8 byte-order-mark configs, each fixed after a failing test |
 | Documentation accuracy pass | Done | 2026-10-20 |
-| Release scope and license decision | Open | Jadon decides in the 0.1.0 review |
+| Release scope and license decision | Done | 2026-10-20: private `v0.1.0` tag, MIT license, scope in roadmap Task 6 |
 
 ### Verified Task 4 merge and CI
 

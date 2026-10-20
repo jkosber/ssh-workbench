@@ -247,27 +247,29 @@ A passing test or completed task does not authorize a release. Follow
 ## 6. Prepare the 0.1.0 release
 
 **In progress** on `feat/task6-0.1.0-readiness`, from Task 5 merge `ac4f6e8`.
+Implementation and [verification](validation.md#task-6-010-readiness-2026-10-20)
+are complete; integration waits for approval.
 The 0.1.0 review found the features sufficient but daily use and user
 documentation lacking. This task closes those gaps and tags 0.1.0 privately.
 
 Acceptance:
 
-- [ ] Without `--config`, read a per-user default file if it exists:
+- [x] Without `--config`, read a per-user default file if it exists:
   `%APPDATA%\ssh-workbench\projects.toml` on Windows, otherwise
   `$XDG_CONFIG_HOME/ssh-workbench/projects.toml` when that variable is absolute,
   else `~/.config/ssh-workbench/projects.toml`. `--config` always wins and the
   default is then not checked. Never create or write the file or its folder.
   Default-file errors exit 2 before the TUI, prefixed `default configuration file:`,
   without paths or values. Existing `--config` errors are unchanged.
-- [ ] Show the resolved default path in `--help` and on the no-config screen,
+- [x] Show the resolved default path in `--help` and on the no-config screen,
   escaped for display. Drop the hint to the checkout-only example file.
-- [ ] Cap Textual below 9: the suspension handling was verified only on 8.2.8.
-- [ ] Rewrite the README for users: install as a uv tool, quick start, alias
+- [x] Cap Textual below 9: the suspension handling was verified only on 8.2.8.
+- [x] Rewrite the README for users: install as a uv tool, quick start, alias
   rules, keys, platform support and troubleshooting. Move internals and the
   Python API to the architecture document, which gains a module map.
-- [ ] Add the MIT license, set version 0.1.0, write a dated user-facing
+- [x] Add the MIT license, set version 0.1.0, write a dated user-facing
   changelog entry and remove "unreleased" and "scaffold" status wording.
-- [ ] Run the full checks, then smoke-test the installed tool in Windows
+- [x] Run the full checks, then smoke-test the installed tool in Windows
   Terminal with one approved SSH target loaded from the default file.
 - [ ] With Jadon's approval for each step: PR, merge, annotated `v0.1.0` tag on
   the merge commit and the updated GitHub description. No GitHub Release.
