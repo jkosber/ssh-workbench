@@ -20,10 +20,6 @@ Use `uv add PACKAGE` for a runtime dependency or `uv add --dev PACKAGE` for a
 development tool. Add a dependency only when the current task needs it. Review
 and commit both metadata and lockfile changes together when authorized.
 
-`.serena/project.yml` contains shared settings for the optional Serena development
-tool. Its cache, local overrides and memories are ignored. Serena is not needed
-to install, run or test SSH Workbench.
-
 ## Everyday Git and Codex workflow
 
 1. Inspect `git status --short --branch` and read any existing changes. Preserve
