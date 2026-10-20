@@ -1,7 +1,9 @@
 import asyncio
+import os
 import signal
 import socket
 import subprocess
+import sys
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
@@ -47,6 +49,56 @@ def test_exact_native_executable_and_single_alias_argument(
         stderr=None,
     )
     assert Path(run.call_args.args[0][0]).is_absolute()
+
+
+def fictional_client(directory: Path) -> Path:
+    # Never executed: the process runner is substituted in every caller.
+    directory.mkdir()
+    client = directory / ("ssh.exe" if sys.platform == "win32" else "ssh")
+    client.write_bytes(b"")
+    client.chmod(0o755)
+    return client
+
+
+def search_launch_directory_first(
+    monkeypatch: pytest.MonkeyPatch, launch: Path, *path_entries: Path
+) -> None:
+    # Windows searches the current directory before PATH unless
+    # NoDefaultCurrentDirectoryInExePath is set; a relative PATH entry does the
+    # same on every platform.
+    monkeypatch.chdir(launch)
+    monkeypatch.delenv("NoDefaultCurrentDirectoryInExePath", raising=False)
+    monkeypatch.setenv(
+        "PATH", os.pathsep.join([os.curdir, *(str(entry) for entry in path_entries)])
+    )
+
+
+def test_client_in_launch_directory_is_skipped_for_path_client(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    planted = fictional_client(tmp_path / "launch")
+    installed = fictional_client(tmp_path / "bin")
+    search_launch_directory_first(monkeypatch, planted.parent, installed.parent)
+    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+    monkeypatch.setattr(ssh.subprocess, "run", run)
+
+    assert ssh.launch_ssh("fictional-host") == 0
+
+    assert run.call_args.args[0] == [str(installed.resolve()), "fictional-host"]
+
+
+def test_client_only_in_launch_directory_is_not_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    planted = fictional_client(tmp_path / "launch")
+    search_launch_directory_first(monkeypatch, planted.parent)
+    run = Mock(side_effect=AssertionError("Unexpected child process"))
+    monkeypatch.setattr(ssh.subprocess, "run", run)
+
+    with pytest.raises(ssh.SSHLaunchError, match="SSH not found"):
+        ssh.launch_ssh("fictional-host")
+
+    run.assert_not_called()
 
 
 @pytest.mark.parametrize(
