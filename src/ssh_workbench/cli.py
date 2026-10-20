@@ -27,6 +27,16 @@ def default_config_path() -> Path | None:
     return root / "ssh-workbench" / "projects.toml"
 
 
+def _help_text(path: Path) -> str:
+    """Make a path safe in help: visible, encodable by stdout and %-formatted by
+    argparse. Without this, redirected help on a cp1252 console can crash."""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    visible = "".join(c if c.isprintable() else ascii(c)[1:-1] for c in str(path))
+    return (
+        visible.encode(encoding, "backslashreplace").decode(encoding).replace("%", "%%")
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     default_config = default_config_path()
     parser = argparse.ArgumentParser(
@@ -40,10 +50,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--config",
         type=Path,
         metavar="PATH",
-        # argparse formats help with %, so a literal % in the path is doubled.
         help="read projects from this TOML file "
         + (
-            f"(default: {str(default_config).replace('%', '%%')})"
+            f"(default: {_help_text(default_config)})"
             if default_config is not None
             else "(no default location available)"
         ),
