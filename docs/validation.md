@@ -5,8 +5,8 @@
 **Task 5 remains in progress.** Initial preparation merged Task 4, verified the
 baseline with substituted external actions, and prepared the user-run session
 below. No real SSH connection or browser/GIO dispatch occurred during that
-preparation. Later user-reported and explicitly authorized agent SSH checks are
-recorded separately below.
+preparation. Later user-reported and explicitly authorized agent checks
+(WezTerm SSH; Windows Terminal SSH and browser) are recorded separately below.
 The agent has not read SSH configuration, keys or inventories. These Task 5
 records stayed uncommitted until 2026-10-20.
 
@@ -93,9 +93,9 @@ only the roadmap, this record and the Unreleased changelog changed in Git.
 | --- | --- |
 | Automated | Configuration, selection/details, focus/scroll/quit, sanitized failures, SSH/browser boundary contracts and package installation pass on this revision. These support the baseline, not the required real-world observations. |
 | Substituted boundaries / native fixtures | Current pseudoterminal checks exercise local handoff, recovery and stubbed dispatch. Historical WezTerm resize/text results retain their recorded scope; obscured Task 4 screenshots remain excluded. |
-| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. A separately authorized agent check of the installed build in WezTerm confirmed live SSH return, navigation, resizing, detail scrolling and both quit-key/shell checks, with Workbench-only Windows screenshots. URL choices and real browser results remain pending. |
-| Still unverified / unavailable | Real browser/GIO behavior; native Linux desktop; Windows Terminal resizing and both quit keys after live SSH; other DPI settings and screen readers. Authentication mechanisms and host-key prompts were not separately examined. macOS browser dispatch is explicitly unavailable in this version. Ubuntu CI does not validate a Linux desktop. |
-| Documentation, issues and readiness review | Checklist/configuration preparation is complete. Material issues found by the live pass must be recorded and resolved under separate fix authorization. Scope and privacy boundaries were reviewed; final readiness and the unselected license remain open. No release/version/visibility decision is made. |
+| Real manual interaction | Jadon reported Windows Terminal SSH handoff, return, preserved selection, immediate arrow navigation and status 0. Authorized agent checks of the installed build covered WezTerm (2026-10-12) and Windows Terminal (2026-10-20): live SSH return, navigation, resizing, detail scrolling and both quit keys with shell checks. In Windows Terminal, R/D opened the chosen GitHub repository and README pages in Chrome. |
+| Still unverified / unavailable | Linux GIO browser dispatch and a native Linux desktop; other DPI settings and screen readers. Authentication mechanisms and host-key prompts were not separately examined. macOS browser dispatch is explicitly unavailable in this version. Ubuntu CI does not validate a Linux desktop. Agent observation is not a human visual review. |
+| Documentation, issues and readiness review | Checklist steps A-D are complete with no material defect found. Scope and privacy boundaries were reviewed; final readiness and the unselected license remain open. No release/version/visibility decision is made. |
 | Outside initial-release requirements | Deferred editing/search, discovery, tmux, transfers, cloud sync, embedded terminals, AI, Proxmox controls and plugins. WezTerm is a useful optional comparison, not an additional mandatory platform; this task adds no all-platform or accessibility certification requirement. |
 
 ### Task 5 installed build and local configuration
@@ -125,9 +125,9 @@ The retained installed wheel was built from `9b28e86`, version 0.0.1, SHA-256
 Documentation edits afterward do not change that installed artifact.
 
 The original schema-correct template below is retained as a fictional reference.
-Jadon subsequently chose an existing alias; both local records now use that alias,
-and their optional URLs are omitted until he chooses destinations. Actual target
-details stay in the ignored file. The second row supports navigation and missing
+Jadon subsequently chose an existing alias; both local records use that alias.
+On 2026-10-20 he chose the repository and README URLs for the first record; the
+second still omits them. Actual target details stay in the ignored file. The second row supports navigation and missing
 references without another host. When reusing this template, replace its alias
 and URL placeholders before C/R/D; restart Workbench after editing the file.
 
@@ -163,6 +163,47 @@ transcripts or screenshots are requested. Pause unexpected host-key/trust prompt
 for independent verification; do not auto-accept, remove warnings, edit
 known_hosts or disable checking. An actual login may create normal session or
 audit records; use the existing trusted workflow without extra remote operations.
+
+### Task 5 authorized Windows Terminal check, 2026-10-20
+
+Jadon chose the repository and README URLs below and authorized one live SSH
+connection to the alias already in the ignored configuration. The agent ran
+checklist steps A, B, C and D in one owned Microsoft Windows Terminal 1.25.2733.0
+window with PowerShell 7.6.7 on Windows build 26340. The installed wheel above
+(0.0.1 from `9b28e86`) was used; `src/`, `pyproject.toml`, `uv.lock` and `README.md`
+are unchanged between `9b28e86` and the tested branch head `5378fcd`.
+
+The first row of the ignored configuration gained
+`repository = "https://github.com/jkosber/ssh-workbench"` and
+`documentation = "https://github.com/jkosber/ssh-workbench/blob/main/README.md"`.
+The second row still omits both. A dated backup of the prior file was kept.
+
+| Step | Agent-observed result |
+| --- | --- |
+| A. Baseline | `--version` printed 0.0.1. Startup selected the first project with list focus. Up/Down switched details between both projects; the second showed `Not provided` twice. Tab moved the accent border to details; Down/End scrolled the one overflowing line and Home returned. Shift+Tab restored list navigation. |
+| B. Browser | R reported `Repository browser request accepted. Project 1: manual-target`. Windows' URL association opened Google Chrome 155.0.8059.85, whose address bar showed `github.com/jkosber/ssh-workbench` and whose title was the repository page. D reported the matching acceptance and Chrome showed `github.com/jkosber/ssh-workbench/blob/main/README.md` with the README title. The private repository loaded in Chrome's existing signed-in session. R on the second project showed `Repository link not configured. Add it to the configuration and restart.` with `Project 2: navigation-check`. Navigation continued after returning from the browser, and Q exited 0 to usable shell input. |
+| C. SSH | After a relaunch, C handed the terminal to native SSH. A remote shell prompt appeared with no password, MFA or host-key prompt. The agent typed only `exit`. Workbench returned with `SSH exited with status 0.`, the same project selected and list focus; Up/Down worked immediately. |
+| D. Restoration | In the same session after the SSH return, the window was resized to 60x20, 120x40 and back to 80x24, with dimensions confirmed from the rendered screen. Up/Down worked at each size. At 60x20 the title and second name truncated, help text wrapped, the footer stayed visible, and details scrolled to the wrapped README URL. Q then exited 0 and `Write-Output` worked. A separate launch exited 0 with Ctrl+Q and `Write-Output` again worked. |
+
+How it ran: Win32 `SendInput` keystrokes were sent only while the owned window
+was in the foreground, and the run stopped otherwise. Screen text came from Windows UI Automation
+and screenshots from `Graphics.CopyFromScreen` of that window only. Window size
+was set with `SetWindowPos`. Fifteen Workbench-only PNGs are kept under ignored
+`.local/task5-session/wt-20261020/`. No screenshot covered the SSH session or the
+browser, and remote output was not recorded.
+
+Run notes:
+
+- The agent's environment sets `NO_COLOR=1`, which the new window inherited, so the
+  first launch rendered monochrome. The variable was removed in that test shell
+  only and the checks were repeated with normal colors.
+- Jadon accidentally typed into the window during size calibration, before
+  Workbench started. That only affected a calibration command in the shell.
+- The Chrome tabs opened by R/D were left open. The test window was closed with `exit`.
+
+No application defect was found. The link status after R on the second project
+kept naming project 2 when the selection moved back to project 1, as documented:
+link results stay attributed to the project that requested them.
 
 ### Task 5 authorized WezTerm check, 2026-10-12
 
@@ -214,14 +255,15 @@ displayed `SSH exited with status 0`. This completes the reported handoff/normal
 return check; it does not establish browser dispatch, resize or quit restoration.
 No sensitive transcript or screenshot was requested or collected for this report.
 
-The checklist below retains the Windows Terminal session's status. The separate
-agent WezTerm pass above covers its own baseline, live handoff and restoration;
-it does not turn unreported Windows Terminal observations into passes.
+The checklist below records Windows Terminal status. Step C is Jadon's report.
+Steps A, B and D passed in the
+[agent Windows Terminal check](#task-5-authorized-windows-terminal-check-2026-10-20),
+which also repeated C. Those are agent observations, not user reports.
 
-- [ ] **A. Baseline (local):** Record 0.0.1, the tested commit, Windows version and
+- [x] **A. Baseline (local; agent-observed pass, 2026-10-20):** Record 0.0.1, the tested commit, Windows version and
   Windows Terminal version. Fill the private configuration, launch with the command
   above, and check Up/Down selection, details, Tab/Shift+Tab focus and detail scrolling.
-- [ ] **B. Browser (opens real destinations):** Select `manual-target`; explicitly
+- [x] **B. Browser (opens real destinations; agent-observed pass, 2026-10-20):** Select `manual-target`; explicitly
   invoke R / Repository and D / Documentation. Observe the intended destination
   and page result in the browser separately from Workbench's dispatch message.
   Return to the terminal, check navigation and Q, then relaunch for C.
@@ -230,7 +272,7 @@ it does not turn unreported Windows Terminal observations into passes.
   runs `ssh CHOOSE_EXISTING_ALIAS` after replacing the placeholder, authenticates
   privately and leaves normally. In Workbench use C / Connect, authenticate,
   leave normally, and verify the same selection, list focus, status and further use.
-- [ ] **D. Restoration (local):** After returning, resize the terminal and check
+- [x] **D. Restoration (local; agent-observed pass, 2026-10-20):** After returning, resize the terminal and check
   navigation. Test Q and Ctrl+Q in separate launches; after each, confirm usable
   shell input, for example `Write-Output 'shell input works'`.
 
@@ -238,13 +280,14 @@ For deliberate failures, blocked openers and aggressive interruption, use only
 the existing [link fixture](#task-4-stubbed-link-checklist) and
 [local-child fixture](#task-3-local-terminal-fixture). Do not use wrong credentials,
 interrupt unrelated remote work, stop services, change host keys or create outages.
-The authorized WezTerm comparison above is complete within its recorded scope.
+The authorized WezTerm and Windows Terminal checks above are complete within
+their recorded scope.
 
-Report short sanitized observations: step A/B/C/D, pass/fail/not tested, expected
+Report further observations briefly and without sensitive details: step A/B/C/D, pass/fail/not tested, expected
 versus observed behavior, version/commit/terminal and any minimal reproduction.
 Label them **user-reported**; keep agent fixture and automated evidence separate.
-Browser acceptance alone is not proof of page loading. Until these observations
-and the remaining readiness review are complete, Task 5 stays in progress.
+Browser acceptance alone is not proof of page loading. Task 5 stays in progress
+until the readiness review (scope, privacy, license) is complete.
 
 ## Task 4: errors and links, 2026-10-12
 

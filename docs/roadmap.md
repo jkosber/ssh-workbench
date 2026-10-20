@@ -215,7 +215,7 @@ and release work remain outside Task 4.
 
 ## 5. Validate usability and review 0.1.0 readiness
 
-**In progress: preparation complete; manual validation started.**
+**In progress: manual checklist complete; readiness review open.**
 `test/task5-validation` starts at Task 4 merge `9b28e86`. The merged baseline
 passed 428 local tests, build, isolated package checks and Windows/Ubuntu main CI.
 Existing local-child and stubbed-opener fixtures passed their recorded checks;
@@ -228,11 +228,12 @@ same selection, immediate arrow navigation and exit status 0. A separately
 authorized [agent WezTerm check](validation.md#task-5-authorized-wezterm-check-2026-10-12)
 confirmed live SSH return, navigation, resizing, scrolling and both quit keys
 with usable shell input; Windows screenshots verified the recorded layouts.
-Browser URL choices and actual page results, plus Windows Terminal resize/quit
-observations, remain pending. No material usability defect was confirmed. Any
-resulting production fix needs separate authorization; release scope, privacy
-and the unresolved license still need final review. Version remains 0.0.1,
-unreleased; preparation does not complete Task 5.
+On 2026-10-20 an authorized [agent Windows Terminal check](validation.md#task-5-authorized-windows-terminal-check-2026-10-20)
+completed checklist steps A-D. R/D opened the chosen GitHub repository and README
+pages in Chrome. SSH returned with status 0. Resizing through 60x20, 120x40 and
+80x24 kept navigation working, and Q and Ctrl+Q each returned to usable shell input.
+No material usability defect was found. Release scope, privacy and the unresolved
+license still need final review. Version remains 0.0.1, unreleased.
 
 Acceptance: obtain approval for named real-world test targets and actions, then
 record observed behavior using [the manual checklist](validation.md). Fix material
