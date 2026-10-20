@@ -451,4 +451,4 @@ def test_help_escapes_unencodable_default_path(cli: str, tmp_path: Path) -> None
 
     assert result.returncode == 0
     assert result.stderr == ""
-    assert "u-\u0141\u4e2d" in result.stdout
+    assert r"u-\u0141\u4e2d" in result.stdout
