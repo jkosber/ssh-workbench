@@ -42,7 +42,7 @@ ssh-workbench --version
 Or directly from GitHub, which needs access to the private repository:
 
 ```text
-uv tool install git+https://github.com/jkosber/ssh-workbench@v0.2.0
+uv tool install git+https://github.com/jkosber/ssh-workbench@v0.2.1
 ```
 
 If your shell can't find `ssh-workbench`, run `uv tool update-shell` and open a

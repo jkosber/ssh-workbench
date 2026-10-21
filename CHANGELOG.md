@@ -5,6 +5,10 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.2.1 - 2026-10-21
+
+Key setup fixes from use on real machines. Tagged privately.
+
 ### Fixed
 
 - K on a Windows target no longer prints PowerShell's "Preparing modules for
