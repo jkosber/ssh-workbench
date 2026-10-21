@@ -5,6 +5,10 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.2.1 - 2026-10-21
+
+Key setup fixes from use on real machines. Tagged privately.
+
 ### Fixed
 
 - K on a Windows target no longer prints PowerShell's "Preparing modules for
@@ -12,9 +16,10 @@ Changes by release, newest first. Version numbers follow the policy in
 - A commented-out copy of the key in `authorized_keys` no longer counts as
   installed; K adds the key.
 - Ctrl+C during key setup reads "Key setup interrupted.", or "The key was
-  installed, but the login test was interrupted.", instead of a failed login
-  with status 4294967295. On Windows, ssh-keygen exits 255 after Ctrl+C at its
-  passphrase prompt and ssh can exit 0; those statuses still show as they are.
+  installed, but the login test was interrupted.", instead of an exit status
+  such as 4294967295. On Windows, ssh-keygen exits 255 after Ctrl+C at its
+  passphrase prompt, which still shows as that status, and ssh can exit 0,
+  which reads as success.
 - When an alias's login test passes with a key its SSH config doesn't name, the
   result says SSH may have used another key and gives the `IdentityFile` line
   to add.

@@ -1,5 +1,34 @@
 # Validation
 
+## Task 16: 0.2.1 release, 2026-10-21
+
+Branch `feat/task16-release-0.2.1`. Environment as in Task 14. Jadon asked to
+release 0.2.1 and tag it.
+
+| Check | Agent-observed result |
+| --- | --- |
+| `uv lock`, `uv sync --locked` | The lockfile changed only in Workbench's own version, 0.2.0 to 0.2.1 |
+| Current-state lines | `pyproject.toml`, `AGENTS.md`, CONTRIBUTING's version table and the README install line name 0.2.1; Unreleased moved into `## 0.2.1 - 2026-10-21` |
+| Ruff check and format, `uv run --locked pytest` | Passed; 1021 passed |
+| `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.1; the package check passed |
+| Installed tool | `uv tool install` of the wheel into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`), leaving Jadon's installed 0.2.0 alone; `--version` printed `ssh-workbench 0.2.1` |
+| Installed-tool smoke in an owned 80x24 Windows Terminal window | With `SSH_WORKBENCH_SSH_DIR` and `APPDATA` pointing at empty ignored folders and a copy of the example machine file, the list, details and footer drew; Q exited with status 0 |
+
+PR #20's PR run on head `c9a270b`, a docs-only commit, failed on Windows with
+1 failed and 1020 passed:
+[run 39651258950](https://github.com/jkosber/ssh-workbench/actions/runs/39651258950).
+The same commit's
+[push run 39651250887](https://github.com/jkosber/ssh-workbench/actions/runs/39651250887)
+passed with 1021 tests on each system.
+
+| Item | Result |
+| --- | --- |
+| Failure | `test_startup_shows_checking_then_each_result` set `ListView.index = 2`, paused once, and read the previous machine's status, "● Online: 192.0.2.40" |
+| Cause | Setting the index posts `ListView.Highlighted` to the list; it reaches the app, which updates the details, one parent at a time. `pilot.pause()` first waits for callbacks it queued on every widget, so it can finish while the message is still climbing. Only its CPU-idle heuristic then covered the gap |
+| Reproduction | A scratch plugin replaced that heuristic with one yield. The test then failed every time, three out of three, reading the previous machine's status |
+| Fix (tests only) | The loop waits until the details show the selected machine's ID, then asserts the status text exactly. It passed three times out of three under the plugin; the full suite passed, 1021 tests |
+| Other latent cases | Under the plugin, seven `tests/test_forms.py` cases fail the same way; they are in the roadmap's 0.2.x candidates |
+
 ## Task 15: 0.2.1 real-use fixes, 2026-10-21
 
 Branch `feat/task15-real-use-fixes`. Environment as in Task 14. Jadon chose the
@@ -50,6 +79,12 @@ A fresh whole-branch review found no critical issue. Fixed from it, test first:
 Also corrected: the roadmap's RSA figures, its stale "reachable only by a
 fake", and the comment on `ssh.interrupted`. The review's other findings are
 in the roadmap's 0.2.x candidates.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #19](https://github.com/jkosber/ssh-workbench/pull/19) CI on head `2032157` | [Push run 39641216603](https://github.com/jkosber/ssh-workbench/actions/runs/39641216603) and [PR run 39641251724](https://github.com/jkosber/ssh-workbench/actions/runs/39641251724) passed on Windows and Ubuntu, 1021 tests each |
+| Merge | Merged as **`ca7d984`**, guarded on head `2032157`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39641969719](https://github.com/jkosber/ssh-workbench/actions/runs/39641969719) passed on Windows and Ubuntu, 1021 tests each |
 
 ## Screen waits in UI tests, 2026-10-21
 
