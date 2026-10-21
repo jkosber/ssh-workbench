@@ -4,13 +4,14 @@ import threading
 from unittest.mock import Mock
 
 import pytest
+from textual import events
 from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, ListView, Static
+from textual.widgets import Footer, ListView, OptionList, Static
 
 from ssh_workbench import app as app_module
-from ssh_workbench.app import LinkFinished, LinkRequest, SSHWorkbenchApp
-from ssh_workbench.config import Project
+from ssh_workbench.app import LinkFinished, LinkPicker, LinkRequest, SSHWorkbenchApp
+from ssh_workbench.config import Link, Machine, parse_machines
 from ssh_workbench.links import LinkResult
 
 pytestmark = [
@@ -18,16 +19,26 @@ pytestmark = [
     pytest.mark.usefixtures("no_external_actions", "no_app_connections"),
 ]
 
-PROJECTS = (
-    Project("first", "First", "first-host", "https://example.invalid/first"),
-    Project(
+MACHINES = (
+    Machine(
+        "first",
+        "First",
+        alias="first-host",
+        links=(Link("Repository", "https://example.invalid/first"),),
+    ),
+    Machine(
         "second",
         "Second [bold]literal[/bold]",
-        "second-host",
-        "HTTP://Example.invalid:8080/a%20b?x=one&y=%26#fragment",
-        "https://example.invalid/docs?chapter=two#part%202",
+        alias="second-host",
+        links=(
+            Link(
+                "Repository", "HTTP://Example.invalid:8080/a%20b?x=one&y=%26#fragment"
+            ),
+            Link("Documentation", "https://example.invalid/docs?chapter=two#part%202"),
+        ),
     ),
 )
+INITIAL_STATUS = "O: open a link of the selected machine. Opens in this environment."
 
 
 def status(app: SSHWorkbenchApp) -> str:
@@ -41,30 +52,39 @@ async def completed(app, pilot) -> None:
     await pilot.pause()
 
 
+async def picker_open(app, pilot) -> LinkPicker:
+    async with asyncio.timeout(5):
+        while not isinstance(app.screen, LinkPicker):
+            await pilot.pause()
+    return app.screen
+
+
 @pytest.mark.parametrize("size", [(60, 20), (80, 24), (120, 40)])
 async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None:
     opener = Mock(side_effect=AssertionError("Unexpected browser action"))
     monkeypatch.setattr(app_module, "open_link", opener)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=size) as pilot:
         footer = app.query_one(Footer)
         async with asyncio.timeout(5):
-            while not {"repository", "documentation"} <= {
-                key.action for key in footer.query("FooterKey")
-            }:
+            while "open_link" not in {key.action for key in footer.query("FooterKey")}:
                 await pilot.pause()
-        for action, binding, label in (
-            ("repository", "r", "Repository"),
-            ("documentation", "d", "Documentation"),
-        ):
-            keys = [key for key in footer.query("FooterKey") if key.action == action]
-            assert len(keys) == 1
-            assert keys[0].key == binding
-            assert label in keys[0].render().plain
-            assert keys[0].visible
-            assert app.screen.region.contains_region(keys[0].region)
+        keys = [key for key in footer.query("FooterKey") if key.action == "open_link"]
+        assert len(keys) == 1
+        assert keys[0].key == "o"
+        assert "Open link" in keys[0].render().plain
+        assert keys[0].visible
+        assert app.screen.region.contains_region(keys[0].region)
+        actions = {key.action for key in footer.query("FooterKey")}
+        assert not actions & {"repository", "documentation"}
+        assert status(app) == INITIAL_STATUS
         await pilot.press("down", "up", "enter", "tab", "enter", "pagedown", "home")
-        await pilot.click("#project-repository")
+        await pilot.press("r", "d")
+        app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
+            app.query_one("#machine-links"), animate=False
+        )
+        await pilot.pause()
+        await pilot.click("#machine-links")
         await pilot.resize_terminal(80, 24)
         await pilot.press("shift+tab", "q")
         opener.assert_not_called()
@@ -73,9 +93,12 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
 
 @pytest.mark.parametrize("size", [(60, 20), (80, 24), (120, 40)])
 @pytest.mark.parametrize("from_details", [False, True])
-@pytest.mark.parametrize("key, field", [("r", "repository"), ("d", "documentation")])
+@pytest.mark.parametrize(
+    ("index", "picks", "link"),
+    [(0, (), 0), (1, ("enter",), 0), (1, ("down", "enter"), 1)],
+)
 async def test_exact_selected_url_from_either_pane(
-    monkeypatch, size, from_details, key, field
+    monkeypatch, size, from_details, index, picks, link
 ) -> None:
     ui_thread = threading.get_ident()
     called_threads = []
@@ -86,58 +109,60 @@ async def test_exact_selected_url_from_either_pane(
 
     opener = Mock(side_effect=open_url)
     monkeypatch.setattr(app_module, "open_link", opener)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=size) as pilot:
-        await pilot.press("down")
+        await pilot.press(*(["down"] * index))
         if from_details:
             await pilot.press("tab", "end")
             await pilot.wait_for_scheduled_animations()
         focus = app.focused
-        details = app.query_one("#project-details", VerticalScroll)
+        details = app.query_one("#machine-details", VerticalScroll)
         scroll = details.scroll_y
-        await pilot.press(key)
+        await pilot.press("o")
+        if picks:
+            await picker_open(app, pilot)
+            await pilot.press(*picks)
         await completed(app, pilot)
-        opener.assert_called_once_with(getattr(PROJECTS[1], field))
+        chosen = MACHINES[index].links[link]
+        opener.assert_called_once_with(chosen.url)
         assert called_threads[0] != ui_thread
-        assert app.query_one(ListView).index == 1
+        assert not isinstance(app.screen, LinkPicker)
+        assert app.query_one(ListView).index == index
         assert app.focused is focus
         assert details.scroll_y == scroll
-        assert (
-            status(app)
-            == f"{field.title()} browser request accepted. Project 2: second"
+        assert status(app) == (
+            f"{chosen.name} browser request accepted. "
+            f"Machine {index + 1}: {MACHINES[index].id}"
         )
         assert app.screen.region.contains_region(app.query_one("#link-status").region)
         await pilot.press("ctrl+q")
         assert not app.is_running
 
 
-@pytest.mark.parametrize("projects", [None, (), PROJECTS])
-async def test_no_selection_explains_both_actions(monkeypatch, projects) -> None:
+@pytest.mark.parametrize(
+    "machines", [None, (), MACHINES, (Machine("bare", "Bare", alias="bare-host"),)]
+)
+async def test_open_link_disabled_without_selection_or_links(
+    monkeypatch, machines
+) -> None:
     opener = Mock()
     monkeypatch.setattr(app_module, "open_link", opener)
-    app = SSHWorkbenchApp(projects)
+    app = SSHWorkbenchApp(machines)
     async with app.run_test() as pilot:
-        if projects:
+        if machines == MACHINES:
+            assert app.check_action("open_link", ()) is True
             app.query_one(ListView).index = None
             await pilot.pause()
-        for key, label in [("r", "Repository"), ("d", "Documentation")]:
-            await pilot.press(key)
-            assert status(app) == f"{label}: select a project first."
+        before = status(app)
+        assert app.check_action("open_link", ()) is None
+        await pilot.press("o")
+        app.action_open_link()
+        await pilot.pause()
+        assert status(app) == before
+        assert app._link_request is None
+        assert not isinstance(app.screen, LinkPicker)
         opener.assert_not_called()
         await pilot.press("q")
-
-
-async def test_absent_links_do_not_dispatch(monkeypatch) -> None:
-    opener = Mock()
-    monkeypatch.setattr(app_module, "open_link", opener)
-    app = SSHWorkbenchApp([Project("missing", "Missing", "missing-host")])
-    async with app.run_test() as pilot:
-        for key, label in [("r", "Repository"), ("d", "Documentation")]:
-            await pilot.press("tab", key)
-            assert status(app).startswith(f"{label} link not configured.")
-            assert "restart" in status(app)
-            assert app._link_request is None
-        opener.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -158,18 +183,18 @@ async def test_results_are_literal_sanitized_and_retryable(
         return_value=outcome,
     )
     monkeypatch.setattr(app_module, "open_link", opener)
-    project = Project(
-        "literal[bold]\x1b", "Literal", "literal-host", PROJECTS[0].repository
+    machine = Machine(
+        "literal[bold]\x1b", "Literal", alias="literal-host", links=MACHINES[0].links
     )
-    app = SSHWorkbenchApp([project])
+    app = SSHWorkbenchApp([machine])
     async with app.run_test() as pilot:
         for count in (1, 2):
-            await pilot.press("r")
+            await pilot.press("o")
             await completed(app, pilot)
             result = LinkResult.FAILED if isinstance(outcome, Exception) else outcome
             assert (
                 status(app)
-                == f"Repository {result.value} Project 1: literal[bold]\\x1b"
+                == f"Repository {result.value} Machine 1: literal[bold]\\x1b"
             )
             assert opener.call_count == count
             rendered = app.query_one("#link-status", Static).render()
@@ -185,10 +210,12 @@ async def test_results_are_literal_sanitized_and_retryable(
     ["file:///private", "https://u:p@example.invalid", "https://example.invalid/\x1b"],
 )
 async def test_real_boundary_rejects_invalid_ui_records(url) -> None:
-    app = SSHWorkbenchApp([Project("invalid", "Invalid", "invalid-host", url, url)])
+    app = SSHWorkbenchApp(
+        [Machine("invalid", "Invalid", alias="invalid-host", links=(Link("Bad", url),))]
+    )
     async with app.run_test() as pilot:
-        for key in ("r", "d"):
-            await pilot.press(key)
+        for _ in range(2):
+            await pilot.press("o")
             await completed(app, pilot)
             assert "link is invalid" in status(app)
             assert url not in status(app)
@@ -207,52 +234,55 @@ async def test_pending_request_is_bounded_and_preserves_new_selection_and_scroll
 
     opener = Mock(side_effect=open_url)
     monkeypatch.setattr(app_module, "open_link", opener)
-    projects = list(PROJECTS) + [
-        Project(
+    machines = list(MACHINES) + [
+        Machine(
             f"demo-{i}",
             "Long name " * 50,
-            "host",
-            "https://example.invalid/" + "path/" * 100,
+            alias="host",
+            links=(Link("Repository", "https://example.invalid/" + "path/" * 100),),
         )
         for i in range(30)
     ]
-    app = SSHWorkbenchApp(projects)
+    app = SSHWorkbenchApp(machines)
     try:
         async with app.run_test(size=(60, 20)) as pilot:
-            await pilot.press("down", "r")
+            await pilot.press("down", "o")
+            await picker_open(app, pilot)
+            await pilot.press("enter")
             async with asyncio.timeout(5):
                 while not entered.is_set():
                     await pilot.pause()
             request = app._link_request
-            assert request.project is PROJECTS[1]
-            assert request.url == PROJECTS[1].repository
+            assert request.machine is MACHINES[1]
+            assert request.link is MACHINES[1].links[0]
             await pilot.press(*(["down"] * 20), "tab", "pagedown")
             await pilot.wait_for_scheduled_animations()
-            project_list = app.query_one(ListView)
-            details = app.query_one("#project-details", VerticalScroll)
+            machine_list = app.query_one(ListView)
+            details = app.query_one("#machine-details", VerticalScroll)
             index, list_scroll, detail_scroll = (
-                project_list.index,
-                project_list.scroll_y,
+                machine_list.index,
+                machine_list.scroll_y,
                 details.scroll_y,
             )
             assert index == 21 and list_scroll > 0 and detail_scroll > 0
-            await pilot.press("r", "d", "r")
+            await pilot.press("o", "o", "o")
+            assert not isinstance(app.screen, LinkPicker)
             assert "still pending" in status(app)
-            assert "Project 2: second" in status(app)
+            assert "Machine 2: second" in status(app)
             assert app._link_request is request
             assert opener.call_count == 1
             release.set()
             await completed(app, pilot)
-            assert "accepted. Project 2: second" in status(app)
-            assert project_list.index == index
-            assert project_list.scroll_y == list_scroll
+            assert "accepted. Machine 2: second" in status(app)
+            assert machine_list.index == index
+            assert machine_list.scroll_y == list_scroll
             assert details.scroll_y == detail_scroll
             assert app.focused is details
-            await pilot.press("r")
+            await pilot.press("o")
             await completed(app, pilot)
             assert opener.call_count == 2
-            opener.assert_called_with(projects[index].repository)
-            assert f"Project {index + 1}: {projects[index].id}" in status(app)
+            opener.assert_called_with(machines[index].links[0].url)
+            assert f"Machine {index + 1}: {machines[index].id}" in status(app)
     finally:
         release.set()
 
@@ -268,12 +298,12 @@ async def test_shutdown_ignores_delayed_completion(monkeypatch, key) -> None:
         return LinkResult.ACCEPTED
 
     monkeypatch.setattr(app_module, "open_link", open_url)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     updates = Mock(wraps=app._show_link_result)
     monkeypatch.setattr(app, "_show_link_result", updates)
     try:
         async with app.run_test() as pilot:
-            await pilot.press("r")
+            await pilot.press("o")
             async with asyncio.timeout(5):
                 while not entered.is_set():
                     await pilot.pause()
@@ -298,16 +328,19 @@ async def test_stale_result_does_not_replace_new_request(monkeypatch) -> None:
     monkeypatch.setattr(
         app_module, "open_link", lambda url: release.wait(10) and LinkResult.ACCEPTED
     )
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     try:
         async with app.run_test() as pilot:
-            await pilot.press("r")
+            await pilot.press("o")
             old_request = app._link_request
             release.set()
             await completed(app, pilot)
             release.clear()
-            await pilot.press("down", "d")
+            await pilot.press("down", "o")
+            await picker_open(app, pilot)
+            await pilot.press("down", "enter")
             new_request = app._link_request
+            assert new_request.link is MACHINES[1].links[1]
             before = status(app)
             app.post_message(LinkFinished(old_request, LinkResult.FAILED))
             await pilot.pause()
@@ -342,7 +375,7 @@ async def test_completion_during_ssh_keeps_both_results_and_signal_guard(
         finished.set()
         return LinkResult.ACCEPTED
 
-    def launch(alias):
+    def launch(machine):
         assert signal.getsignal(signal.SIGINT) is not previous
         lifecycle.append("launch")
         release.set()
@@ -351,14 +384,14 @@ async def test_completion_during_ssh_keeps_both_results_and_signal_guard(
 
     monkeypatch.setattr(app_module, "open_link", open_url)
     monkeypatch.setattr(app_module, "launch_ssh", launch)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     try:
         async with app.run_test() as pilot:
-            await pilot.press("r", "down", "tab", "c")
+            await pilot.press("o", "down", "tab", "c")
             await completed(app, pilot)
             assert lifecycle == ["suspend", "launch", "resume"]
             assert signal.getsignal(signal.SIGINT) is previous
-            assert "accepted. Project 1: first" in status(app)
+            assert "accepted. Machine 1: first" in status(app)
             assert "SSH exited with status 7." in str(
                 app.query_one("#connection-status", Static).content
             )
@@ -373,9 +406,9 @@ async def test_thread_start_error_clears_pending_request(monkeypatch) -> None:
     thread = Mock()
     thread.return_value.start.side_effect = RuntimeError("private-marker\x1b")
     monkeypatch.setattr(app_module, "Thread", thread)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test() as pilot:
-        await pilot.press("r")
+        await pilot.press("o")
         assert app._link_request is None
         assert "browser request failed" in status(app)
         assert "private-marker" not in status(app)
@@ -383,15 +416,15 @@ async def test_thread_start_error_clears_pending_request(monkeypatch) -> None:
 
 
 async def test_closed_loop_race_discards_completion(monkeypatch) -> None:
-    app = SSHWorkbenchApp(PROJECTS)
-    request = LinkRequest(PROJECTS[0], "Repository", PROJECTS[0].repository, 1)
+    app = SSHWorkbenchApp(MACHINES)
+    request = LinkRequest(MACHINES[0], MACHINES[0].links[0], 1)
     opener = Mock(return_value=LinkResult.ACCEPTED)
     monkeypatch.setattr(app_module, "open_link", opener)
     post = Mock(side_effect=RuntimeError("Event loop is closed"))
     monkeypatch.setattr(app, "post_message", post)
     app._launch_link(request)
     post.assert_called_once()
-    opener.assert_called_once_with(request.url)
+    opener.assert_called_once_with(request.link.url)
     app.on_unmount()
     app._launch_link(request)
     assert opener.call_count == 1
@@ -401,20 +434,179 @@ async def test_long_ids_keep_visible_attribution_and_bounded_layout(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(app_module, "open_link", lambda url: LinkResult.UNAVAILABLE)
-    projects = [
-        Project(
-            "shared-" + "x" * 400 + str(i), "Fictional", "host", PROJECTS[0].repository
+    machines = [
+        Machine(
+            "shared-" + "x" * 400 + str(i),
+            "Fictional",
+            alias="host",
+            links=MACHINES[0].links,
         )
         for i in range(2)
     ]
-    app = SSHWorkbenchApp(projects)
+    app = SSHWorkbenchApp(machines)
     async with app.run_test(size=(60, 20)) as pilot:
-        await pilot.press("down", "r")
+        await pilot.press("down", "o")
         await completed(app, pilot)
         status_widget = app.query_one("#link-status", Static)
         assert status_widget.region.height == 3
-        assert "Project 2:" in status(app)
+        assert "Machine 2:" in status(app)
         visible = "\n".join(status_widget.render_line(y).text for y in range(3))
-        assert "Project 2:" in visible
+        assert "Machine 2:" in visible
         assert app.query_one(ListView).region.height > 5
         assert app.screen.region.contains_region(app.query_one(Footer).region)
+
+
+async def test_picker_escape_keeps_selection_and_focus(monkeypatch) -> None:
+    opener = Mock(side_effect=AssertionError("Unexpected browser action"))
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.press("down", "tab", "end")
+        await pilot.wait_for_scheduled_animations()
+        details = app.query_one("#machine-details", VerticalScroll)
+        scroll = details.scroll_y
+        await pilot.press("o")
+        picker = await picker_open(app, pilot)
+        assert picker.query_one(OptionList).highlighted == 0
+        await pilot.press("down", "escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, LinkPicker)
+        assert app.query_one(ListView).index == 1
+        assert app.focused is details
+        assert details.scroll_y == scroll
+        assert status(app) == INITIAL_STATUS
+        assert app._link_request is None
+        opener.assert_not_called()
+        await pilot.press("q")
+
+
+async def test_picker_blocks_connect_and_second_request_but_quits(
+    monkeypatch,
+) -> None:
+    launch = Mock(side_effect=AssertionError("Unexpected SSH launch"))
+    opener = Mock(side_effect=AssertionError("Unexpected browser action"))
+    monkeypatch.setattr(app_module, "launch_ssh", launch)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    # A real handoff must be possible, or an unguarded Connect would stop at
+    # SuspendNotSupported before reaching launch_ssh and the test would pass.
+    lifecycle = []
+    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: lifecycle.append("suspend"),
+    )
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "resume_application_mode",
+        lambda self: lifecycle.append("resume"),
+    )
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "o")
+        await picker_open(app, pilot)
+        connection = str(app.query_one("#connection-status", Static).content)
+        assert app.check_action("connect", ()) is None
+        assert app.check_action("open_link", ()) is None
+        await pilot.press("c", "o")
+        app.action_connect()
+        app.action_open_link()
+        await pilot.pause()
+        assert len(app.screen_stack) == 2
+        assert lifecycle == []
+        assert str(app.query_one("#connection-status", Static).content) == connection
+        launch.assert_not_called()
+        opener.assert_not_called()
+        await pilot.press("q")
+        assert not app.is_running
+        assert app.return_code == 0
+
+
+@pytest.mark.parametrize(
+    "keys",
+    [
+        ("enter", "enter"),
+        ("enter", "escape"),
+        ("escape", "enter"),
+        ("escape", "escape"),
+    ],
+)
+async def test_picker_ignores_a_second_key_in_the_same_batch(monkeypatch, keys) -> None:
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "o")
+        await picker_open(app, pilot)
+        # Windows delivers one console read as back-to-back key events.
+        for key in keys:
+            app.post_message(events.Key(key, "\r" if key == "enter" else None))
+        await pilot.pause()
+        await completed(app, pilot)
+        assert app.is_running
+        assert len(app.screen_stack) == 1
+        if keys[0] == "enter":
+            opener.assert_called_once_with(MACHINES[1].links[0].url)
+        else:
+            opener.assert_not_called()
+        await pilot.press("q")
+        assert not app.is_running
+        assert app.return_code == 0
+
+
+async def test_schema_1_single_link_opens_without_picker(monkeypatch) -> None:
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    machines = parse_machines(
+        'schema_version = 1\n[[projects]]\nid = "old"\nname = "Old"\n'
+        'ssh_alias = "old-host"\ndocumentation = "https://example.invalid/old"\n'
+    )
+    app = SSHWorkbenchApp(machines)
+    async with app.run_test() as pilot:
+        await pilot.press("o")
+        assert len(app.screen_stack) == 1
+        await completed(app, pilot)
+        opener.assert_called_once_with("https://example.invalid/old")
+        assert len(app.screen_stack) == 1
+        assert status(app) == "Documentation browser request accepted. Machine 1: old"
+
+
+async def test_picker_scrolls_many_long_links_at_60x20(monkeypatch) -> None:
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    links = tuple(
+        Link(f"Link {i} " + "long name " * 8, f"https://example.invalid/{i}")
+        for i in range(30)
+    )
+    app = SSHWorkbenchApp([Machine("many", "Many", alias="many-host", links=links)])
+    async with app.run_test(size=(60, 20)) as pilot:
+        await pilot.press("o")
+        picker = await picker_open(app, pilot)
+        options = picker.query_one(OptionList)
+        assert app.screen.region.contains_region(options.region)
+        await pilot.press("end")
+        assert options.highlighted == 29
+        assert options.scroll_y > 0
+        await pilot.press("enter")
+        await completed(app, pilot)
+        opener.assert_called_once_with("https://example.invalid/29")
+        assert status(app).startswith("Link 29 ")
+
+
+async def test_picker_prompts_are_literal(monkeypatch) -> None:
+    monkeypatch.setattr(app_module, "open_link", Mock(return_value=LinkResult.ACCEPTED))
+    links = (
+        Link("[bold]Dash[/bold]\x1b", "https://example.invalid/[link=x]"),
+        Link("Plain", "https://example.invalid/plain"),
+    )
+    app = SSHWorkbenchApp([Machine("lit", "Lit", alias="lit-host", links=links)])
+    async with app.run_test() as pilot:
+        await pilot.press("o")
+        picker = await picker_open(app, pilot)
+        options = picker.query_one(OptionList)
+        prompt = options.get_option_at_index(0).prompt
+        assert (
+            prompt.plain == "[bold]Dash[/bold]\\x1b  https://example.invalid/[link=x]"
+        )
+        assert not prompt.spans
+        await pilot.press("escape", "q")

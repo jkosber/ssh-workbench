@@ -137,8 +137,8 @@ def main() -> None:
         ):
             async with app.run_test(size=(80, 24)) as pilot:
                 if scenario == "blocked":
-                    await pilot.press(*(["down"] * (len(fixture.PROJECTS) - 1)))
-                await pilot.press("r")
+                    await pilot.press(*(["down"] * (len(fixture.MACHINES) - 1)))
+                await pilot.press("o")
                 async with asyncio.timeout(5):
                     while not entered.is_set():
                         await pilot.pause()
@@ -171,7 +171,7 @@ def main() -> None:
     assert len(apps) == 1 and apps[0]._links_closed.is_set()
     assert entered.is_set() and not finished.is_set()
     if scenario == "blocked":
-        assert fixture_calls == [fixture.PROJECTS[-1].repository]
+        assert fixture_calls == [fixture.MACHINES[-1].links[0].url]
         assert not outer_calls
         assert worker_threads[0].daemon and worker_threads[0].is_alive()
         assert boundary_values(boundaries) == installed_guards[0], (
@@ -197,7 +197,7 @@ def main() -> None:
         flush=True,
     )
     assert not outer_calls, f"Delayed worker escaped fixture guards: {outer_calls!r}"
-    assert fixture_calls == [fixture.PROJECTS[0].repository]
+    assert fixture_calls == [fixture.MACHINES[0].links[0].url]
     assert guards_retained, "Fixture restored its guards"
 
 

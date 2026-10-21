@@ -38,7 +38,8 @@ Acceptance criteria:
   domain error that identifies the field/project when possible without echoing
   the entire file or private values. Choose a small typed record and one clear
   error type; no schema framework is needed.
-- [x] Confirm or revise the [supported example](../examples/projects.example.toml)
+- [x] Confirm or revise the supported example (`examples/projects.example.toml`,
+  replaced in Task 8 by [machines.example.toml](../examples/machines.example.toml))
   and document the implemented schema. Private files belong outside Git; the
   loader never creates or overwrites them.
 
@@ -296,6 +297,10 @@ task is one pull request; its acceptance criteria are added when it starts.
 
 ## 7. Tooling cleanup
 
+**Merged in [PR #8](https://github.com/jkosber/ssh-workbench/pull/8)** as
+`11449aa`, containing tested head `d6f3a61`; the merge tree matches that head.
+See the [Task 7 evidence](validation.md#task-7-tooling-cleanup-2026-10-20).
+
 Three development items from the 0.1.x candidates. No user-visible behavior
 changes.
 
@@ -314,28 +319,62 @@ Acceptance:
   installed-wheel checks live in their own file, still run with `python -I`
   against the installed wheel, and keep the isolation and import-path
   assertions. A test fails if Python source returns to strings there.
-- [ ] Full checks, build, package check and CI on Windows and Ubuntu pass.
+- [x] Full checks, build, package check and CI on Windows and Ubuntu pass.
   CONTRIBUTING and the architecture module map describe the new files.
+
+## 8. Machines replace projects
+
+Read-only: Workbench still writes nothing. Saving, status checks and SSH config
+reading come in Tasks 9-11.
+
+Acceptance:
+
+- [x] Schema 2 machine file with a `machines` array. Each machine has a unique
+  `id` and a `name`, plus either `alias` or `addresses` (with optional `user`,
+  `port` and `key`), never both, and optional named `links`. Unknown fields stay
+  errors, and errors never repeat values, unknown keys or paths.
+- [x] Field rules shared by the loader and the launch boundary. `user` and each
+  address reject anything that could become an SSH option or several arguments
+  (a leading `-`, whitespace, control characters, `@` in `user`). Addresses
+  accept hostnames, IPv4 and IPv6. Ports are 1-65535. A `key` is an absolute or
+  `~/` path to a private key, without quotes, `%`, `${` or a `.pub` ending.
+  Link names are unique within a machine; URLs keep the 0.1.0 rule.
+- [x] Schema 1 files still load: each project becomes an alias machine whose
+  `repository` and `documentation` become links named "Repository" and
+  "Documentation". Their errors keep `projects[N]` locations.
+- [x] The default file is `machines.toml` in the 0.1.0 folders, with no
+  fallback to `projects.toml`. `--config PATH` still overrides it.
+- [x] Connect runs `ssh -- <alias>` for alias machines. Direct machines run
+  `ssh -o HostKeyAlias=<id> [-l user] [-p port] [-i key -o IdentitiesOnly=yes]
+  -- <address>` with the first listed address. Values are revalidated just
+  before launch; every 0.1.0 handoff safeguard stays. Real OpenSSH on Windows
+  and a portable build accept the arguments.
+- [x] O opens the selected machine's only link, or a picker when there are
+  several: Enter opens, Escape cancels, and C, O and a second request are blocked
+  while it is open. R and D are gone. The 0.1.0 browser boundary is unchanged.
+- [x] The details pane shows the connection kind, alias or addresses, user, port,
+  key and links, all literal. C and O are dimmed without a selection, while
+  connecting and (O) without links. Status lines name the machine.
+- [x] Folded 0.1.x fixes: a folder given with `--config` or at the default path
+  reports "expected a file, got a directory"; the empty-file screen no longer
+  says to restart with `--config PATH`; `--help` prints the default path on its
+  own line; a test shows `--help` and `--version` ignore an invalid default
+  file; the help line fits 60 columns; README escaping and Git-tag upgrade
+  wording.
+- [ ] Tests, fixtures, the package check and the example file use machines.
+  Full checks and CI pass; a native Windows Terminal check with fictional
+  machines and a real alias connect to an approved target pass.
 
 ## 0.1.x candidates
 
 Findings from the 0.1.0 review, deferred as non-blocking. Each needs its own
-explicit task. Task 7 takes the `uv_build`, guard-list and `check_package.py`
-items; Task 8 takes the items in code it rewrites.
+explicit task. Task 7 took the `uv_build`, guard-list and `check_package.py`
+items; Task 8 took the R/D, help line, status line, folder, empty-file,
+`--help` path, help/version test and README items. Two remain:
 
 - Split current test procedures from `validation.md` into a short testing guide
   and keep the dated log.
-- With no projects loaded, disable R/D instead of reporting "select a project
-  first" (changes an existing test).
-- The help line wraps at 60x20; the SSH status line does not name its project.
-- `--config` pointing at a folder reports "permission denied" on Windows.
 - URLs containing U+202E or U+200B pass validation; display already escapes them.
-- An empty default file says to restart with `--config PATH`; a folder at the
-  default path still says to create a file there.
-- `--help` wraps a long default path at hyphens; print it on its own line.
-- Test that `--help` and `--version` ignore an invalid default file.
-- README: escaping also covers format characters and non-ASCII spaces; add an
-  upgrade step for installs from a Git tag.
 
 ## 0.2.x candidates
 
@@ -350,6 +389,14 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   such as `["python", "-I", "-c", "..."]`; also reject a `"-c"` string.
 - Task 7: `package_smoke.guarded_boundaries()` inserts `scripts/` at the front
   of `sys.path`; load the list by path or append it instead.
+- Task 8: the `%(prog)` branch of the `--help` epilog has no test.
+- Task 8: a few schema tests match message prefixes instead of exact strings.
+- Task 8: the 60x20 many-links picker test does not press Escape; the 80x24
+  test covers Escape restoring selection and focus.
+- Task 8: an empty schema 1 file is told to add `[[machines]]` entries, which
+  that schema would reject; the hint should name `schema_version = 2`.
+- Task 8: at 80x24 the details pane needs scrolling to show a machine's key and
+  links; alias machines spend three rows on "From your SSH config".
 
 ## Deferred ideas
 

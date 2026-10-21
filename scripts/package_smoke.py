@@ -20,9 +20,9 @@ from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, ListView, Static
 
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import LinkPicker, SSHWorkbenchApp
 from ssh_workbench.cli import main as cli_main
-from ssh_workbench.config import Project, load_projects
+from ssh_workbench.config import Link, Machine, load_machines
 from ssh_workbench.links import LinkResult
 
 PACKAGE_MODULES = (
@@ -65,8 +65,16 @@ def reject_external_actions(guards: ExitStack) -> None:
 
 
 def check_loader() -> None:
-    assert load_projects(Path("projects.toml")) == [
-        Project("package-demo", "Package demo", "package-demo-host")
+    assert load_machines(Path("machines.toml")) == [
+        Machine("package-demo", "Package demo", alias="package-demo-host"),
+        Machine(
+            "package-direct",
+            "Package direct",
+            user="demo",
+            addresses=("192.0.2.10",),
+            port=2222,
+            links=(Link("Dashboard", "https://192.0.2.10:8006"),),
+        ),
     ]
 
 
@@ -78,51 +86,56 @@ async def wait_until(pilot, predicate):
 
 async def check_browser(app):
     assert app.config_supplied
-    assert app.projects == (
-        Project(
+    links = (
+        Link(
+            "Repository", "https://example.invalid/first?q=fictional%26query#repository"
+        ),
+        Link("Documentation", "https://example.invalid/first/docs#start"),
+    )
+    assert app.machines == (
+        Machine(
             "package-first",
             "Package [b]first[/b]",
-            "fictional-first",
-            "https://example.invalid/first?q=fictional%26query#repository",
-            "https://example.invalid/first/docs#start",
+            alias="fictional-first",
+            links=links,
         ),
-        Project("package-second", "Package second", "fictional-second"),
+        Machine("package-second", "Package second", alias="fictional-second"),
     )
     async with app.run_test(size=(80, 24)) as pilot:
         footer = app.query_one(Footer)
         await wait_until(
             pilot,
             lambda: (
-                {"connect", "repository", "documentation"}
+                {"connect", "open_link"}
                 <= {key.action for key in footer.query("FooterKey")}
             ),
         )
-        projects = app.query_one("#project-list", ListView)
-        assert projects.index == 0
-        name = app.query_one("#project-name", Static)
+        machines = app.query_one("#machine-list", ListView)
+        assert machines.index == 0
+        name = app.query_one("#machine-name", Static)
         assert "Package [b]first[/b]" in str(name.content)
-        for key, url, outcome, expected in (
+        for picks, url, outcome, expected in (
             (
-                "r",
-                app.projects[0].repository,
+                ("enter",),
+                links[0].url,
                 LinkResult.ACCEPTED,
                 "Repository browser request accepted",
             ),
             (
-                "d",
-                app.projects[0].documentation,
+                ("down", "enter"),
+                links[1].url,
                 LinkResult.FAILED,
                 "Documentation browser request failed",
             ),
             (
-                "r",
-                app.projects[0].repository,
+                ("enter",),
+                links[0].url,
                 OSError("private-marker ?secret=private-marker"),
                 "Repository browser request failed",
             ),
             (
-                "d",
-                app.projects[0].documentation,
+                ("down", "enter"),
+                links[1].url,
                 LinkResult.ACCEPTED,
                 "Documentation browser request accepted",
             ),
@@ -130,15 +143,17 @@ async def check_browser(app):
             await pilot.press("tab")
             focused = app.focused
             assert focused in (
-                projects,
-                app.query_one("#project-details", VerticalScroll),
+                machines,
+                app.query_one("#machine-details", VerticalScroll),
             )
             with patch("ssh_workbench.app.open_link") as open_link:
                 open_link.side_effect = (
                     outcome if isinstance(outcome, BaseException) else None
                 )
                 open_link.return_value = outcome
-                await pilot.press(key)
+                await pilot.press("o")
+                await wait_until(pilot, lambda: isinstance(app.screen, LinkPicker))
+                await pilot.press(*picks)
                 await wait_until(pilot, lambda: app._link_request is None)
                 open_link.assert_called_once_with(url)
             status = app.query_one("#link-status", Static)
@@ -146,19 +161,18 @@ async def check_browser(app):
             assert "private-marker" not in str(status.content)
             assert "package-first" in str(status.content)
             assert not status.render().spans
-            assert projects.index == 0 and app.focused is focused
+            assert machines.index == 0 and app.focused is focused
         await pilot.press("down")
-        assert projects.index == 1
+        assert machines.index == 1
         assert "Package second" in str(name.content)
-        alias = app.query_one("#project-ssh-alias", Static)
+        alias = app.query_one("#machine-target", Static)
         assert "fictional-second" in str(alias.content)
-        repository = app.query_one("#project-repository", Static)
-        assert "example.invalid/first" not in str(repository.content)
+        assert str(app.query_one("#machine-links", Static).content) == "None"
+        before = str(app.query_one("#link-status", Static).content)
         with patch("ssh_workbench.app.open_link") as open_link:
-            for key, kind in (("r", "Repository"), ("d", "Documentation")):
-                await pilot.press(key)
-                status = str(app.query_one("#link-status", Static).content)
-                assert kind + " link not configured" in status
+            await pilot.press("o")
+            await pilot.pause()
+            assert str(app.query_one("#link-status", Static).content) == before
             open_link.assert_not_called()
         # Use installed App.suspend with a recording driver, never a terminal
         # or a real SSH executable in this isolated package smoke check.
@@ -191,20 +205,20 @@ async def check_browser(app):
                 launch.return_value = outcome
                 await pilot.press("tab", "c")
                 launch.assert_called_once_with(
-                    [executable, "fictional-second"],
+                    [executable, "--", "fictional-second"],
                     shell=False,
                     check=False,
                     stdin=None,
                     stdout=None,
                     stderr=None,
                 )
-                assert projects.index == 1
-                assert app.focused is projects
+                assert machines.index == 1
+                assert app.focused is machines
                 status = str(app.query_one("#connection-status", Static).content)
                 assert expected in status and "private-marker" not in status
             assert lifecycle == ["suspend", "resume"] * 4
         await pilot.press("up", "down")
-        assert projects.index == 1
+        assert machines.index == 1
         await pilot.press("q")
         assert not app.is_running
         assert app.return_code == 0
@@ -243,22 +257,22 @@ def check_quit(key: str) -> None:
     async def check_quit_key():
         app = SSHWorkbenchApp(
             [
-                Project(
+                Machine(
                     "blocked-fixture",
                     "Blocked fixture",
-                    "fictional-blocked",
-                    "https://example.invalid/blocked",
+                    alias="fictional-blocked",
+                    links=(Link("Blocked", "https://example.invalid/blocked"),),
                 )
             ]
         )
         async with app.run_test(size=(60, 20)) as pilot:
             footer = app.query_one(Footer)
             async with asyncio.timeout(5):
-                while "repository" not in {
+                while "open_link" not in {
                     binding.action for binding in footer.query("FooterKey")
                 }:
                     await pilot.pause()
-            await pilot.press("r")
+            await pilot.press("o")
             async with asyncio.timeout(5):
                 while not entered.is_set():
                     await pilot.pause()

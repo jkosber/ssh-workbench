@@ -6,7 +6,7 @@ import subprocess
 import sys
 from enum import Enum
 
-from ssh_workbench.config import ProjectConfigError, validate_http_url
+from ssh_workbench.config import ConfigError, validate_http_url
 
 
 class LinkResult(Enum):
@@ -26,7 +26,7 @@ def open_link(url: str | None) -> LinkResult:
         return LinkResult.MISSING
     try:
         validated = validate_http_url(url)
-    except ProjectConfigError:
+    except ConfigError:
         return LinkResult.INVALID
 
     try:

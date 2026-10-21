@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ssh_workbench.app import SSHWorkbenchApp
-from ssh_workbench.config import Project
+from ssh_workbench.config import Machine
 from ssh_workbench.ssh import launch_ssh
 
 CASES = {
@@ -44,13 +44,14 @@ def child(alias: str) -> int:
             return 7 if alias == "fixture-seven" else 0
 
 
-def launch_fixture(alias: str) -> int:
+def launch_fixture(machine: Machine) -> int:
+    alias = machine.alias
     if alias not in CASES:
         raise AssertionError("Only the built-in fictional aliases are permitted")
     executable = str(Path(sys.executable).resolve())
 
     def run_fixture(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess:
-        assert argv == [executable, alias]
+        assert argv == [executable, "--", alias]
         assert kwargs == {
             "shell": False,
             "check": False,
@@ -75,7 +76,7 @@ def launch_fixture(alias: str) -> int:
         ),
         patch("ssh_workbench.ssh.subprocess.run", run_fixture),
     ):
-        return launch_ssh(alias)
+        return launch_ssh(machine)
 
 
 def main() -> int:
@@ -84,9 +85,9 @@ def main() -> int:
     args = parser.parse_args()
     if args.child:
         return child(args.child)
-    projects = [Project(alias, name, alias) for alias, name in CASES.items()]
+    machines = [Machine(alias, name, alias=alias) for alias, name in CASES.items()]
     with patch("ssh_workbench.app.launch_ssh", launch_fixture):
-        app = SSHWorkbenchApp(projects)
+        app = SSHWorkbenchApp(machines)
         app.run()
     return app.return_code
 

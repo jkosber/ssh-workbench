@@ -6,10 +6,11 @@ from pathlib import Path
 import pytest
 
 from ssh_workbench.config import (
-    Project,
-    ProjectConfigError,
-    load_projects,
-    parse_projects,
+    ConfigError,
+    Link,
+    Machine,
+    load_machines,
+    parse_machines,
 )
 
 
@@ -36,8 +37,8 @@ def test_load_single_project_without_optional_fields(tmp_path: Path) -> None:
     text = project_config(name='"  Jardin café  "')
     path = write_config(tmp_path, text)
 
-    assert load_projects(path) == [
-        Project("garden-demo", "  Jardin café  ", "garden-demo-host")
+    assert load_machines(path) == [
+        Machine("garden-demo", "  Jardin café  ", alias="garden-demo-host")
     ]
     assert path.read_text(encoding="utf-8") == text
 
@@ -54,30 +55,34 @@ def test_load_multiple_projects_in_file_order(tmp_path: Path) -> None:
         '\ndocumentation = "http://example.org/fictional/notes?q=help#start"\n',
     )
 
-    assert load_projects(path) == [
-        Project(
+    assert load_machines(path) == [
+        Machine(
             "z-garden",
             "Garden demo",
-            "garden-demo-host",
-            repository="https://example.com/fictional/garden.git",
+            alias="garden-demo-host",
+            links=(Link("Repository", "https://example.com/fictional/garden.git"),),
         ),
-        Project(
+        Machine(
             "a-notes",
             "Notes",
-            "Notes_2.example",
-            documentation="http://example.org/fictional/notes?q=help#start",
+            alias="Notes_2.example",
+            links=(
+                Link(
+                    "Documentation", "http://example.org/fictional/notes?q=help#start"
+                ),
+            ),
         ),
     ]
 
 
 def test_parse_projects_without_file_access() -> None:
-    assert parse_projects(project_config()) == [
-        Project("garden-demo", "Garden demo", "garden-demo-host")
+    assert parse_machines(project_config()) == [
+        Machine("garden-demo", "Garden demo", alias="garden-demo-host")
     ]
 
 
 def test_project_records_are_immutable() -> None:
-    project = parse_projects(project_config())[0]
+    project = parse_machines(project_config())[0]
     with pytest.raises(FrozenInstanceError):
         project.name = "Changed name"
 
@@ -85,53 +90,62 @@ def test_project_records_are_immutable() -> None:
 def test_invalid_configuration_is_not_modified(tmp_path: Path) -> None:
     path = write_config(tmp_path, project_config(ssh_alias='"--help"'))
     original = path.read_bytes()
-    with pytest.raises(ProjectConfigError, match=r"projects\[1\].ssh_alias:"):
-        load_projects(path)
+    with pytest.raises(ConfigError, match=r"projects\[1\].ssh_alias:"):
+        load_machines(path)
     assert path.read_bytes() == original
 
 
 def test_documented_example(tmp_path: Path) -> None:
-    example = Path(__file__).resolve().parents[1] / "examples/projects.example.toml"
+    example = Path(__file__).resolve().parents[1] / "examples/machines.example.toml"
     path = write_config(tmp_path, example.read_text(encoding="utf-8"))
 
-    assert load_projects(path) == [
-        Project(
+    assert load_machines(path) == [
+        Machine(
             "garden-demo",
             "Garden demo",
-            "garden-demo-host",
-            "https://example.com/fictional/garden-demo.git",
-            "https://example.com/fictional/garden-demo/docs",
+            alias="garden-demo-host",
+            links=(Link("Documentation", "https://example.com/fictional/garden/docs"),),
         ),
-        Project("studio-demo", "Studio demo", "studio-demo-host"),
+        Machine(
+            "studio-box",
+            "Studio box",
+            user="studio",
+            addresses=("studio-box.example.com", "192.0.2.40"),
+            port=2222,
+            key="~/.ssh/id_ed25519_studio_box",
+            links=(
+                Link("Dashboard", "https://192.0.2.40:8006"),
+                Link("Status page", "https://studio-box.example.com/status"),
+            ),
+        ),
     ]
 
 
 def test_empty_project_collection(tmp_path: Path) -> None:
     assert (
-        load_projects(write_config(tmp_path, "schema_version = 1\nprojects = []")) == []
+        load_machines(write_config(tmp_path, "schema_version = 1\nprojects = []")) == []
     )
 
 
 def test_missing_file_is_not_created(tmp_path: Path) -> None:
     path = tmp_path / "missing.toml"
-    with pytest.raises(ProjectConfigError, match="file not found") as caught:
-        load_projects(path)
+    with pytest.raises(ConfigError, match="file not found") as caught:
+        load_machines(path)
     assert str(path) not in str(caught.value)
     assert not path.exists()
 
 
 def test_directory_is_not_a_config_file(tmp_path: Path) -> None:
-    # Windows may report a directory as PermissionError rather than IsADirectoryError.
-    with pytest.raises(ProjectConfigError, match="configuration:"):
-        load_projects(tmp_path)
+    # Windows reports reading a directory as PermissionError; name the real cause.
+    with pytest.raises(ConfigError) as caught:
+        load_machines(tmp_path)
+    assert str(caught.value) == "configuration: expected a file, got a directory"
 
 
 def test_nul_in_path_has_safe_domain_error(tmp_path: Path) -> None:
     path = tmp_path / "fictional-private\x00.toml"
-    with pytest.raises(
-        ProjectConfigError, match="configuration: invalid file path"
-    ) as caught:
-        load_projects(path)
+    with pytest.raises(ConfigError, match="configuration: invalid file path") as caught:
+        load_machines(path)
     assert "fictional-private" not in "".join(traceback.format_exception(caught.value))
     assert list(tmp_path.iterdir()) == []
 
@@ -158,8 +172,8 @@ def test_file_access_errors(
         raise error_type("private-file-details")
 
     monkeypatch.setattr(Path, "read_text", fail_read)
-    with pytest.raises(ProjectConfigError, match=message) as caught:
-        load_projects(path)
+    with pytest.raises(ConfigError, match=message) as caught:
+        load_machines(path)
     assert "private-file-details" not in "".join(
         traceback.format_exception(caught.value)
     )
@@ -170,16 +184,16 @@ def test_utf8_byte_order_mark_is_accepted(tmp_path: Path) -> None:
     path = tmp_path / "projects.toml"
     path.write_bytes(b"\xef\xbb\xbf" + project_config().encode("utf-8"))
 
-    assert load_projects(path) == [
-        Project("garden-demo", "Garden demo", "garden-demo-host")
+    assert load_machines(path) == [
+        Machine("garden-demo", "Garden demo", alias="garden-demo-host")
     ]
 
 
 def test_invalid_utf8(tmp_path: Path) -> None:
     path = tmp_path / "projects.toml"
     path.write_bytes(b"schema_version = 1\n# \xff")
-    with pytest.raises(ProjectConfigError, match="expected UTF-8 text"):
-        load_projects(path)
+    with pytest.raises(ConfigError, match="expected UTF-8 text"):
+        load_machines(path)
 
 
 @pytest.mark.parametrize(
@@ -192,18 +206,18 @@ def test_invalid_utf8(tmp_path: Path) -> None:
 )
 def test_malformed_toml_has_safe_location(tmp_path: Path, text: str) -> None:
     with pytest.raises(
-        ProjectConfigError, match=r"TOML: invalid syntax at line \d+, column \d+"
+        ConfigError, match=r"TOML: invalid syntax at line \d+, column \d+"
     ) as caught:
-        load_projects(write_config(tmp_path, text))
+        load_machines(write_config(tmp_path, text))
     assert "fictional-private" not in "".join(traceback.format_exception(caught.value))
 
 
 @pytest.mark.parametrize(
-    "version", ["0", "2", "-1", "true", "false", '"1"', "1.0", "[]", "{}"]
+    "version", ["0", "3", "-1", "true", "false", '"1"', "1.0", "[]", "{}"]
 )
 def test_invalid_schema_version(tmp_path: Path, version: str) -> None:
-    with pytest.raises(ProjectConfigError, match="schema_version: expected integer 1"):
-        load_projects(
+    with pytest.raises(ConfigError, match="schema_version: expected integer 1 or 2"):
+        load_machines(
             write_config(tmp_path, f"schema_version = {version}\nprojects = []")
         )
 
@@ -232,8 +246,8 @@ def test_invalid_schema_version(tmp_path: Path, version: str) -> None:
     ],
 )
 def test_invalid_structure(tmp_path: Path, text: str, message: str) -> None:
-    with pytest.raises(ProjectConfigError) as caught:
-        load_projects(write_config(tmp_path, text))
+    with pytest.raises(ConfigError) as caught:
+        load_machines(write_config(tmp_path, text))
     assert message in str(caught.value)
 
 
@@ -244,8 +258,8 @@ def test_missing_project_field(tmp_path: Path, field: str) -> None:
         for line in project_config().splitlines()
         if not line.startswith(f"{field} =")
     )
-    with pytest.raises(ProjectConfigError) as caught:
-        load_projects(write_config(tmp_path, text))
+    with pytest.raises(ConfigError) as caught:
+        load_machines(write_config(tmp_path, text))
     assert f"projects[1].{field}: required field is missing" == str(caught.value)
 
 
@@ -256,8 +270,8 @@ def test_missing_project_field(tmp_path: Path, field: str) -> None:
 def test_invalid_project_field_types_and_empty_values(
     tmp_path: Path, field: str, value: str
 ) -> None:
-    with pytest.raises(ProjectConfigError) as caught:
-        load_projects(write_config(tmp_path, project_config(**{field: value})))
+    with pytest.raises(ConfigError) as caught:
+        load_machines(write_config(tmp_path, project_config(**{field: value})))
     assert str(caught.value) == f"projects[1].{field}: expected a nonempty string"
 
 
@@ -271,10 +285,8 @@ def test_invalid_project_field_types_and_empty_values(
 def test_unknown_fields_are_rejected_without_echoing_keys(
     tmp_path: Path, text: str
 ) -> None:
-    with pytest.raises(
-        ProjectConfigError, match="unknown field; allowed fields:"
-    ) as caught:
-        load_projects(write_config(tmp_path, text))
+    with pytest.raises(ConfigError, match="unknown field; allowed fields:") as caught:
+        load_machines(write_config(tmp_path, text))
     message = str(caught.value)
     assert message.startswith(
         "projects[1]:" if "[[projects]]" in text else "configuration:"
@@ -287,16 +299,16 @@ def test_unknown_fields_are_rejected_without_echoing_keys(
     "identifier", ["Garden", "a--b", "-garden", "garden-", "a_b", "é", "a b"]
 )
 def test_invalid_project_ids(tmp_path: Path, identifier: str) -> None:
-    with pytest.raises(ProjectConfigError, match=r"projects\[1\].id:"):
-        load_projects(write_config(tmp_path, project_config(id=json.dumps(identifier))))
+    with pytest.raises(ConfigError, match=r"projects\[1\].id:"):
+        load_machines(write_config(tmp_path, project_config(id=json.dumps(identifier))))
 
 
 def test_duplicate_id_identifies_both_entries_without_echoing_id(
     tmp_path: Path,
 ) -> None:
     text = project_config() + project_config().removeprefix("schema_version = 1")
-    with pytest.raises(ProjectConfigError) as caught:
-        load_projects(write_config(tmp_path, text))
+    with pytest.raises(ConfigError) as caught:
+        load_machines(write_config(tmp_path, text))
     assert str(caught.value) == "projects[2].id: duplicate of projects[1].id"
 
 
@@ -305,7 +317,7 @@ def test_valid_aliases_are_preserved(tmp_path: Path, alias: str) -> None:
     path = write_config(
         tmp_path, project_config(id='"9-demo"', ssh_alias=json.dumps(alias))
     )
-    assert load_projects(path)[0].ssh_alias == alias
+    assert load_machines(path)[0].alias == alias
 
 
 @pytest.mark.parametrize(
@@ -335,8 +347,8 @@ def test_valid_aliases_are_preserved(tmp_path: Path, alias: str) -> None:
     ],
 )
 def test_hostile_aliases(tmp_path: Path, alias: str) -> None:
-    with pytest.raises(ProjectConfigError, match=r"projects\[1\].ssh_alias:"):
-        load_projects(
+    with pytest.raises(ConfigError, match=r"projects\[1\].ssh_alias:"):
+        load_machines(
             write_config(tmp_path, project_config(ssh_alias=json.dumps(alias)))
         )
 
@@ -354,7 +366,7 @@ def test_hostile_aliases(tmp_path: Path, alias: str) -> None:
 )
 def test_valid_urls_are_preserved(tmp_path: Path, field: str, url: str) -> None:
     path = write_config(tmp_path, project_config(**{field: json.dumps(url)}))
-    assert getattr(load_projects(path)[0], field) == url
+    assert load_machines(path)[0].links == (Link(field.title(), url),)
 
 
 @pytest.mark.parametrize("field", ["repository", "documentation"])
@@ -391,8 +403,8 @@ def test_valid_urls_are_preserved(tmp_path: Path, field: str, url: str) -> None:
     ],
 )
 def test_invalid_urls(tmp_path: Path, field: str, url: str) -> None:
-    with pytest.raises(ProjectConfigError) as caught:
-        load_projects(
+    with pytest.raises(ConfigError) as caught:
+        load_machines(
             write_config(tmp_path, project_config(**{field: json.dumps(url)}))
         )
     assert str(caught.value).startswith(f"projects[1].{field}:")

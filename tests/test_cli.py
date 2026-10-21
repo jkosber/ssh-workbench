@@ -9,7 +9,7 @@ import pytest
 
 from ssh_workbench import cli as cli_module
 from ssh_workbench.app import SSHWorkbenchApp
-from ssh_workbench.config import Project
+from ssh_workbench.config import Link, Machine
 
 
 @pytest.fixture
@@ -81,15 +81,18 @@ def test_explicit_config_loads_records_without_writing(
     assert len(started_apps) == 1
     app = started_apps[0]
     assert app.config_supplied
-    assert app.projects == (
-        Project(
+    assert app.config_path == path
+    assert app.machines == (
+        Machine(
             "second",
             "Second listed",
-            "fictional-second",
-            "https://example.invalid/second",
-            "https://example.invalid/second/docs",
+            alias="fictional-second",
+            links=(
+                Link("Repository", "https://example.invalid/second"),
+                Link("Documentation", "https://example.invalid/second/docs"),
+            ),
         ),
-        Project("first", "First named", "fictional-first"),
+        Machine("first", "First named", alias="fictional-first"),
     )
     assert path.read_bytes() == original
     assert list(tmp_path.iterdir()) == [path]
@@ -110,17 +113,17 @@ def test_no_config_does_not_discover_local_files(
         return original_read_text(file, *args, **kwargs)
 
     def unexpected_load(file: Path) -> None:
-        pytest.fail("No --config must not call the project loader")
+        pytest.fail("No --config must not call the machine loader")
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(Path, "read_text", guard_read)
-    monkeypatch.setattr(cli_module, "load_projects", unexpected_load)
+    monkeypatch.setattr(cli_module, "load_machines", unexpected_load)
 
     assert cli_module.main([]) == 0
 
     assert len(started_apps) == 1
     assert not started_apps[0].config_supplied
-    assert started_apps[0].projects == ()
+    assert started_apps[0].machines == ()
     assert path.read_bytes() == b"invalid fictional configuration"
     assert list(tmp_path.iterdir()) == [path]
 
@@ -135,7 +138,8 @@ def test_explicit_empty_config_stays_distinct_from_no_config(
 
     assert len(started_apps) == 1
     assert started_apps[0].config_supplied
-    assert started_apps[0].projects == ()
+    assert started_apps[0].machines == ()
+    assert started_apps[0].config_path == path
 
 
 @pytest.mark.parametrize(
@@ -146,6 +150,11 @@ def test_explicit_empty_config_stays_distinct_from_no_config(
             'schema_version = 1\n[[projects]]\nid = "private-marker"\n'
             'name = "Fictional"\nssh_alias = "--private-marker"\n',
             "projects[1].ssh_alias:",
+        ),
+        (
+            'schema_version = 2\n[[machines]]\nid = "private-marker"\n'
+            'name = "Fictional"\naddresses = ["--private-marker"]\n',
+            "machines[1].addresses[1]:",
         ),
         (b"private-marker\xff", "configuration: expected UTF-8 text"),
     ],
@@ -225,6 +234,25 @@ def test_unreadable_config_has_sanitized_error(
     assert not started_apps
 
 
+def test_explicit_config_folder_has_directory_error(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    started_apps: list[SSHWorkbenchApp],
+) -> None:
+    folder = tmp_path / "private-marker"
+    folder.mkdir()
+
+    with pytest.raises(SystemExit) as raised:
+        cli_module.main(["--config", str(folder)])
+
+    assert raised.value.code == 2
+    error = capsys.readouterr().err
+    assert "configuration: expected a file, got a directory" in error
+    assert "permission denied" not in error
+    assert "private-marker" not in error
+    assert not started_apps
+
+
 @pytest.mark.parametrize("option", ["--help", "--version"])
 @pytest.mark.parametrize("config_first", [False, True])
 def test_help_and_version_ignore_explicit_config(
@@ -251,8 +279,8 @@ def test_help_and_version_ignore_explicit_config(
 
 
 VALID_DEFAULT = (
-    'schema_version = 1\n[[projects]]\nid = "first"\n'
-    'name = "First named"\nssh_alias = "fictional-first"\n'
+    'schema_version = 2\n[[machines]]\nid = "first"\n'
+    'name = "First named"\nalias = "fictional-first"\n'
 )
 
 
@@ -260,7 +288,7 @@ def use_user_config(monkeypatch: pytest.MonkeyPatch, folder: Path) -> Path:
     """Point both platforms' per-user configuration roots at one folder."""
     monkeypatch.setenv("APPDATA", str(folder))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(folder))
-    return folder / "ssh-workbench" / "projects.toml"
+    return folder / "ssh-workbench" / "machines.toml"
 
 
 def test_default_config_loads_when_present(
@@ -274,8 +302,9 @@ def test_default_config_loads_when_present(
 
     assert len(started_apps) == 1
     assert started_apps[0].config_supplied
-    assert started_apps[0].projects == (
-        Project("first", "First named", "fictional-first"),
+    assert started_apps[0].config_path == default
+    assert started_apps[0].machines == (
+        Machine("first", "First named", alias="fictional-first"),
     )
     assert default.read_text(encoding="utf-8") == VALID_DEFAULT
 
@@ -289,21 +318,50 @@ def test_missing_default_config_shows_no_config_screen(
 
     assert len(started_apps) == 1
     assert not started_apps[0].config_supplied
-    assert started_apps[0].default_config == default
+    assert started_apps[0].config_path == default
     assert list(tmp_path.iterdir()) == []
 
 
-def test_default_path_folder_shows_no_config_screen(
+def test_projects_toml_at_default_location_is_not_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, started_apps: list[SSHWorkbenchApp]
 ) -> None:
     default = use_user_config(monkeypatch, tmp_path)
-    default.mkdir(parents=True)
+    default.parent.mkdir()
+    old_default = default.with_name("projects.toml")
+    old_default.write_text(
+        'schema_version = 1\n[[projects]]\nid = "old"\nname = "Old"\n'
+        'ssh_alias = "fictional-old"\n',
+        encoding="utf-8",
+    )
 
     assert cli_module.main([]) == 0
 
     assert len(started_apps) == 1
     assert not started_apps[0].config_supplied
-    assert started_apps[0].default_config == default
+    assert started_apps[0].machines == ()
+    assert started_apps[0].config_path == default
+    assert sorted(default.parent.iterdir()) == [old_default]
+
+
+def test_default_path_folder_exits_with_directory_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    started_apps: list[SSHWorkbenchApp],
+) -> None:
+    default = use_user_config(monkeypatch, tmp_path)
+    default.mkdir(parents=True)
+
+    with pytest.raises(SystemExit) as raised:
+        cli_module.main([])
+
+    assert raised.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert "default configuration file: expected a file, got a directory" in output.err
+    assert str(tmp_path) not in output.err
+    assert not started_apps
+    assert default.is_dir()
 
 
 def test_explicit_config_ignores_default_file(
@@ -318,8 +376,9 @@ def test_explicit_config_ignores_default_file(
     assert cli_module.main(["--config", str(explicit)]) == 0
 
     assert len(started_apps) == 1
-    assert started_apps[0].projects == (
-        Project("first", "First named", "fictional-first"),
+    assert started_apps[0].config_path == explicit
+    assert started_apps[0].machines == (
+        Machine("first", "First named", alias="fictional-first"),
     )
 
 
@@ -331,6 +390,11 @@ def test_explicit_config_ignores_default_file(
             'schema_version = 1\n[[projects]]\nid = "private-marker"\n'
             'name = "Fictional"\nssh_alias = "--private-marker"\n',
             "default configuration file: projects[1].ssh_alias:",
+        ),
+        (
+            'schema_version = 2\n[[machines]]\nid = "private-marker"\n'
+            'name = "Fictional"\nalias = "--private-marker"\n',
+            "default configuration file: machines[1].alias:",
         ),
         (b"private-marker\xff", "default configuration file: expected UTF-8 text"),
     ],
@@ -369,7 +433,7 @@ def test_default_config_path_windows(
 
     monkeypatch.setenv("APPDATA", str(tmp_path))
     assert (
-        cli_module.default_config_path() == tmp_path / "ssh-workbench" / "projects.toml"
+        cli_module.default_config_path() == tmp_path / "ssh-workbench" / "machines.toml"
     )
     monkeypatch.setenv("APPDATA", "relative")
     assert cli_module.default_config_path() is None
@@ -384,12 +448,12 @@ def test_default_config_path_posix(
     monkeypatch.setattr("sys.platform", platform)
     home = tmp_path / "home"
     monkeypatch.setattr(Path, "home", lambda: home)
-    fallback = home / ".config" / "ssh-workbench" / "projects.toml"
+    fallback = home / ".config" / "ssh-workbench" / "machines.toml"
 
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     assert (
         cli_module.default_config_path()
-        == tmp_path / "xdg" / "ssh-workbench" / "projects.toml"
+        == tmp_path / "xdg" / "ssh-workbench" / "machines.toml"
     )
     monkeypatch.setenv("XDG_CONFIG_HOME", "relative")
     assert cli_module.default_config_path() == fallback
@@ -428,7 +492,7 @@ def test_help_shows_default_path_with_percent(cli: str, tmp_path: Path) -> None:
 
     assert result.returncode == 0
     assert result.stderr == ""
-    assert str(folder / "ssh-workbench" / "projects.toml") in result.stdout
+    assert str(folder / "ssh-workbench" / "machines.toml") in result.stdout
 
 
 def test_help_escapes_unencodable_default_path(cli: str, tmp_path: Path) -> None:
@@ -452,3 +516,59 @@ def test_help_escapes_unencodable_default_path(cli: str, tmp_path: Path) -> None
     assert result.returncode == 0
     assert result.stderr == ""
     assert r"u-\u0141\u4e2d" in result.stdout
+
+
+def test_help_prints_default_path_on_its_own_line(cli: str, tmp_path: Path) -> None:
+    folder = tmp_path / "a-long-fictional-folder-name-with-many-hyphens-in-it"
+    environment = os.environ | {
+        "APPDATA": str(folder),
+        "XDG_CONFIG_HOME": str(folder),
+        "COLUMNS": "60",
+    }
+
+    result = subprocess.run(
+        [cli, "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    lines = result.stdout.splitlines()
+    heading = lines.index("Default machine file:")
+    assert lines[heading + 1] == "  " + str(folder / "ssh-workbench" / "machines.toml")
+
+
+@pytest.mark.parametrize("option", ["--help", "--version"])
+def test_help_and_version_ignore_invalid_default_file(
+    cli: str, tmp_path: Path, option: str
+) -> None:
+    default = tmp_path / "ssh-workbench" / "machines.toml"
+    default.parent.mkdir()
+    default.write_text("private-marker = [", encoding="utf-8")
+    environment = os.environ | {
+        "APPDATA": str(tmp_path),
+        "XDG_CONFIG_HOME": str(tmp_path),
+    }
+
+    result = subprocess.run(
+        [cli, option],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert "private-marker" not in result.stdout
+    expected = (
+        "usage: ssh-workbench"
+        if option == "--help"
+        else f"ssh-workbench {version('ssh-workbench')}"
+    )
+    assert expected in result.stdout
+    assert default.read_text(encoding="utf-8") == "private-marker = ["

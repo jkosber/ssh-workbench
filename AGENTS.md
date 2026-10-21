@@ -12,7 +12,7 @@ Use the project Python in `.python-version` and uv; do not modify global Python.
 
 ```text
 uv sync --locked
-uv run --locked ssh-workbench --config examples/projects.example.toml
+uv run --locked ssh-workbench --config examples/machines.example.toml
 uv run --locked ssh-workbench --help
 uv run --locked ssh-workbench --version
 uv run --locked ruff check .
@@ -29,17 +29,19 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Tasks 1–6 support explicit or per-user default configuration, project
-  browsing, native SSH launch and return, and explicit repository/documentation
-  links. Do not add controls for deferred roadmap features.
+- Tasks 1–8 support explicit or per-user default machine files (read-only;
+  schema 1 still loads), machine browsing, alias and direct SSH launch and
+  return, and named links opened with O. Do not add controls for deferred
+  roadmap features.
 - Never read real SSH configuration, keys, host inventories, remote hosts or the
-  real per-user projects file as part of development tests. Use temporary files
+  real per-user machine file as part of development tests. Use temporary files
   and fictional fixtures; the test suite points `APPDATA` and `XDG_CONFIG_HOME`
   at an empty folder. Without `--config`, `uv run --locked ssh-workbench` loads
-  the developer's real projects file if one exists.
+  the developer's real machine file if one exists.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate
-  aliases and pass argument lists without a shell. Never disable
-  host-key verification or store passwords/private keys.
+  every machine value with the loader's predicates, pass argument lists without a
+  shell and put `--` before the destination. Never disable host-key
+  verification or store passwords/private keys.
 - Keep expected launch errors inside Textual's suspension block: the locked
   8.2.8 context skips resumption when an exception escapes it. Verify the installed
   implementation when changing this path. Use `scripts/check_terminal.py` for

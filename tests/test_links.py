@@ -7,13 +7,22 @@ from unittest.mock import Mock
 import pytest
 
 from ssh_workbench import config, links
-from ssh_workbench.config import ProjectConfigError, parse_projects, validate_http_url
+from ssh_workbench.config import ConfigError, parse_machines, validate_http_url
 from ssh_workbench.links import LinkResult, open_link
 
 pytestmark = pytest.mark.usefixtures("no_external_actions")
 
+LINK_FIELDS = ["repository", "documentation", "link"]
+
 
 def project_config(field: str, value: object) -> str:
+    """A schema 2 named link, or a schema 1 repository/documentation field."""
+    if field == "link":
+        return (
+            'schema_version = 2\n[[machines]]\nid = "link-fixture"\n'
+            'name = "Link fixture"\nalias = "fictional-host"\n'
+            f'[[machines.links]]\nname = "Dashboard"\nurl = {json.dumps(value)}\n'
+        )
     return (
         'schema_version = 1\n[[projects]]\nid = "link-fixture"\n'
         'name = "Link fixture"\nssh_alias = "fictional-host"\n'
@@ -33,7 +42,7 @@ def test_loader_and_launch_boundary_share_the_url_validator() -> None:
     assert links.validate_http_url is config.validate_http_url
 
 
-@pytest.mark.parametrize("field", ["repository", "documentation"])
+@pytest.mark.parametrize("field", LINK_FIELDS)
 @pytest.mark.parametrize(
     "url",
     [
@@ -48,12 +57,12 @@ def test_accepted_urls_remain_exact_at_loading_and_dispatch(
     field: str, url: str, windows_opener: Mock
 ) -> None:
     assert validate_http_url(url) == url
-    assert getattr(parse_projects(project_config(field, url))[0], field) == url
+    assert parse_machines(project_config(field, url))[0].links[0].url == url
     assert open_link(url) is LinkResult.ACCEPTED
     windows_opener.assert_called_once_with(url)
 
 
-@pytest.mark.parametrize("field", ["repository", "documentation"])
+@pytest.mark.parametrize("field", LINK_FIELDS)
 @pytest.mark.parametrize(
     "url",
     [
@@ -94,10 +103,10 @@ def test_accepted_urls_remain_exact_at_loading_and_dispatch(
 def test_loader_and_boundary_reject_the_same_invalid_values(
     field: str, url: object, windows_opener: Mock
 ) -> None:
-    with pytest.raises(ProjectConfigError):
+    with pytest.raises(ConfigError):
         validate_http_url(url)
-    with pytest.raises(ProjectConfigError):
-        parse_projects(project_config(field, url))
+    with pytest.raises(ConfigError):
+        parse_machines(project_config(field, url))
     assert open_link(url) is LinkResult.INVALID
     windows_opener.assert_not_called()
 

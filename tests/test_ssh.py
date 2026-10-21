@@ -4,6 +4,7 @@ import signal
 import socket
 import subprocess
 import sys
+from dataclasses import replace
 from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,9 +16,197 @@ from textual.widgets import ListView, Static
 
 from ssh_workbench import ssh
 from ssh_workbench.app import SSHWorkbenchApp
-from ssh_workbench.config import Project
+from ssh_workbench.config import Machine
 
 pytestmark = pytest.mark.usefixtures("no_external_actions")
+
+FICTIONAL = Machine("fictional", "Fictional", alias="fictional-host")
+DIRECT = Machine(
+    "agent-box",
+    "Agent box",
+    user="dev",
+    addresses=("100.64.0.12", "192.168.1.40"),
+    port=2222,
+    key="C:\\Fictional Keys\\id_ed25519_agent_box",
+)
+INVALID_MACHINE = (
+    "Invalid machine settings. Check its ID, user, addresses, port and key."
+)
+
+
+@pytest.mark.parametrize(
+    ("machine", "address", "expected"),
+    [
+        (
+            DIRECT,
+            None,
+            [
+                "-o",
+                "HostKeyAlias=agent-box",
+                "-l",
+                "dev",
+                "-p",
+                "2222",
+                "-i",
+                "C:\\Fictional Keys\\id_ed25519_agent_box",
+                "-o",
+                "IdentitiesOnly=yes",
+                "--",
+                "100.64.0.12",
+            ],
+        ),
+        (
+            DIRECT,
+            "192.168.1.40",
+            [
+                "-o",
+                "HostKeyAlias=agent-box",
+                "-l",
+                "dev",
+                "-p",
+                "2222",
+                "-i",
+                "C:\\Fictional Keys\\id_ed25519_agent_box",
+                "-o",
+                "IdentitiesOnly=yes",
+                "--",
+                "192.168.1.40",
+            ],
+        ),
+        (
+            Machine("box", "Box", addresses=("box.example",)),
+            None,
+            ["-o", "HostKeyAlias=box", "--", "box.example"],
+        ),
+        (
+            Machine("v6", "IPv6", addresses=("fd7a:115c:a1e0::1",)),
+            None,
+            ["-o", "HostKeyAlias=v6", "--", "fd7a:115c:a1e0::1"],
+        ),
+        (
+            Machine("posix", "POSIX", addresses=("host",), key="/home/dev/.ssh/id"),
+            None,
+            [
+                "-o",
+                "HostKeyAlias=posix",
+                "-i",
+                "/home/dev/.ssh/id",
+                "-o",
+                "IdentitiesOnly=yes",
+                "--",
+                "host",
+            ],
+        ),
+        (FICTIONAL, None, ["--", "fictional-host"]),
+    ],
+)
+def test_machine_arguments(
+    machine: Machine, address: str | None, expected: list[str]
+) -> None:
+    assert ssh.ssh_arguments(machine, address) == expected
+
+
+@pytest.mark.parametrize("key", ["~/.ssh/id_box", "~\\.ssh\\id_box"])
+def test_key_in_home_folder_is_expanded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, key: str
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    machine = Machine("box", "Box", addresses=("host",), key=key)
+    # Either separator style names the same file on every platform.
+    assert ssh.ssh_arguments(machine)[3] == str(tmp_path / ".ssh" / "id_box")
+
+
+@pytest.mark.parametrize(
+    "changes", [{"user": "dev"}, {"port": 22}, {"key": "~/.ssh/id_box"}]
+)
+def test_alias_machine_with_direct_fields_is_rejected(
+    changes: dict[str, object],
+) -> None:
+    with pytest.raises(ssh.SSHLaunchError) as caught:
+        ssh.ssh_arguments(replace(FICTIONAL, **changes))
+    assert str(caught.value) == INVALID_MACHINE
+
+
+def test_key_without_home_folder_is_a_launch_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_home() -> Path:
+        raise RuntimeError("fictional-private-home")
+
+    monkeypatch.setattr(Path, "home", no_home)
+    machine = Machine("box", "Box", addresses=("host",), key="~/.ssh/id_box")
+    with pytest.raises(ssh.SSHLaunchError) as caught:
+        ssh.ssh_arguments(machine)
+    assert (
+        str(caught.value) == "Could not find your home folder for this machine's key."
+    )
+
+
+def test_direct_machine_launch_passes_every_argument(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    executable = tmp_path / "ssh"
+    monkeypatch.setattr(ssh.shutil, "which", Mock(return_value=str(executable)))
+    run = Mock(return_value=subprocess.CompletedProcess([], 0))
+    monkeypatch.setattr(ssh.subprocess, "run", run)
+
+    assert ssh.launch_ssh(DIRECT, "192.168.1.40") == 0
+
+    run.assert_called_once_with(
+        [str(executable.resolve()), *ssh.ssh_arguments(DIRECT, "192.168.1.40")],
+        shell=False,
+        check=False,
+        stdin=None,
+        stdout=None,
+        stderr=None,
+    )
+    assert run.call_args.args[0][-2:] == ["--", "192.168.1.40"]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"id": "Agent Box"},
+        {"id": "-oProxyCommand=x"},
+        {"user": "-oProxyCommand=x"},
+        {"user": "dev@other"},
+        {"user": "two words"},
+        {"addresses": ("-oProxyCommand=x",)},
+        {"addresses": ("100.64.0.12", "evil host")},
+        {"addresses": "100.64.0.12"},
+        {"port": 0},
+        {"port": True},
+        {"port": "2222"},
+        {"key": "id_ed25519"},
+        {"key": "~/.ssh/100%key"},
+        {"key": "~/.ssh/id.pub"},
+        {"alias": "also-an-alias"},
+    ],
+)
+def test_invalid_direct_settings_are_rejected_before_lookup(
+    monkeypatch: pytest.MonkeyPatch, changes: dict[str, object]
+) -> None:
+    which = Mock(side_effect=AssertionError("Unexpected executable lookup"))
+    run = Mock(side_effect=AssertionError("Unexpected child process"))
+    monkeypatch.setattr(ssh.shutil, "which", which)
+    monkeypatch.setattr(ssh.subprocess, "run", run)
+
+    with pytest.raises(ssh.SSHLaunchError) as caught:
+        ssh.launch_ssh(replace(DIRECT, **changes))
+
+    assert str(caught.value) == INVALID_MACHINE
+    which.assert_not_called()
+    run.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("machine", "address"),
+    [(DIRECT, "evil.example"), (DIRECT, "-oProxyCommand=x"), (FICTIONAL, "host")],
+)
+def test_unlisted_address_is_rejected(machine: Machine, address: str) -> None:
+    with pytest.raises(ssh.SSHLaunchError) as caught:
+        ssh.ssh_arguments(machine, address)
+    assert str(caught.value) == INVALID_MACHINE
 
 
 @pytest.mark.parametrize("platform, command", [("win32", "ssh.exe"), ("linux", "ssh")])
@@ -37,11 +226,11 @@ def test_exact_native_executable_and_single_alias_argument(
     monkeypatch.setattr(ssh.shutil, "which", which)
     monkeypatch.setattr(ssh.subprocess, "run", run)
 
-    assert ssh.launch_ssh("Garden.demo-host_2") == status
+    assert ssh.launch_ssh(Machine("demo", "Demo", alias="Garden.demo-host_2")) == status
 
     which.assert_called_once_with(command)
     run.assert_called_once_with(
-        [str(executable.resolve()), "Garden.demo-host_2"],
+        [str(executable.resolve()), "--", "Garden.demo-host_2"],
         shell=False,
         check=False,
         stdin=None,
@@ -82,9 +271,9 @@ def test_client_in_launch_directory_is_skipped_for_path_client(
     run = Mock(return_value=subprocess.CompletedProcess([], 0))
     monkeypatch.setattr(ssh.subprocess, "run", run)
 
-    assert ssh.launch_ssh("fictional-host") == 0
+    assert ssh.launch_ssh(FICTIONAL) == 0
 
-    assert run.call_args.args[0] == [str(installed.resolve()), "fictional-host"]
+    assert run.call_args.args[0] == [str(installed.resolve()), "--", "fictional-host"]
 
 
 def test_client_only_in_launch_directory_is_not_run(
@@ -96,7 +285,7 @@ def test_client_only_in_launch_directory_is_not_run(
     monkeypatch.setattr(ssh.subprocess, "run", run)
 
     with pytest.raises(ssh.SSHLaunchError, match="SSH not found"):
-        ssh.launch_ssh("fictional-host")
+        ssh.launch_ssh(FICTIONAL)
 
     run.assert_not_called()
 
@@ -146,7 +335,7 @@ def test_invalid_alias_is_rejected_before_resolution_or_launch(
     monkeypatch.setattr(ssh.subprocess, "run", run)
 
     with pytest.raises(ssh.SSHLaunchError, match="Invalid SSH alias"):
-        ssh.launch_ssh(alias)
+        ssh.launch_ssh(Machine("demo", "Demo", alias=alias))
 
     which.assert_not_called()
     run.assert_not_called()
@@ -162,7 +351,7 @@ def test_unavailable_ssh_does_not_start_a_process(
     previous_handler = signal.getsignal(signal.SIGINT)
 
     with pytest.raises(ssh.SSHLaunchError, match="SSH not found"):
-        ssh.launch_ssh("fictional-host")
+        ssh.launch_ssh(FICTIONAL)
 
     run.assert_not_called()
     assert signal.getsignal(signal.SIGINT) is previous_handler
@@ -181,7 +370,7 @@ def test_os_errors_are_sanitized(
     monkeypatch.setattr(ssh.subprocess, "run", run)
 
     with pytest.raises(ssh.SSHLaunchError) as caught:
-        ssh.launch_ssh("fictional-host")
+        ssh.launch_ssh(FICTIONAL)
 
     assert str(caught.value) == (
         "Could not start SSH. Check its installation and executable permissions."
@@ -219,12 +408,12 @@ def test_sigint_handler_is_restored_on_every_launch_outcome(
     try:
         if isinstance(outcome, KeyboardInterrupt):
             with pytest.raises(KeyboardInterrupt):
-                ssh.launch_ssh("fictional-host")
+                ssh.launch_ssh(FICTIONAL)
         elif isinstance(outcome, OSError):
             with pytest.raises(ssh.SSHLaunchError):
-                ssh.launch_ssh("fictional-host")
+                ssh.launch_ssh(FICTIONAL)
         else:
-            assert ssh.launch_ssh("fictional-host") == outcome
+            assert ssh.launch_ssh(FICTIONAL) == outcome
         assert signal.getsignal(signal.SIGINT) is parent_handler
         parent_handler.assert_not_called()
     finally:
@@ -259,10 +448,10 @@ def test_sigint_during_resolution_does_not_cancel_asyncio_runner(
         monkeypatch.setattr(ssh.shutil, "which", lookup)
         if lookup_error:
             with pytest.raises(ssh.SSHLaunchError, match="Could not start SSH"):
-                ssh.launch_ssh("fictional-host")
+                ssh.launch_ssh(FICTIONAL)
             run.assert_not_called()
         else:
-            assert ssh.launch_ssh("fictional-host") == 0
+            assert ssh.launch_ssh(FICTIONAL) == 0
             run.assert_called_once()
         assert signal.getsignal(signal.SIGINT) is previous_handler
         await asyncio.sleep(0)
@@ -288,8 +477,8 @@ def test_sigint_during_handoff_keeps_asyncio_browser_usable(
     events: list[str] = []
     app = SSHWorkbenchApp(
         [
-            Project("garden-demo", "Garden demo", "garden-demo-host"),
-            Project("studio-demo", "Studio demo", "studio-demo-host"),
+            Machine("garden-demo", "Garden demo", alias="garden-demo-host"),
+            Machine("studio-demo", "Studio demo", alias="studio-demo-host"),
         ]
     )
 
@@ -355,7 +544,7 @@ def test_sigint_during_handoff_keeps_asyncio_browser_usable(
                 if launch_error:
                     assert "Could not start SSH" in message
                 else:
-                    assert message == "SSH exited with status 0."
+                    assert message == "SSH exited with status 0. Machine 2: studio-demo"
                 await pilot.press("up", "q")
                 assert project_list.index == 0
                 assert not app.is_running
