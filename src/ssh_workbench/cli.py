@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from importlib.metadata import version
 from pathlib import Path
 
-from ssh_workbench.config import ConfigError, load_machines
+from ssh_workbench.config import ConfigError, read_machines
 
 
 def default_config_path() -> Path | None:
@@ -63,22 +63,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     machines = None
+    file_text = None
     config_path = default_config
     if args.config is not None:
         config_path = args.config
         try:
-            machines = load_machines(args.config)
+            machines, file_text = read_machines(args.config)
         except ConfigError as error:
             parser.error(str(error))
     elif default_config is not None and default_config.exists():
         try:
-            machines = load_machines(default_config)
+            machines, file_text = read_machines(default_config)
         except ConfigError as error:
             detail = str(error).removeprefix("configuration: ")
             parser.error(f"default configuration file: {detail}")
 
     from ssh_workbench.app import SSHWorkbenchApp
 
-    app = SSHWorkbenchApp(machines, config_path=config_path)
+    app = SSHWorkbenchApp(machines, config_path=config_path, file_text=file_text)
     app.run()
     return app.return_code

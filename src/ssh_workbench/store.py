@@ -44,6 +44,9 @@ def save_machines(path: Path, machines: Sequence[Machine], expected: str | None)
     if current != expected:
         raise FileChangedError("The machine file changed outside Workbench.")
     text = format_machines(machines)
+    if text == current:
+        # Nothing to change; keep the file's bytes and the previous backup.
+        return text
     existing = path if current is not None else None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
