@@ -465,8 +465,9 @@ class SSHWorkbenchApp(App[None]):
             self._start_round(resolve=True)
 
     def _timer_round(self) -> None:
-        # Textual stops app timers only after removing the screens on shutdown;
-        # is_running turns False first.
+        # When run_test tears the app down, Textual turns is_running False and
+        # removes the screens while app timers and messages still run; a normal
+        # exit stops both first. Timers and results do nothing in that window.
         if not self.is_running:
             return
         if self.machines and not self._connecting and not self._rebuilding:
@@ -532,7 +533,11 @@ class SSHWorkbenchApp(App[None]):
                 pass
 
     def on_status_finished(self, message: StatusFinished) -> None:
-        if self._status_closed.is_set() or message.round != self._round:
+        if (
+            self._status_closed.is_set()
+            or not self.is_running
+            or message.round != self._round
+        ):
             return
         if message.alias is not None:
             self._targets[message.alias] = message.target
@@ -736,6 +741,8 @@ class SSHWorkbenchApp(App[None]):
         return index if index is not None and index < len(self.machines) else None
 
     async def _rebuild(self, select: int) -> None:
+        if not self.is_running:
+            return
         self._initial_index = min(max(select, 0), max(len(self.machines) - 1, 0))
         try:
             await self.query_one(MachinePanes).recompose()
@@ -804,7 +811,11 @@ class SSHWorkbenchApp(App[None]):
                 pass
 
     def on_link_finished(self, message: LinkFinished) -> None:
-        if self._links_closed.is_set() or message.request is not self._link_request:
+        if (
+            self._links_closed.is_set()
+            or not self.is_running
+            or message.request is not self._link_request
+        ):
             return
         self._link_request = None
         self._show_link_result(message.request, message.result.value)
