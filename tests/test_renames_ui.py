@@ -23,6 +23,7 @@ from ssh_workbench.aliases import (
 )
 from ssh_workbench.app import AliasesReviewed, SSHWorkbenchApp, StatusSymbol
 from ssh_workbench.config import Machine, format_machines, read_machines
+from ssh_workbench.forms import MachineForm
 from ssh_workbench.status import AliasTarget, State
 
 pytestmark = [
@@ -37,7 +38,10 @@ SAME = AliasTarget("192.0.2.10", 22, proxied=False, user="dev")
 # At the last check old-host was a literal Host name pointing at RECORD.
 PREVIOUS = AliasMemory(("old-host",), {"old-host": RECORD}, {})
 OFFER = "× Alias not found. Looks like old-host became new-host. Press U to update."
-NO_OFFER = "× Alias not found. Edit the machine, or fix your SSH config and press R."
+NO_OFFER = (
+    "× Alias not found. Fix your SSH config and press R, or press E and save to "
+    "keep or change the alias."
+)
 WARNING = (
     "Saving rewrites the file without its comments or formatting; the old file "
     "is kept as machines.toml.bak. Press U again to update."
@@ -83,7 +87,7 @@ def workspace(
     text = format_machines(machines) if text is None else text
     path.write_text(text, encoding="utf-8")
     if state is not None:
-        state_path(path).write_text(
+        state_path(path, platform.node()).write_text(
             format_state(state, platform.node()), encoding="utf-8"
         )
     return path, text
@@ -212,16 +216,15 @@ async def test_the_state_file_records_names_and_targets_after_startup(
     app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
     async with app.run_test() as pilot:
         await checked(app, pilot)
-        await wait_for(pilot, lambda: state_path(path).exists())
-        assert load_state(state_path(path), platform.node()) == AliasMemory(
+        state = state_path(path, platform.node())
+        await wait_for(pilot, state.exists)
+        assert load_state(state, platform.node()) == AliasMemory(
             ("garden-host", "spare"), {"garden-host": RECORD}, {}
         )
         assert path.read_text(encoding="utf-8") == text
-        assert sorted(item.name for item in tmp_path.iterdir()) == [
-            "machines.state.json",
-            "machines.toml",
-            "ssh",
-        ]
+        assert sorted(item.name for item in tmp_path.iterdir()) == sorted(
+            [state.name, "machines.toml", "ssh"]
+        )
 
 
 async def test_no_state_file_without_a_machine_file(
@@ -318,7 +321,7 @@ async def test_an_alias_that_returns_clears_alias_not_found_on_r(
         await wait_for(
             pilot,
             lambda: (
-                load_state(state_path(path), platform.node())
+                load_state(state_path(path, platform.node()), platform.node())
                 == AliasMemory(("new-host", "old-host"), {"old-host": RECORD}, {})
             ),
         )
@@ -454,3 +457,65 @@ async def test_footer_with_update_fits_60_columns(
         )
         for key in footer.query("FooterKey"):
             assert key.region.right <= 59, key.action
+
+
+async def test_saving_the_machine_from_the_form_keeps_its_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["hop-host"], PREVIOUS)
+    checker = FakeChecker({"old-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        assert field(app, "status") == NO_OFFER
+        await pilot.press("e")
+        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: symbols(app)[:1] == [State.UNKNOWN])
+        assert field(app, "status") == "◇ Can't check: press R to resolve this alias"
+        assert app.check_action("connect", ()) is True
+        state = state_path(path, platform.node())
+        await wait_for(
+            pilot,
+            lambda: (
+                load_state(state, platform.node()) == AliasMemory(("hop-host",), {}, {})
+            ),
+        )
+        await pilot.press("r")
+        await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
+        assert field(app, "target") == "old-host (not in your SSH config)"
+        assert checker.resolved == ["hop-host", "old-host"]
+
+
+async def test_a_timer_round_waits_for_the_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = threading.Event()
+    read = app_module.host_names
+
+    def slow_host_names(folder: Path) -> list[str]:
+        assert release.wait(10)
+        return read(folder)
+
+    monkeypatch.setattr(app_module, "host_names", slow_host_names)
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    app = SSHWorkbenchApp(
+        machines,
+        config_path=path,
+        file_text=text,
+        checker=FakeChecker({"new-host": SAME}),
+    )
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(pilot, lambda: symbols(app)[1:] == [State.OFFLINE])
+            started = app._round
+            app._timer_round()
+            assert app._round == started
+            release.set()
+            await wait_for(pilot, lambda: symbols(app)[0] is State.NOT_FOUND)
+            app._timer_round()
+            assert app._round == started + 1
+    finally:
+        release.set()

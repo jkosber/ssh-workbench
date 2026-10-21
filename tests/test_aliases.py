@@ -20,6 +20,8 @@ from ssh_workbench.status import AliasTarget
 COMPUTER = "workstation"
 RECORD = AliasRecord("192.0.2.10", "dev", 22)
 SAME = AliasTarget("192.0.2.10", 22, proxied=False, user="dev")
+# The Host names at the last review, when old-host was still listed.
+BEFORE = ("old-host", "hop-host")
 
 
 class Resolver:
@@ -35,28 +37,35 @@ class Resolver:
 
 
 def memory(
-    names: tuple[str, ...] = ("old-host", "hop-host"),
+    names: tuple[str, ...] = BEFORE,
     records: dict[str, AliasRecord] | None = None,
-    renames: dict[str, str] | None = None,
+    baselines: dict[str, tuple[str, ...]] | None = None,
 ) -> AliasMemory:
     """What the last review saw: `old-host` was a literal Host name then."""
     return AliasMemory(
         names,
         {"old-host": RECORD} if records is None else records,
-        renames or {},
+        baselines or {},
     )
 
 
-def test_state_path_sits_next_to_the_machine_file(tmp_path: Path) -> None:
-    assert state_path(tmp_path / "machines.toml") == tmp_path / "machines.state.json"
-    assert state_path(tmp_path / "lab.toml") == tmp_path / "lab.state.json"
+def test_state_path_is_per_computer_next_to_the_machine_file(tmp_path: Path) -> None:
+    assert (
+        state_path(tmp_path / "machines.toml", COMPUTER)
+        == tmp_path / "machines.state.workstation.json"
+    )
+    assert (
+        state_path(tmp_path / "lab.toml", "Lab PC/2\\x")
+        == tmp_path / "lab.state.Lab_PC_2_x.json"
+    )
+    assert state_path(tmp_path / "lab.toml", "") == tmp_path / "lab.state.computer.json"
 
 
 def test_state_text_is_stable_json() -> None:
     state = AliasMemory(
         ("garden-host", "hop-host"),
         {"garden-host": RECORD},
-        {"old-host": "garden-host"},
+        {"old-host": ("garden-host",)},
     )
 
     assert format_state(state, COMPUTER) == (
@@ -68,35 +77,37 @@ def test_state_text_is_stable_json() -> None:
         '      "user": "dev"\n'
         "    }\n"
         "  },\n"
+        '  "baselines": {\n'
+        '    "old-host": [\n'
+        '      "garden-host"\n'
+        "    ]\n"
+        "  },\n"
         '  "computer": "workstation",\n'
         '  "host_names": [\n'
         '    "garden-host",\n'
         '    "hop-host"\n'
         "  ],\n"
-        '  "renames": {\n'
-        '    "old-host": "garden-host"\n'
-        "  },\n"
         '  "version": 1\n'
         "}\n"
     )
 
 
 def test_state_round_trips_through_an_atomic_save(tmp_path: Path) -> None:
-    state = memory(renames={"old-host": "new-host"})
-    path = tmp_path / "machines.state.json"
+    state = memory(baselines={"old-host": BEFORE})
+    path = tmp_path / "machines.state.workstation.json"
 
     save_state(path, format_state(state, COMPUTER))
     save_state(path, format_state(state, COMPUTER))
 
     assert load_state(path, COMPUTER) == state
-    assert [item.name for item in tmp_path.iterdir()] == ["machines.state.json"]
+    assert [item.name for item in tmp_path.iterdir()] == [path.name]
 
 
 def test_state_from_another_computer_is_no_state() -> None:
     assert parse_state(format_state(memory(), "laptop"), COMPUTER) is None
 
 
-VALID = json.loads(format_state(memory(renames={"old-host": "new-host"}), COMPUTER))
+VALID = json.loads(format_state(memory(baselines={"old-host": BEFORE}), COMPUTER))
 
 
 def changed(path: tuple[str, ...], value: object) -> str:
@@ -128,8 +139,10 @@ def changed(path: tuple[str, ...], value: object) -> str:
         changed(("aliases", "old-host", "port"), True),
         changed(("aliases", "old-host", "port"), 0),
         changed(("aliases", "old-host", "port"), 65536),
-        changed(("renames",), ["old-host"]),
-        changed(("renames", "old-host"), "new host"),
+        changed(("baselines",), ["old-host"]),
+        changed(("baselines", "old-host"), "hop-host"),
+        changed(("baselines", "old-host"), ["hop host"]),
+        changed(("baselines", "-oProxyCommand=x"), []),
     ],
 )
 def test_invalid_state_is_no_state(text: str) -> None:
@@ -137,7 +150,7 @@ def test_invalid_state_is_no_state(text: str) -> None:
 
 
 def test_missing_unreadable_or_oversized_state_is_no_state(tmp_path: Path) -> None:
-    path = tmp_path / "machines.state.json"
+    path = tmp_path / "machines.state.workstation.json"
     assert load_state(path, COMPUTER) is None
     assert load_state(tmp_path, COMPUTER) is None
     path.write_bytes(b"\xff\xfe")
@@ -173,7 +186,7 @@ def test_a_vanished_alias_gets_the_one_new_name_that_matches() -> None:
     assert result.memory == AliasMemory(
         ("hop-host", "other-host", "new-host"),
         {"old-host": RECORD},
-        {"old-host": "new-host"},
+        {"old-host": BEFORE},
     )
     assert result.resolved == {"other-host": elsewhere, "new-host": SAME}
     assert sorted(resolve.calls) == ["new-host", "other-host"]
@@ -194,31 +207,47 @@ def test_no_single_match_means_no_suggestion(
     result = review(memory(), ["old-host"], ["hop-host", *targets], Resolver(targets))
 
     assert result.missing == {"old-host": None}
-    assert result.memory.renames == {}
+    assert result.memory.baselines == {"old-host": BEFORE}
 
 
-def test_a_new_name_matching_two_vanished_aliases_is_offered_to_neither() -> None:
-    state = memory(records={"old-host": RECORD, "old-shed": RECORD})
+def test_a_name_that_did_not_resolve_at_first_is_offered_once_it_matches() -> None:
+    names = ["hop-host", "new-host"]
+    first = review(memory(), ["old-host"], names, Resolver({"new-host": None}))
+
+    second = review(first.memory, ["old-host"], names, Resolver({"new-host": SAME}))
+
+    assert first.missing == {"old-host": None}
+    assert second.missing == {"old-host": "new-host"}
+
+
+def test_an_ambiguous_match_is_offered_once_only_one_name_is_left() -> None:
     first = review(
-        state, ["old-host", "old-shed"], ["new-host"], Resolver({"new-host": SAME})
+        memory(),
+        ["old-host"],
+        ["hop-host", "new-host", "twin-host"],
+        Resolver({"new-host": SAME, "twin-host": SAME}),
     )
 
-    assert first.missing == {"old-host": None, "old-shed": None}
-    assert first.memory.renames == {}
-
-    kept = memory(
-        records={"old-host": RECORD, "old-shed": RECORD},
-        renames={"old-host": "new-host"},
-    )
     second = review(
-        kept,
-        ["old-host", "old-shed"],
+        first.memory,
+        ["old-host"],
         ["hop-host", "new-host"],
         Resolver({"new-host": SAME}),
     )
 
-    assert second.missing == {"old-host": None, "old-shed": None}
-    assert second.memory.renames == {}
+    assert first.missing == {"old-host": None}
+    assert second.missing == {"old-host": "new-host"}
+
+
+def test_a_new_name_matching_two_vanished_aliases_is_offered_to_neither() -> None:
+    state = memory(records={"old-host": RECORD, "old-shed": RECORD})
+
+    result = review(
+        state, ["old-host", "old-shed"], ["new-host"], Resolver({"new-host": SAME})
+    )
+
+    assert result.missing == {"old-host": None, "old-shed": None}
+    assert result.memory.baselines == {"old-host": BEFORE, "old-shed": BEFORE}
 
 
 def test_a_name_that_already_existed_is_never_suggested() -> None:
@@ -250,7 +279,7 @@ def test_names_are_resolved_only_while_an_alias_is_missing() -> None:
     assert resolve.calls == []
 
 
-def test_a_suggestion_survives_the_next_review_while_it_still_matches() -> None:
+def test_an_offer_survives_the_next_review_while_it_still_matches() -> None:
     names = ["hop-host", "new-host"]
     first = review(memory(), ["old-host"], names, Resolver({"new-host": SAME}))
     resolve = Resolver({"new-host": SAME})
@@ -258,7 +287,7 @@ def test_a_suggestion_survives_the_next_review_while_it_still_matches() -> None:
     second = review(first.memory, ["old-host"], names, resolve)
 
     assert second.missing == {"old-host": "new-host"}
-    assert second.memory.renames == {"old-host": "new-host"}
+    assert second.memory.baselines == {"old-host": BEFORE}
     assert resolve.calls == ["new-host"]
 
 
@@ -272,7 +301,7 @@ def test_a_suggestion_survives_the_next_review_while_it_still_matches() -> None:
         ),
     ],
 )
-def test_a_suggestion_is_dropped_once_it_no_longer_matches(
+def test_an_offer_is_dropped_once_it_no_longer_matches(
     names: list[str], targets: dict[str, AliasTarget | None]
 ) -> None:
     first = review(
@@ -282,7 +311,6 @@ def test_a_suggestion_is_dropped_once_it_no_longer_matches(
     second = review(first.memory, ["old-host"], names, Resolver(targets))
 
     assert second.missing == {"old-host": None}
-    assert second.memory.renames == {}
 
 
 def test_alias_not_found_survives_later_reviews() -> None:
@@ -292,9 +320,10 @@ def test_alias_not_found_survives_later_reviews() -> None:
 
     assert second.missing == {"old-host": None}
     assert second.memory.records == {"old-host": RECORD}
+    assert second.memory.baselines == {"old-host": BEFORE}
 
 
-def test_a_returning_alias_clears_missing_and_its_rename() -> None:
+def test_a_returning_alias_clears_missing_and_its_baseline() -> None:
     first = review(
         memory(), ["old-host"], ["hop-host", "new-host"], Resolver({"new-host": SAME})
     )
@@ -305,7 +334,7 @@ def test_a_returning_alias_clears_missing_and_its_rename() -> None:
     )
 
     assert second.missing == {}
-    assert second.memory.renames == {}
+    assert second.memory.baselines == {}
     assert second.memory.records == {"old-host": RECORD}
     assert resolve.calls == []
 
@@ -318,10 +347,10 @@ def test_listing_is_case_sensitive() -> None:
     assert result.missing == {"old-host": "OLD-HOST"}
 
 
-def test_records_and_renames_for_unused_aliases_are_dropped() -> None:
+def test_records_and_baselines_for_unused_aliases_are_dropped() -> None:
     state = memory(
         records={"old-host": RECORD, "gone-host": RECORD},
-        renames={"gone-host": "hop-host"},
+        baselines={"gone-host": BEFORE},
     )
 
     result = review(state, ["old-host"], ["old-host", "hop-host"], Resolver({}))
@@ -338,3 +367,11 @@ def test_remember_records_only_listed_aliases() -> None:
     state.remember("pattern-host", SAME)
 
     assert state.records == {"garden-host": RECORD}
+
+
+def test_forget_drops_an_alias_record_and_baseline() -> None:
+    state = memory(baselines={"old-host": BEFORE})
+
+    state.forget("old-host")
+
+    assert state == AliasMemory(BEFORE, {}, {})
