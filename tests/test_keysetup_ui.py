@@ -339,7 +339,7 @@ async def test_a_failed_step_stops_the_later_ones(
     assert path.read_text(encoding="utf-8") == text
 
 
-async def test_a_failed_login_test_still_saves_the_installed_key(
+async def test_a_failed_login_test_does_not_save_the_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     native = Native(statuses={"test": 255})
@@ -351,9 +351,30 @@ async def test_a_failed_login_test_still_saves_the_installed_key(
         await finished(app, pilot)
         assert connection_status(app) == (
             "The key was installed, but key-only login failed (SSH exited with "
-            "status 255). The key is saved as this machine's key. Machine 1: box"
+            "status 255). The key was not saved as this machine's key. "
+            "Machine 1: box"
         )
-    assert read_machines(path)[0][0].key == str(folder / "id_a")
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_a_failed_test_of_a_machines_own_key_adds_no_save_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native(statuses={"test": 255})
+    key = tmp_path / "ssh" / "id_keyed"
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key=str(key))
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+    Path(f"{key}.pub").write_text(public_key(3, "keyed").line + "\n", "ascii")
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "The key was installed, but key-only login failed (SSH exited with "
+            "status 255). Machine 1: keyed"
+        )
+    assert path.read_text(encoding="utf-8") == text
 
 
 async def test_saving_a_key_warns_about_comments_in_the_picker(
