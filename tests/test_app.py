@@ -8,32 +8,78 @@ from textual.content import Content
 from textual.widgets import Footer, ListView, Static
 
 from ssh_workbench.app import SSHWorkbenchApp
-from ssh_workbench.config import Project, parse_projects
+from ssh_workbench.config import Link, Machine, parse_machines
 
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.usefixtures("no_external_actions", "no_app_connections"),
 ]
 
-PROJECTS = (
-    Project(
+MACHINES = (
+    Machine(
         "garden-demo",
         "Garden demo",
-        "garden-demo-host",
-        "https://example.com/garden.git",
-        "https://example.com/garden/docs",
+        alias="garden-demo-host",
+        links=(
+            Link("Repository", "https://example.com/garden.git"),
+            Link("Documentation", "https://example.com/garden/docs"),
+        ),
     ),
-    Project("studio-demo", "Studio demo", "studio-demo-host"),
+    Machine(
+        "studio-box",
+        "Studio box",
+        user="studio",
+        addresses=("studio.example", "192.0.2.40"),
+        port=2222,
+        key="~/.ssh/id_ed25519_studio",
+    ),
 )
+EXPECTED_DETAILS = (
+    {
+        "id": "garden-demo",
+        "name": "Garden demo",
+        "connection": "SSH alias",
+        "target-label": "SSH alias",
+        "target": "garden-demo-host",
+        "user": "From your SSH config",
+        "port": "From your SSH config",
+        "key": "From your SSH config",
+        "links": "Repository: https://example.com/garden.git\n"
+        "Documentation: https://example.com/garden/docs",
+    },
+    {
+        "id": "studio-box",
+        "name": "Studio box",
+        "connection": "Direct",
+        "target-label": "Addresses",
+        "target": "studio.example\n192.0.2.40",
+        "user": "studio",
+        "port": "2222",
+        "key": "~/.ssh/id_ed25519_studio",
+        "links": "None",
+    },
+)
+
+
+def details(app: SSHWorkbenchApp) -> dict[str, str]:
+    return {
+        field: str(app.query_one(f"#machine-{field}", Static).content)
+        for field in EXPECTED_DETAILS[0]
+    }
 
 
 @pytest.mark.parametrize("size", [(80, 24), (120, 40), (60, 20)])
 @pytest.mark.parametrize(
-    ("projects", "message"),
-    [(None, "No configuration selected."), ([], "No projects in this configuration.")],
+    ("machines", "message", "hint"),
+    [
+        (None, "No machine file selected.", "--config PATH"),
+        ([], "No machines in this file yet.", "Add [[machines]] entries"),
+    ],
 )
-async def test_empty_states(projects, message: str, size: tuple[int, int]) -> None:
-    app = SSHWorkbenchApp(projects)
+async def test_empty_states(
+    machines, message: str, hint: str, size: tuple[int, int]
+) -> None:
+    app = SSHWorkbenchApp(machines)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
         assert app.is_running
@@ -41,7 +87,7 @@ async def test_empty_states(projects, message: str, size: tuple[int, int]) -> No
         status = app.query_one("#empty-state", Static)
         assert status.visible
         assert message in str(status.content)
-        assert "--config PATH" in str(status.content)
+        assert hint in str(status.content)
         assert not app.query(ListView)
         await pilot.press("down", "tab", "up", "q")
         assert not app.is_running
@@ -49,13 +95,13 @@ async def test_empty_states(projects, message: str, size: tuple[int, int]) -> No
 
 
 async def test_no_config_screen_names_default_path() -> None:
-    path = Path("fictional") / "odd\x1bname" / "projects.toml"
-    app = SSHWorkbenchApp(None, default_config=path)
+    path = Path("fictional") / "odd\x1bname" / "machines.toml"
+    app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
         content = str(app.query_one("#empty-state", Static).content)
-        assert "No configuration selected." in content
-        assert f"fictional{os.sep}odd\\x1bname{os.sep}projects.toml" in content
+        assert "No machine file yet." in content
+        assert f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml" in content
         assert "\x1b" not in content
         assert "--config PATH" in content
 
@@ -65,42 +111,63 @@ async def test_no_config_screen_without_default_path() -> None:
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
         content = str(app.query_one("#empty-state", Static).content)
-        assert "restart with --config PATH" in content
+        assert "Restart with --config PATH" in content
         assert "None" not in content
 
 
-async def test_initial_selection_order_and_keyboard_details() -> None:
-    app = SSHWorkbenchApp(PROJECTS)
+async def test_empty_file_screen_names_the_file_without_config_hint() -> None:
+    path = Path("fictional") / "odd\x1bname" / "machines.toml"
+    app = SSHWorkbenchApp([], config_path=path)
     async with app.run_test(size=(80, 24)) as pilot:
-        project_list = app.query_one(ListView)
-        assert app.focused is project_list
-        assert project_list.index == 0
-        assert [str(widget.content) for widget in project_list.query(Static)] == [
+        await pilot.pause()
+        content = str(app.query_one("#empty-state", Static).content)
+        assert "No machines in this file yet:" in content
+        assert f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml" in content
+        assert "\x1b" not in content
+        assert "--config" not in content
+        assert "Add [[machines]] entries to it, then restart." in content
+
+
+async def test_initial_selection_order_and_keyboard_details() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        machine_list = app.query_one(ListView)
+        assert app.focused is machine_list
+        assert machine_list.index == 0
+        assert machine_list.border_title == "Machines"
+        assert [str(widget.content) for widget in machine_list.query(Static)] == [
             "Garden demo",
-            "Studio demo",
+            "Studio box",
         ]
         for index, key in [(0, "up"), (1, "down"), (1, "down"), (0, "up")]:
             await pilot.press(key)
-            project = PROJECTS[index]
-            assert project_list.index == index
-            assert project_list.highlighted_child is project_list.children[index]
-            for field, expected in (
-                ("id", project.id),
-                ("name", project.name),
-                ("ssh-alias", project.ssh_alias),
-                ("repository", project.repository or "Not provided"),
-                ("documentation", project.documentation or "Not provided"),
-            ):
-                assert (
-                    str(app.query_one(f"#project-{field}", Static).content) == expected
-                )
+            assert machine_list.index == index
+            assert machine_list.highlighted_child is machine_list.children[index]
+            assert details(app) == EXPECTED_DETAILS[index]
         await pilot.press("tab")
-        details = app.query_one("#project-details", VerticalScroll)
-        assert app.focused is details
-        assert project_list.index == 0
-        assert details.styles.border.top != project_list.styles.border.top
+        pane = app.query_one("#machine-details", VerticalScroll)
+        assert app.focused is pane
+        assert machine_list.index == 0
+        assert pane.styles.border.top != machine_list.styles.border.top
         await pilot.press("shift+tab")
-        assert app.focused is project_list
+        assert app.focused is machine_list
+
+
+async def test_direct_machine_without_optional_fields_shows_not_set() -> None:
+    app = SSHWorkbenchApp([Machine("plain-box", "Plain", addresses=("plain.example",))])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert details(app) == {
+            "id": "plain-box",
+            "name": "Plain",
+            "connection": "Direct",
+            "target-label": "Addresses",
+            "target": "plain.example",
+            "user": "Not set",
+            "port": "Not set",
+            "key": "Not set",
+            "links": "None",
+        }
 
 
 @pytest.mark.parametrize(
@@ -111,111 +178,130 @@ async def test_initial_selection_order_and_keyboard_details() -> None:
             "[@click=app.quit]click[/] [link=https://example.com]link[/link]",
             "[@click=app.quit]click[/] [link=https://example.com]link[/link]",
         ),
-        ("Cafe\u0301 / 東京 / \U0001f331", "Cafe\u0301 / 東京 / \U0001f331"),
+        ("Café / 東京 / \U0001f331", "Café / 東京 / \U0001f331"),
         ("row\nnext\r\t\b\0", r"row\nnext\r\t\x08\x00"),
         (
             "escape\x1b]8;;https://example.com\x07",
             r"escape\x1b]8;;https://example.com\x07",
         ),
         ("C1\x85\x9b31m", r"C1\x85\x9b31m"),
-        ("direction\u202e\u2066\u200b\u2028", r"direction\u202e\u2066\u200b\u2028"),
+        ("direction‮⁦​ ", r"direction‮⁦​ "),
     ],
 )
 async def test_names_are_literal_and_controls_are_visible(
     name: str, shown: str
 ) -> None:
-    projects = parse_projects(
-        'schema_version = 1\n[[projects]]\nid = "literal-demo"\n'
+    machines = parse_machines(
+        'schema_version = 2\n[[machines]]\nid = "literal-demo"\n'
         f"name = {json.dumps(name, ensure_ascii=False)}\n"
-        'ssh_alias = "literal-demo-host"\n'
-        'repository = "https://example.com/[bold]repo[/bold]"\n'
-        'documentation = "https://example.com/[link=docs]"\n'
+        'alias = "literal-demo-host"\n'
+        '[[machines.links]]\nname = "[bold]Repo[/bold]"\n'
+        'url = "https://example.com/[bold]repo[/bold]"\n'
+        f"[[machines.links]]\nname = {json.dumps(name, ensure_ascii=False)}\n"
+        'url = "https://example.com/[link=docs]"\n'
     )
-    app = SSHWorkbenchApp(projects)
+    app = SSHWorkbenchApp(machines)
     async with app.run_test(size=(80, 24)) as pilot:
         widgets = [
             app.query_one(ListView).query_one(Static),
-            app.query_one("#project-name", Static),
+            app.query_one("#machine-name", Static),
         ]
         for widget in widgets:
             rendered = widget.render()
             assert isinstance(rendered, Content)
             assert rendered.plain == shown
             assert not rendered.spans
-        for field in ("repository", "documentation"):
-            rendered = app.query_one(f"#project-{field}", Static).render()
-            assert isinstance(rendered, Content)
-            assert rendered.plain == getattr(projects[0], field)
-            assert not rendered.spans
-        await pilot.click("#project-name")
-        await pilot.click("#project-repository")
+        rendered = app.query_one("#machine-links", Static).render()
+        assert isinstance(rendered, Content)
+        assert rendered.plain == (
+            "[bold]Repo[/bold]: https://example.com/[bold]repo[/bold]\n"
+            f"{shown}: https://example.com/[link=docs]"
+        )
+        assert not rendered.spans
+        await pilot.click("#machine-name")
+        await pilot.click("#machine-links")
         await pilot.press("enter")
         assert app.is_running
-        assert projects[0].name == name
-        assert app.projects[0] is projects[0]
+        assert machines[0].name == name
+        assert app.machines[0] is machines[0]
 
 
 @pytest.mark.parametrize("size", [(80, 24), (120, 40), (60, 20)])
 async def test_long_values_wrap_scroll_and_reset(size: tuple[int, int]) -> None:
-    long_project = Project(
+    long_machine = Machine(
         "long-demo-" + "x" * 120,
         "Long 東京 " * 50,
-        "demo-" + "host" * 100,
-        "https://example.com/" + "path/" * 150,
-        "https://example.com/" + "docs/" * 150,
+        alias="demo-" + "host" * 100,
+        links=(
+            Link("Repository", "https://example.com/" + "path/" * 150),
+            Link("Documentation", "https://example.com/" + "docs/" * 150),
+        ),
     )
-    app = SSHWorkbenchApp([long_project, PROJECTS[1]])
+    app = SSHWorkbenchApp([long_machine, MACHINES[1]])
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        project_list = app.query_one(ListView)
-        details = app.query_one("#project-details", VerticalScroll)
+        machine_list = app.query_one(ListView)
+        pane = app.query_one("#machine-details", VerticalScroll)
         footer = app.query_one(Footer)
-        assert app.screen.region.contains_region(project_list.region)
-        assert app.screen.region.contains_region(details.region)
+        assert app.screen.region.contains_region(machine_list.region)
+        assert app.screen.region.contains_region(pane.region)
         assert app.screen.region.contains_region(footer.region)
-        assert project_list.region.right <= details.region.x
-        assert details.region.bottom <= footer.region.y
-        assert details.max_scroll_x == 0
-        assert details.max_scroll_y > 0
-        assert str(app.query_one("#project-documentation", Static).content).endswith(
+        assert machine_list.region.right <= pane.region.x
+        assert pane.region.bottom <= footer.region.y
+        assert pane.max_scroll_x == 0
+        assert pane.max_scroll_y > 0
+        assert str(app.query_one("#machine-links", Static).content).endswith(
             "docs/" * 150
         )
         await pilot.press("tab", "down", "pagedown")
         await pilot.wait_for_scheduled_animations()
-        assert app.focused is details
-        assert details.scroll_y > 0
+        assert app.focused is pane
+        assert pane.scroll_y > 0
         await pilot.press("end")
         await pilot.wait_for_scheduled_animations()
-        assert details.scroll_y == details.max_scroll_y
+        assert pane.scroll_y == pane.max_scroll_y
         await pilot.press("shift+tab", "down")
         await pilot.pause()
-        assert project_list.index == 1
-        assert details.scroll_y == 0
-        assert str(app.query_one("#project-name", Static).content) == "Studio demo"
+        assert machine_list.index == 1
+        assert pane.scroll_y == 0
+        assert str(app.query_one("#machine-name", Static).content) == "Studio box"
         await pilot.resize_terminal(80, 24)
         assert app.is_running
 
 
-async def test_many_projects_keep_keyboard_selection_visible() -> None:
-    projects = [Project(f"demo-{i}", f"Demo {i}", f"demo-{i}-host") for i in range(35)]
-    app = SSHWorkbenchApp(projects)
+async def test_many_machines_keep_keyboard_selection_visible() -> None:
+    machines = [
+        Machine(f"demo-{i}", f"Demo {i}", alias=f"demo-{i}-host") for i in range(35)
+    ]
+    app = SSHWorkbenchApp(machines)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.press(*(["down"] * 34))
-        project_list = app.query_one(ListView)
-        assert project_list.index == 34
-        assert project_list.scroll_y > 0
-        assert str(app.query_one("#project-id", Static).content) == "demo-34"
-        assert project_list.scrollable_content_region.contains_region(
-            project_list.highlighted_child.region
+        machine_list = app.query_one(ListView)
+        assert machine_list.index == 34
+        assert machine_list.scroll_y > 0
+        assert str(app.query_one("#machine-id", Static).content) == "demo-34"
+        assert machine_list.scrollable_content_region.contains_region(
+            machine_list.highlighted_child.region
         )
 
 
+async def test_help_line_fits_60_columns() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(60, 20)) as pilot:
+        await pilot.pause()
+        help_line = app.query_one("#navigation-help", Static)
+        assert str(help_line.content) == (
+            "Up/Down: select   Tab: switch pane   PgUp/PgDn: scroll"
+        )
+        assert help_line.region.height == 1
+
+
 @pytest.mark.parametrize("key", ["q", "ctrl+q"])
-@pytest.mark.parametrize("projects", [None, [], PROJECTS])
-async def test_keyboard_exit_is_clean(key: str, projects) -> None:
-    app = SSHWorkbenchApp(projects)
+@pytest.mark.parametrize("machines", [None, [], MACHINES])
+async def test_keyboard_exit_is_clean(key: str, machines) -> None:
+    app = SSHWorkbenchApp(machines)
     async with app.run_test() as pilot:
-        if projects:
+        if machines:
             await pilot.press("tab")
         await pilot.press(key)
         assert not app.is_running

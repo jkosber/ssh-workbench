@@ -9,7 +9,7 @@ from textual.widgets import Footer, ListView, Static
 from ssh_workbench import app as app_module
 from ssh_workbench import ssh
 from ssh_workbench.app import SSHWorkbenchApp
-from ssh_workbench.config import Project
+from ssh_workbench.config import Link, Machine
 from ssh_workbench.ssh import SSHLaunchError
 
 pytestmark = [
@@ -17,16 +17,22 @@ pytestmark = [
     pytest.mark.usefixtures("no_external_actions", "no_app_connections"),
 ]
 
-PROJECTS = (
-    Project(
+MACHINES = (
+    Machine(
         "garden-demo",
         "Garden demo",
-        "garden-demo-host",
-        "https://example.com/garden.git",
-        "https://example.com/garden/docs",
+        alias="garden-demo-host",
+        links=(
+            Link("Repository", "https://example.com/garden.git"),
+            Link("Documentation", "https://example.com/garden/docs"),
+        ),
     ),
-    Project("studio-demo", "Studio demo", "studio-demo-host"),
+    Machine("studio-demo", "Studio demo", alias="studio-demo-host"),
 )
+DIRECT = Machine(
+    "agent-box", "Agent box", user="dev", addresses=("100.64.0.12",), port=2222
+)
+RETRY = " Check the SSH client's message and alias; C retries."
 
 
 @pytest.fixture
@@ -49,13 +55,17 @@ def suspend_events(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return events
 
 
+def connection_status(app: SSHWorkbenchApp) -> str:
+    return str(app.query_one("#connection-status", Static).content)
+
+
 @pytest.mark.parametrize("size", [(60, 20), (80, 24), (120, 40)])
 async def test_connect_is_visible_and_never_automatic(
     monkeypatch: pytest.MonkeyPatch, size: tuple[int, int]
 ) -> None:
     launch = Mock(side_effect=AssertionError("Unexpected SSH launch"))
     monkeypatch.setattr(app_module, "launch_ssh", launch)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
         footer = app.query_one(Footer)
@@ -75,46 +85,58 @@ async def test_connect_is_visible_and_never_automatic(
         assert "C" in connect_key.render().plain.upper()
         assert app.screen.region.contains_region(connect_key.region)
         await pilot.press("down", "up", "enter", "tab", "enter")
-        await pilot.click("#project-repository")
-        await pilot.click("#project-documentation")
+        await pilot.click("#machine-links")
+        await pilot.click("#machine-target")
         launch.assert_not_called()
         assert app.is_running
 
 
-@pytest.mark.parametrize("projects", [None, (), PROJECTS])
-async def test_no_selected_project_never_launches(
-    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str], projects
+@pytest.mark.parametrize("machines", [None, (), MACHINES])
+async def test_no_selected_machine_never_launches(
+    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str], machines
 ) -> None:
     launch = Mock(side_effect=AssertionError("Unexpected SSH launch"))
     monkeypatch.setattr(app_module, "launch_ssh", launch)
-    app = SSHWorkbenchApp(projects)
+    app = SSHWorkbenchApp(machines)
     async with app.run_test() as pilot:
-        if projects:
+        if machines:
             app.query_one(ListView).index = None
             await pilot.pause()
-        status = str(app.query_one("#connection-status", Static).content)
+        status = connection_status(app)
         await pilot.press("c")
         app.action_connect()
         launch.assert_not_called()
         assert suspend_events == []
-        assert str(app.query_one("#connection-status", Static).content) == status
+        assert connection_status(app) == status
         assert app.is_running
         await pilot.press("q")
         assert not app.is_running
 
 
+@pytest.mark.parametrize("machines", [None, (), MACHINES])
+async def test_connect_disabled_without_selection_is_dimmed(machines) -> None:
+    app = SSHWorkbenchApp(machines)
+    async with app.run_test() as pilot:
+        if machines:
+            assert app.check_action("connect", ()) is True
+            app.query_one(ListView).index = None
+            await pilot.pause()
+        assert app.check_action("connect", ()) is None
+        await pilot.press("q")
+
+
 @pytest.mark.parametrize("size", [(60, 20), (80, 24), (120, 40)])
 @pytest.mark.parametrize("from_details", [False, True])
-async def test_connect_uses_selected_alias_and_restores_focus(
+async def test_connect_uses_selected_machine_and_restores_focus(
     monkeypatch: pytest.MonkeyPatch,
     suspend_events: list[str],
     size: tuple[int, int],
     from_details: bool,
 ) -> None:
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
 
-    def launch(alias: str) -> int:
-        assert alias == "studio-demo-host"
+    def launch(machine: Machine) -> int:
+        assert machine is MACHINES[1]
         assert suspend_events == ["suspend"]
         assert app._connecting
         assert not app._driver._auto_restart
@@ -125,43 +147,54 @@ async def test_connect_uses_selected_alias_and_restores_focus(
     monkeypatch.setattr(app_module, "launch_ssh", launcher)
     async with app.run_test(size=size) as pilot:
         await pilot.press("down")
-        project_list = app.query_one(ListView)
+        machine_list = app.query_one(ListView)
         if from_details:
             await pilot.press("tab")
-            assert app.focused is app.query_one("#project-details", VerticalScroll)
+            assert app.focused is app.query_one("#machine-details", VerticalScroll)
         await pilot.press("c")
         assert suspend_events == ["suspend", "launch", "resume"]
-        launcher.assert_called_once_with("studio-demo-host")
+        launcher.assert_called_once_with(MACHINES[1])
         assert not app._connecting
         assert app._driver._auto_restart
-        assert app.focused is project_list
-        assert project_list.index == 1
-        assert str(app.query_one("#project-name", Static).content) == "Studio demo"
+        assert app.focused is machine_list
+        assert machine_list.index == 1
+        assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
         status = app.query_one("#connection-status", Static)
-        assert str(status.content) == "SSH exited with status 0."
+        assert str(status.content) == (
+            "SSH exited with status 0. Machine 2: studio-demo"
+        )
         assert app.screen.region.contains_region(status.region)
         await pilot.press("up")
-        assert project_list.index == 0
-        assert str(app.query_one("#project-name", Static).content) == "Garden demo"
+        assert machine_list.index == 0
+        assert str(app.query_one("#machine-name", Static).content) == "Garden demo"
         await pilot.press("tab", "q")
         assert not app.is_running
         assert app.return_code == 0
+
+
+async def test_direct_machine_connect_passes_machine(
+    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str]
+) -> None:
+    launcher = Mock(return_value=9)
+    monkeypatch.setattr(app_module, "launch_ssh", launcher)
+    app = SSHWorkbenchApp([DIRECT])
+    async with app.run_test() as pilot:
+        await pilot.press("c")
+        launcher.assert_called_once_with(DIRECT)
+        assert suspend_events == ["suspend", "resume"]
+        assert connection_status(app) == (
+            "SSH exited with status 9. Check the SSH client's message and the "
+            "machine's settings; C retries. Machine 1: agent-box"
+        )
+        await pilot.press("q")
 
 
 @pytest.mark.parametrize(
     "outcome, message",
     [
         (0, "SSH exited with status 0."),
-        (
-            255,
-            "SSH exited with status 255. "
-            "Check the SSH client's message and alias; C retries.",
-        ),
-        (
-            -2,
-            "SSH exited with status -2. "
-            "Check the SSH client's message and alias; C retries.",
-        ),
+        (255, "SSH exited with status 255." + RETRY),
+        (-2, "SSH exited with status -2." + RETRY),
         (SSHLaunchError("SSH not found."), "SSH not found."),
         (SSHLaunchError("Could not start SSH."), "Could not start SSH."),
         (KeyboardInterrupt(), "SSH interrupted. Press C to retry or Q to quit."),
@@ -173,26 +206,26 @@ async def test_all_launch_outcomes_resume_real_suspend_context(
     outcome: int | BaseException,
     message: str,
 ) -> None:
-    def launch(alias: str) -> int:
+    def launch(machine: Machine) -> int:
         suspend_events.append("launch")
         if isinstance(outcome, BaseException):
             raise outcome
         return outcome
 
     monkeypatch.setattr(app_module, "launch_ssh", launch)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test() as pilot:
         await pilot.press("down", "tab", "c")
         assert suspend_events == ["suspend", "launch", "resume"]
-        assert str(app.query_one("#connection-status", Static).content) == message
-        project_list = app.query_one(ListView)
-        assert app.focused is project_list
-        assert project_list.index == 1
+        assert connection_status(app) == message + " Machine 2: studio-demo"
+        machine_list = app.query_one(ListView)
+        assert app.focused is machine_list
+        assert machine_list.index == 1
         assert not app._connecting
         assert app.check_action("connect", ()) is True
         await pilot.press("up", "tab", "shift+tab")
-        assert project_list.index == 0
-        assert app.focused is project_list
+        assert machine_list.index == 0
+        assert app.focused is machine_list
         await pilot.press("ctrl+q")
         assert not app.is_running
         assert app.return_code == 0
@@ -206,12 +239,13 @@ async def test_launch_boundary_errors_restore_browser(
     monkeypatch.setattr(ssh.shutil, "which", Mock(return_value=str(tmp_path / "ssh")))
     run = Mock(side_effect=PermissionError("synthetic-private-path"))
     monkeypatch.setattr(ssh.subprocess, "run", run)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test() as pilot:
         await pilot.press("c")
         assert suspend_events == ["suspend", "resume"]
         run.assert_called_once()
-        message = str(app.query_one("#connection-status", Static).content)
+        assert run.call_args.args[0][1:] == ["--", "garden-demo-host"]
+        message = connection_status(app)
         assert "Could not start SSH" in message
         assert "synthetic-private-path" not in message
         assert app.focused is app.query_one(ListView)
@@ -226,13 +260,14 @@ async def test_launch_boundary_revalidates_selected_alias(
     run = Mock(side_effect=AssertionError("Unexpected child process"))
     monkeypatch.setattr(ssh.shutil, "which", which)
     monkeypatch.setattr(ssh.subprocess, "run", run)
-    app = SSHWorkbenchApp([Project("unsafe-demo", "Unsafe demo", "-oProxyCommand=x")])
+    app = SSHWorkbenchApp(
+        [Machine("unsafe-demo", "Unsafe demo", alias="-oProxyCommand=x")]
+    )
     async with app.run_test() as pilot:
         await pilot.press("c")
         assert suspend_events == ["suspend", "resume"]
-        assert "Invalid SSH alias" in str(
-            app.query_one("#connection-status", Static).content
-        )
+        assert "Invalid SSH alias" in connection_status(app)
+        assert connection_status(app).endswith(" Machine 1: unsafe-demo")
         which.assert_not_called()
         run.assert_not_called()
         assert app.focused is app.query_one(ListView)
@@ -246,9 +281,9 @@ async def test_repeated_launches_after_every_outcome_and_reentrant_guard(
     outcomes = iter(
         [0, 5, SSHLaunchError("Could not start SSH."), KeyboardInterrupt(), 0]
     )
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
 
-    def launch(alias: str) -> int:
+    def launch(machine: Machine) -> int:
         assert app._connecting
         assert app.check_action("connect", ()) is None
         app.action_connect()
@@ -264,8 +299,7 @@ async def test_repeated_launches_after_every_outcome_and_reentrant_guard(
         for count, message in enumerate(
             [
                 "SSH exited with status 0.",
-                "SSH exited with status 5. "
-                "Check the SSH client's message and alias; C retries.",
+                "SSH exited with status 5." + RETRY,
                 "Could not start SSH.",
                 "SSH interrupted. Press C to retry or Q to quit.",
                 "SSH exited with status 0.",
@@ -275,7 +309,7 @@ async def test_repeated_launches_after_every_outcome_and_reentrant_guard(
             await pilot.press("c")
             assert launcher.call_count == count
             assert suspend_events == ["suspend", "launch", "resume"] * count
-            assert str(app.query_one("#connection-status", Static).content) == message
+            assert connection_status(app) == message + " Machine 1: garden-demo"
             assert not app._connecting
             assert app.check_action("connect", ()) is True
             assert app.query_one(ListView).index == 0
@@ -288,13 +322,14 @@ async def test_unsupported_terminal_does_not_launch(
 ) -> None:
     launch = Mock(side_effect=AssertionError("Unexpected SSH launch"))
     monkeypatch.setattr(app_module, "launch_ssh", launch)
-    app = SSHWorkbenchApp(PROJECTS)
+    app = SSHWorkbenchApp(MACHINES)
     async with app.run_test() as pilot:
         assert not app._driver.can_suspend
         await pilot.press("down", "tab", "c")
         launch.assert_not_called()
-        assert "Cannot hand off this terminal" in str(
-            app.query_one("#connection-status", Static).content
+        assert connection_status(app) == (
+            "Cannot hand off this terminal. Run SSH Workbench in a local terminal. "
+            "Machine 2: studio-demo"
         )
         assert app.query_one(ListView).index == 1
         assert app.focused is app.query_one(ListView)
@@ -309,27 +344,29 @@ async def test_return_preserves_scroll_and_literal_details(
     suspend_events: list[str],
     size: tuple[int, int],
 ) -> None:
-    project = Project(
+    machine = Machine(
         "literal-demo",
         "[bold]Literal[/bold] " * 30,
-        "literal-demo-host",
-        "https://example.com/" + "[link=path]/" * 80,
-        "https://example.com/" + "docs/" * 100,
+        alias="literal-demo-host",
+        links=(
+            Link("Repository", "https://example.com/" + "[link=path]/" * 80),
+            Link("Documentation", "https://example.com/" + "docs/" * 100),
+        ),
     )
     monkeypatch.setattr(app_module, "launch_ssh", Mock(return_value=0))
-    app = SSHWorkbenchApp([project, PROJECTS[1]])
+    app = SSHWorkbenchApp([machine, MACHINES[1]])
     async with app.run_test(size=size) as pilot:
         await pilot.press("tab", "end")
         await pilot.wait_for_scheduled_animations()
-        details = app.query_one("#project-details", VerticalScroll)
-        scroll_y = details.scroll_y
+        pane = app.query_one("#machine-details", VerticalScroll)
+        scroll_y = pane.scroll_y
         assert scroll_y > 0
         await pilot.press("c")
         assert suspend_events == ["suspend", "resume"]
-        assert details.scroll_y == scroll_y
-        rendered = app.query_one("#project-name", Static).render()
-        assert rendered.plain == project.name
+        assert pane.scroll_y == scroll_y
+        rendered = app.query_one("#machine-name", Static).render()
+        assert rendered.plain == machine.name
         assert not rendered.spans
         await pilot.press("down")
-        assert details.scroll_y == 0
-        assert str(app.query_one("#project-name", Static).content) == "Studio demo"
+        assert pane.scroll_y == 0
+        assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
