@@ -1346,7 +1346,7 @@ class SSHWorkbenchApp(App[None]):
                 self._show_key_result(machine, str(error))
                 return
         machine_list = self.query_one(ListView)
-        installed = False
+        works = False
         self._connecting = True
         self.refresh_bindings()
         with ssh_handoff():
@@ -1355,7 +1355,7 @@ class SSHWorkbenchApp(App[None]):
                     # As for C: errors stay inside the suspension block, so
                     # the terminal is always handed back.
                     try:
-                        message, installed = self._key_steps(machine, plan, setting)
+                        message, works = self._key_steps(machine, plan, setting)
                     except (SSHLaunchError, KeySetupError) as error:
                         message = str(error)
                     except KeyboardInterrupt:
@@ -1369,7 +1369,7 @@ class SSHWorkbenchApp(App[None]):
                 self._connecting = False
                 machine_list.focus()
                 self.refresh_bindings()
-        if installed and setting != machine.key:
+        if works and setting != machine.key:
             machines = list(self.machines)
             machines[index] = replace(machine, key=setting)
             problem = self._save(machines, index, retry="set up the key")
@@ -1384,7 +1384,8 @@ class SSHWorkbenchApp(App[None]):
         self, machine: Machine, plan: KeyPlan, setting: str | None
     ) -> tuple[str, bool]:
         """Runs while the terminal is handed over; returns the result and
-        whether the key was installed."""
+        whether key-only login works, which a new machine key needs before
+        it is saved."""
         choice = plan.choice
         if choice.create:
             print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
@@ -1425,7 +1426,11 @@ class SSHWorkbenchApp(App[None]):
             "The key was installed, but key-only login failed "
             f"(SSH exited with status {status})."
         )
-        return (f"{message} {choice.hint}" if choice.hint else message), True
+        if choice.hint:
+            message += f" {choice.hint}"
+        if setting != machine.key:
+            message += " The key was not saved as this machine's key."
+        return message, False
 
     def _show_key_result(self, machine: Machine, message: str) -> None:
         ids = [item.id for item in self.machines]
