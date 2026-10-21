@@ -19,6 +19,11 @@ Changes by release, newest first. Version numbers follow the policy in
   the file's own rules. The first save creates the machine file and its folder.
 - The add form suggests the `Host` names from your SSH config, following its
   `Include` lines.
+- Live status: each machine shows Checking, Online (with the address that
+  answered), Offline or Can't check, as a symbol and a word with color on top.
+  Checks run at startup, on R and every 30 seconds in the background.
+- C on a machine with addresses uses the first address the latest check
+  found online.
 
 ### Changed
 
@@ -48,7 +53,13 @@ Changes by release, newest first. Version numbers follow the policy in
 - A save or delete never overwrites a machine file that changed on disk since
   Workbench loaded it; it reloads the list and keeps your unsaved change so you
   can try again. A read-only machine file is never replaced.
-- Only `Host` and `Include` lines of your SSH config are read; Workbench never
+- Workbench's own network traffic is the status checks: DNS lookups for host
+  names and one TCP connection to each checked address's SSH port, closed
+  without sending anything. `ssh -G` resolves aliases at startup and on R
+  only, never on the timer; it evaluates your whole SSH config, including
+  `Match exec` lines.
+- To suggest aliases, only `Host` and `Include` lines of your SSH config are
+  read; Workbench never
   opens an included file named like a key, `known_hosts` or `authorized_keys`,
   and never changes the config.
 

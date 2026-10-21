@@ -10,7 +10,9 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.message import Message
+from textual.reactive import reactive
 from textual.screen import ModalScreen
+from textual.widget import Widget
 from textual.widgets import Footer, Header, ListItem, ListView, OptionList, Static
 from textual.widgets.option_list import Option
 
@@ -27,12 +29,84 @@ from ssh_workbench.forms import ConfirmDelete, MachineForm
 from ssh_workbench.links import LinkResult, open_link
 from ssh_workbench.ssh import SSHLaunchError, launch_ssh, ssh_handoff
 from ssh_workbench.sshconfig import host_names, ssh_folder
+from ssh_workbench.status import (
+    AliasTarget,
+    MachineStatus,
+    State,
+    StatusChecker,
+    check_machine,
+)
 from ssh_workbench.store import (
     FileChangedError,
     SaveError,
     backup_path,
     save_machines,
 )
+
+# Seconds between status rounds; the timer never runs ssh -G.
+STATUS_INTERVAL = 30.0
+ANIMATION_TICK = 0.2
+SPINNER = "◐◓◑◒"
+
+
+@dataclass
+class StatusFinished(Message):
+    round: int
+    machine_id: str
+    status: MachineStatus
+    # Set when this check ran ssh -G for the alias.
+    alias: str | None
+    target: AliasTarget | None
+
+
+class StatusSymbol(Widget):
+    """A machine's status symbol. Each state has its own shape; color and
+    motion are only added on top."""
+
+    DEFAULT_CSS = """
+    StatusSymbol {
+        width: 2;
+        height: 1;
+    }
+    StatusSymbol.state-online {
+        color: $success;
+    }
+    StatusSymbol.state-online.-dim {
+        color: $success 45%;
+    }
+    StatusSymbol.state-offline {
+        color: $error;
+    }
+    StatusSymbol.state-unknown {
+        color: $warning;
+    }
+    StatusSymbol.state-checking {
+        color: $accent;
+    }
+    StatusSymbol.state-not_checked {
+        color: $text-muted;
+    }
+    """
+
+    state: reactive[State] = reactive(State.NOT_CHECKED)
+    frame: reactive[int] = reactive(0)
+
+    def __init__(self, state: State) -> None:
+        super().__init__(classes=f"state-{state.name.lower()}")
+        self.set_reactive(StatusSymbol.state, state)
+
+    def watch_state(self, state: State) -> None:
+        for other in State:
+            self.set_class(other is state, f"state-{other.name.lower()}")
+
+    def watch_frame(self, frame: int) -> None:
+        # A gentle pulse: online symbols dim for 0.8 s in every 1.6 s.
+        self.set_class(self.state is State.ONLINE and frame // 4 % 2 == 1, "-dim")
+
+    def render(self) -> Content:
+        if self.state is State.CHECKING:
+            return Content(SPINNER[self.frame % len(SPINNER)])
+        return Content(self.state.symbol)
 
 
 @dataclass(frozen=True)
@@ -140,10 +214,11 @@ class SSHWorkbenchApp(App[None]):
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         Binding("c", "connect", "Connect"),
-        Binding("o", "open_link", "Open link"),
+        Binding("o", "open_link", "Link"),
         Binding("a", "add", "Add"),
         Binding("e", "edit", "Edit"),
         Binding("x", "delete", "Delete"),
+        Binding("r", "refresh", "Refresh"),
         Binding("q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
@@ -163,7 +238,11 @@ class SSHWorkbenchApp(App[None]):
         height: 1;
         padding: 0 1;
     }
+    #machine-list ListItem Horizontal {
+        height: 1;
+    }
     #machine-list Static {
+        width: 1fr;
         text-wrap: nowrap;
         text-overflow: ellipsis;
     }
@@ -196,6 +275,7 @@ class SSHWorkbenchApp(App[None]):
         machines: Sequence[Machine] | None = None,
         config_path: Path | None = None,
         file_text: str | None = None,
+        checker: StatusChecker | None = None,
     ) -> None:
         super().__init__()
         self.config_supplied = machines is not None
@@ -209,6 +289,17 @@ class SSHWorkbenchApp(App[None]):
         self._connecting = False
         self._link_request: LinkRequest | None = None
         self._links_closed = Event()
+        # Without a checker the app never checks; the CLI passes the real one.
+        self.checker = checker
+        self._statuses: dict[str, MachineStatus] = {}
+        # The address each machine's last finished check found online; a new
+        # round shows Checking but Connect keeps using this.
+        self._online: dict[str, str] = {}
+        # What ssh -G said for each alias at startup or the last refresh.
+        self._targets: dict[str, AliasTarget | None] = {}
+        self._round = 0
+        self._frame = 0
+        self._status_closed = Event()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -225,7 +316,7 @@ class SSHWorkbenchApp(App[None]):
             id="link-status",
             markup=False,
         )
-        yield Footer()
+        yield Footer(compact=True)
 
     def compose_panes(self) -> ComposeResult:
         """The list and details, or the empty screen; rebuilt after each save."""
@@ -233,7 +324,12 @@ class SSHWorkbenchApp(App[None]):
             with Horizontal(id="browser"):
                 machine_list = ListView(
                     *(
-                        ListItem(Static(_display_text(machine.name), markup=False))
+                        ListItem(
+                            Horizontal(
+                                StatusSymbol(self._status_of(machine).state),
+                                Static(_display_text(machine.name), markup=False),
+                            )
+                        )
                         for machine in self.machines
                     ),
                     initial_index=min(self._initial_index, len(self.machines) - 1),
@@ -246,6 +342,7 @@ class SSHWorkbenchApp(App[None]):
                     for field, label in (
                         ("id", "ID"),
                         ("name", "Name"),
+                        ("status", "Status"),
                         ("connection", "Connection"),
                         ("target", "SSH alias"),
                         ("user", "User"),
@@ -294,6 +391,10 @@ class SSHWorkbenchApp(App[None]):
     def on_mount(self) -> None:
         if self.machines:
             self.query_one("#machine-list", ListView).focus()
+        if self.checker is not None:
+            self._start_round(resolve=True)
+            self.set_interval(STATUS_INTERVAL, self._timer_round)
+            self.set_interval(ANIMATION_TICK, self._tick_animation)
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         self.refresh_bindings()
@@ -314,6 +415,7 @@ class SSHWorkbenchApp(App[None]):
         for field, value in (
             ("id", _display_text(machine.id)),
             ("name", _display_text(machine.name)),
+            ("status", self._status_text(machine)),
             ("connection", "Direct" if direct else "SSH alias"),
             (
                 "target",
@@ -337,6 +439,128 @@ class SSHWorkbenchApp(App[None]):
         )
         self.query_one("#machine-details", VerticalScroll).scroll_home(animate=False)
 
+    def _status_of(self, machine: Machine) -> MachineStatus:
+        default = State.NOT_CHECKED if self.checker is None else State.CHECKING
+        return self._statuses.get(machine.id, MachineStatus(default))
+
+    def _status_text(self, machine: Machine) -> str:
+        status = self._status_of(machine)
+        text = f"{status.state.symbol} {status.state.word}"
+        if status.state is State.ONLINE:
+            if status.address is None:
+                return f"{text} via alias"
+            return f"{text}: {_display_text(status.address)}"
+        if status.state is State.UNKNOWN and status.reason:
+            return f"{text}: {status.reason}"
+        return text
+
+    def _online_address(self, machine: Machine) -> str | None:
+        """The address the last finished check found online, for direct machines."""
+        address = self._online.get(machine.id)
+        # An edit may have removed the address since that check.
+        return address if address in machine.addresses else None
+
+    def action_refresh(self) -> None:
+        if self.check_action("refresh", ()) is True:
+            self._start_round(resolve=True)
+
+    def _timer_round(self) -> None:
+        if self.machines and not self._connecting and not self._rebuilding:
+            self._start_round(resolve=False)
+
+    def _start_round(self, resolve: bool) -> None:
+        """Check every machine in the background; only `resolve` runs ssh -G."""
+        self._round += 1
+        for machine in self.machines:
+            self._statuses[machine.id] = MachineStatus(State.CHECKING)
+            known = machine.alias is None or machine.alias in self._targets
+            target = self._targets.get(machine.alias) if machine.alias else None
+            # Daemon threads, like the link worker: quitting never waits for a
+            # check that hangs on DNS or a dropped connection.
+            try:
+                Thread(
+                    target=self._check,
+                    args=(self._round, machine, resolve, known, target),
+                    daemon=True,
+                ).start()
+            except RuntimeError:
+                self._statuses[machine.id] = MachineStatus(
+                    State.UNKNOWN, reason="the check could not start"
+                )
+        self._show_statuses()
+
+    def _check(
+        self,
+        round_id: int,
+        machine: Machine,
+        resolve: bool,
+        known: bool,
+        target: AliasTarget | None,
+    ) -> None:
+        if self._status_closed.is_set():
+            return
+        resolved = resolve and machine.alias is not None
+        try:
+            if resolved:
+                target = self.checker.resolve_alias(machine.alias)
+            if machine.alias is not None and not resolved and not known:
+                status = MachineStatus(
+                    State.UNKNOWN, reason="press R to resolve this alias"
+                )
+            else:
+                status = check_machine(machine, target, self.checker.port_open)
+        except Exception:
+            # Never let a background failure print a traceback into the TUI.
+            status = MachineStatus(State.UNKNOWN, reason="the check failed")
+        if not self._status_closed.is_set():
+            try:
+                self.post_message(
+                    StatusFinished(
+                        round_id,
+                        machine.id,
+                        status,
+                        machine.alias if resolved else None,
+                        target if resolved else None,
+                    )
+                )
+            except RuntimeError:
+                # The event loop may close between the guard and enqueue.
+                pass
+
+    def on_status_finished(self, message: StatusFinished) -> None:
+        if self._status_closed.is_set() or message.round != self._round:
+            return
+        if message.alias is not None:
+            self._targets[message.alias] = message.target
+        if message.machine_id in {machine.id for machine in self.machines}:
+            self._statuses[message.machine_id] = message.status
+            if message.status.state is State.ONLINE and message.status.address:
+                self._online[message.machine_id] = message.status.address
+            else:
+                self._online.pop(message.machine_id, None)
+            self._show_statuses()
+
+    def _show_statuses(self) -> None:
+        machine_list = self._machine_list()
+        if machine_list is None or self._rebuilding:
+            return
+        for symbol, machine in zip(
+            machine_list.query(StatusSymbol), self.machines, strict=False
+        ):
+            symbol.state = self._status_of(machine).state
+        index = machine_list.index
+        if index is not None and index < len(self.machines):
+            self.query_one("#machine-status", Static).update(
+                self._status_text(self.machines[index])
+            )
+
+    def _tick_animation(self) -> None:
+        if self.animation_level == "none":
+            return
+        self._frame += 1
+        for symbol in self.query(StatusSymbol):
+            symbol.frame = self._frame
+
     def _browsing(self) -> bool:
         """True when the browser screen is active, current and not connecting."""
         return (
@@ -352,6 +576,9 @@ class SSHWorkbenchApp(App[None]):
         return machine_list.index
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "refresh":
+            ready = self.checker is not None and self._browsing() and self.machines
+            return True if ready else None
         if action == "add":
             return True if self._browsing() and self.config_path is not None else None
         if action in ("connect", "open_link", "edit", "delete"):
@@ -516,6 +743,8 @@ class SSHWorkbenchApp(App[None]):
             # The browser may sit under a form; focus returns here when it closes.
             self.screen_stack[0].set_focus(machine_list)
         self.refresh_bindings()
+        if self.checker is not None:
+            self._start_round(resolve=False)
 
     def action_open_link(self) -> None:
         if self._links_closed.is_set():
@@ -585,6 +814,7 @@ class SSHWorkbenchApp(App[None]):
     def on_unmount(self) -> None:
         self._links_closed.set()
         self._link_request = None
+        self._status_closed.set()
 
     def action_connect(self) -> None:
         index = self._selected_index()
@@ -600,7 +830,12 @@ class SSHWorkbenchApp(App[None]):
                     # Textual 8.2.8 resumes only on a normal context exit. Handle
                     # launch errors here so they cannot skip terminal restoration.
                     try:
-                        status = launch_ssh(machine)
+                        address = self._online_address(machine)
+                        status = (
+                            launch_ssh(machine, address)
+                            if address is not None
+                            else launch_ssh(machine)
+                        )
                     except SSHLaunchError as error:
                         message = str(error)
                     except KeyboardInterrupt:

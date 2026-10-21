@@ -10,6 +10,7 @@ import pytest
 from ssh_workbench import cli as cli_module
 from ssh_workbench.app import SSHWorkbenchApp
 from ssh_workbench.config import Link, Machine
+from ssh_workbench.status import StatusChecker
 
 
 @pytest.fixture
@@ -290,6 +291,16 @@ def use_user_config(monkeypatch: pytest.MonkeyPatch, folder: Path) -> Path:
     monkeypatch.setenv("APPDATA", str(folder))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(folder))
     return folder / "ssh-workbench" / "machines.toml"
+
+
+def test_the_app_gets_the_real_status_checker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, started_apps: list[SSHWorkbenchApp]
+) -> None:
+    use_user_config(monkeypatch, tmp_path)
+
+    assert cli_module.main([]) == 0
+
+    assert type(started_apps[0].checker) is StatusChecker
 
 
 def test_default_config_loads_when_present(

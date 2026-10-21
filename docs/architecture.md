@@ -11,6 +11,7 @@
 | `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/O/A/E/X/Q actions |
 | `src/ssh_workbench/forms.py` | The machine form and the delete confirmation |
 | `src/ssh_workbench/display.py` | Literal display of configuration text, with nonprinting characters escaped |
+| `src/ssh_workbench/status.py` | The only network code: TCP port checks, the `ssh -G` alias resolver and the per-machine status rules |
 | `src/ssh_workbench/ssh.py` | Native SSH boundary: machine recheck, argument list, executable lookup, child process and SIGINT guard |
 | `src/ssh_workbench/links.py` | Browser boundary: URL recheck and operating-system dispatch |
 | `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
@@ -61,22 +62,25 @@ in file order and the text they were read from. It retains them in a tuple;
 contains no machines. Those states have different informative screens, both
 naming `config_path`, escaped for display, when one exists: the loaded file, or
 the default location, where the first save creates the file. Only the no-file
-screen mentions `--config`. The app makes no network calls. Its explicit Connect
-action delegates process I/O to the small native SSH boundary; O delegates URL
-dispatch to a separate browser boundary; saves go through `store`.
+screen mentions `--config`. Its only network calls are the status checks in
+`status`. Its explicit Connect action delegates process I/O to the small
+native SSH boundary; O delegates URL dispatch to a separate browser boundary;
+saves go through `store`.
 
 A Textual `ListView` starts focused on the first machine. Its `Highlighted`
 event updates literal `Static` values in a `VerticalScroll` details pane and
-resets that pane to the top: ID, name, connection kind, the alias or the
+resets that pane to the top: ID, name, status, connection kind, the alias or the
 addresses (one per line, under a label that changes with the kind), user, port,
 key and links (`name: URL` per line). Unset direct fields read `Not set`; alias
 machines read `From your SSH config`. Tab/Shift+Tab switch panes; details use
 Textual's standard scrolling keys. List rows shorten long names while details
 wrap the full value. Selection uses the list's highlight and focus uses an
-accent border. The footer shows C / Connect, O / Open link, A / Add, E / Edit,
-X / Delete and Q / Quit, with Ctrl+Q as an additional exit key. `check_action`
-dims every action except quitting while connecting, while a modal screen is open and while the
-panes rebuild after a save; it also dims C, O, E and X without a selection, O
+accent border. The compact footer shows C / Connect, O / Link, A / Add,
+E / Edit, X / Delete, R / Refresh and Q / Quit, with Ctrl+Q as an additional
+exit key. It ends before the last column, because Textual leaves the
+bottom-right cell empty on Windows. `check_action` dims every action except
+quitting while connecting, while a modal screen is open and while the panes
+rebuild after a save; it also dims C, O, E and X without a selection, O
 for a machine without links, and A, E and X without a file location. Textual
 owns the event loop and terminal lifecycle. Link actions do not change pane
 focus or selection. Connect results end with `Machine N: <id>` so they name the
@@ -181,6 +185,29 @@ does not install patches. Isolated child tests hold a worker before dispatch,
 unwind the entry point, then release it into the still-active fixture guards.
 Automated checks separately cover changed selection, repeat requests,
 shutdown races, layout and simultaneous SSH lifecycle results.
+
+## Implemented live status
+
+`SSHWorkbenchApp(..., checker)` checks only when given a checker: the CLI
+passes `status.StatusChecker`, and tests pass fakes with the same two
+methods, so every other test stays offline. With a checker the app runs a
+round on mount and on R that also resolves aliases, and a round without
+resolving every `STATUS_INTERVAL` (30 s) and after each save:
+
+| Step | Detail |
+| --- | --- |
+| Round | Each machine becomes Checking and gets one daemon thread, as the link worker does, so quitting never waits for a check stuck on DNS or a dropped connection. Results come back through `post_message` as `StatusFinished`; a result from an older round, or for a machine no longer listed, is dropped |
+| Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
+| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, output captured and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `port`, `proxyjump` and `proxycommand` are read, and the host is never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
+| Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
+| Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R |
+| Connect | A direct machine connects to the address its latest status found online, else the first listed |
+
+`StatusSymbol` is a small widget, not a `Static`, so the name `Static` in a
+row stays the first one. Each state has its own shape (`◐`, `●`, `○`, `◇`,
+`·`) and a word in the details pane; color classes come on top. A 0.2 s timer
+turns the Checking symbol and dims Online every other 0.8 s, and does nothing
+when `App.animation_level` is `none` (`TEXTUAL_ANIMATIONS=none`).
 
 ## Implemented native SSH boundary
 
@@ -372,12 +399,13 @@ keys, or disable host-key verification. Bootstrap and automated tests must never
 read real SSH files or access real hosts; the test suite points
 `SSH_WORKBENCH_SSH_DIR`, `APPDATA` and `XDG_CONFIG_HOME` at an empty folder.
 
-0.2.0 deliberately changes two 0.1.0 rules:
+0.2.0 deliberately changes three 0.1.0 rules:
 
 | 0.1.0 rule | Now |
 | --- | --- |
 | Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E or X, with the change check and atomic replace above |
-| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
+| No network I/O of its own | TCP port checks for status only: a DNS lookup for a host name, then one connection per checked address to its SSH port, closed without sending data; no ICMP. Tests substitute `socket.create_connection` and the `ssh -G` process |
+| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines at startup and on R, which evaluates the whole config including `Match exec`; only `hostname`, `port`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
 
 For subprocess code, validate aliases, users, addresses, ports and key paths as
 data and use an argument list with a resolved executable and `shell=False`.
@@ -433,6 +461,17 @@ handling. Source inspection of the Linux driver is not a Linux terminal test.
 Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
+
+## References checked for task 10
+
+- [Python socket.create_connection](https://docs.python.org/3.14/library/socket.html#socket.create_connection)
+- [Python subprocess.run timeouts](https://docs.python.org/3.14/library/subprocess.html#subprocess.run)
+- [OpenSSH ssh(1) `-G`](https://man.openbsd.org/ssh) and [ssh_config(5) `ProxyJump`, `ProxyCommand`, `Match exec`](https://man.openbsd.org/ssh_config)
+- [Textual animation level](https://textual.textualize.io/guide/animation/)
+
+Installed Textual 8.2.8 sources were checked for `set_interval`,
+`animation_level`, the compact `Footer`, and the `_animate` attribute that a
+subclass must not reuse.
 
 ## References checked for task 9
 

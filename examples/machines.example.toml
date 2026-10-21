@@ -15,7 +15,8 @@ alias = "garden-demo-host"
 name = "Documentation"
 url = "https://example.com/fictional/garden/docs"
 
-# Reached directly: Workbench passes the user, port, key and first address to SSH.
+# Reached directly: Workbench passes the user, port, key and one address to SSH:
+# the first address the latest status check found online, else the first listed.
 [[machines]]
 id = "studio-box"
 name = "Studio box"

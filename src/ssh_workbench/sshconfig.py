@@ -21,10 +21,16 @@ _NEVER_READ = re.compile(
 )
 
 
+def ssh_folder_override() -> Path | None:
+    """SSH_WORKBENCH_SSH_DIR when it is an absolute path; tests and checks set it."""
+    override = Path(os.environ.get("SSH_WORKBENCH_SSH_DIR", ""))
+    return override if override.is_absolute() else None
+
+
 def ssh_folder() -> Path | None:
     """The user's SSH folder, or SSH_WORKBENCH_SSH_DIR when it is absolute."""
-    override = Path(os.environ.get("SSH_WORKBENCH_SSH_DIR", ""))
-    if override.is_absolute():
+    override = ssh_folder_override()
+    if override is not None:
         return override
     try:
         return Path.home() / ".ssh"

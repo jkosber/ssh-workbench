@@ -371,6 +371,10 @@ Acceptance:
 
 ## 9. Add, edit and delete machines
 
+**Merged in [PR #10](https://github.com/jkosber/ssh-workbench/pull/10)** as
+`96338e1`, containing tested head `3d2ad36`; the merge tree matches that head.
+See the [Task 9 evidence](validation.md#task-9-add-edit-and-delete-machines-2026-10-21).
+
 Workbench now writes its own machine file, and reads `Host` and `Include` lines
 of the user's SSH config to suggest aliases. It still never changes the SSH
 config.
@@ -397,9 +401,35 @@ Acceptance:
   `Host` and `Include` lines are interpreted; keys and `known_hosts` are never
   read. Typing a name that is not listed is allowed. Tests and native checks
   point the SSH folder at fictional files.
-- [ ] Docs replace the "never writes configuration" rule with the new one in
+- [x] Docs replace the "never writes configuration" rule with the new one in
   the README, architecture and AGENTS. Full checks, CI, a native Windows
   Terminal check with fictional files pass.
+
+## 10. Live status
+
+Workbench opens its first network connections of its own: one TCP connection to
+each checked address's SSH port, closed at once, with no login.
+
+Acceptance:
+
+- [x] Each machine shows Checking, Online (with the address that answered, or
+  "via alias"), Offline or Can't check, with a reason. The list shows a symbol
+  per state and the details pane its word; color is added on top, so every
+  state is readable without color or animation. Online pulses gently and
+  Checking spins, unless animations are off.
+- [x] A check opens a TCP connection to the SSH port with a short timeout and
+  sends nothing; no ICMP. Direct machines try their addresses in listed order
+  on their port (22 when unset). Alias machines use the host and port that
+  `ssh -G` resolves; an alias that uses `ProxyJump` or `ProxyCommand` shows
+  Can't check.
+- [x] Checks run at startup, on R and every 30 seconds, in the background:
+  the screen never waits for them and quitting never waits for them. `ssh -G`
+  runs only at startup and on R; the timer reuses its saved results.
+- [x] C on a direct machine connects to the first address the latest check
+  found online, else the first listed address. Nothing retries another address.
+- [ ] Tests substitute every network and process boundary. Docs say Workbench
+  now opens these connections. Full checks, CI and a native Windows Terminal
+  check with a local listener and fictional machines pass.
 
 ## 0.1.x candidates
 
@@ -448,6 +478,20 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   network share would pause the screen.
 - Task 9: `test_actions_wait_for_the_rebuilt_list` collects the active bindings
   without asserting them.
+- Task 10: a save or timer round during a resolving round drops that round's
+  `ssh -G` answers, so an alias shows "press R" until the next R.
+- Task 10: timer rounds start while checks are still running. A machine whose
+  check takes over 30 seconds (slow DNS for several names) never leaves
+  Checking, and repeated R starts overlapping `ssh -G` processes.
+- Task 10: a `Match exec` command could open the terminal and draw over the
+  screen; proposal: `start_new_session=True` on POSIX and `CREATE_NO_WINDOW` on
+  Windows for `ssh -G`.
+- Task 10: the "the check failed" and "the check could not start" paths have no
+  test; the stale-round test asserts nothing for its removed-machine message.
+- Task 10: the spinner test depends on real time, nothing tests the Online
+  pulse, and the O label test checks only that "Link" appears in the label.
+- Task 10: a thread starts only to post "press R to resolve this alias", and the
+  animation timer also updates symbols that never move.
 
 ## Deferred ideas
 
