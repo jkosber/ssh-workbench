@@ -623,7 +623,8 @@ Acceptance:
 - [x] Set version 0.2.1 with `uv lock`, move Unreleased into a dated 0.2.1
   changelog entry, and update every line that describes the current release.
 - [x] Full checks, a fresh build, an isolated install of the wheel and the
-  package check pass.
+  package check pass. See the
+  [Task 16 evidence](validation.md#task-16-021-release-2026-10-21).
 - [ ] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.1` tag on the merge commit that installs
   from GitHub.

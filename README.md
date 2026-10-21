@@ -313,8 +313,8 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    config doesn't name the key you picked, a passing test says SSH may have
    used another key. Ctrl+C stops the setup. Workbench reports it as
    interrupted when the tool's exit status shows it. On Windows, ssh-keygen
-   exits 255 after Ctrl+C at its passphrase prompt and ssh can exit 0, so
-   those show as that status.
+   exits 255 after Ctrl+C at its passphrase prompt, which shows as that status,
+   and ssh can exit 0, which reads as success.
 
 A direct machine's chosen key is saved as its `key` once the login test
 passes. An alias machine's SSH config decides its keys, and Workbench never
