@@ -174,7 +174,7 @@ async def test_shutdown_skips_a_pending_rebuild(
     app = SSHWorkbenchApp(MACHINES)
     rebuild = app._rebuild
     ran: list[int] = []
-    queued: list[int] = []
+    queued: list[asyncio.Task[None]] = []
 
     async def recorded(select: int) -> None:
         ran.append(select)
@@ -183,15 +183,16 @@ async def test_shutdown_skips_a_pending_rebuild(
     monkeypatch.setattr(app, "_rebuild", recorded)
 
     def during_shutdown(message: events.Event) -> None:
-        # A save queues the rebuild with call_later; run_test's teardown can
-        # handle it while the screens are being removed.
+        # A save queues the rebuild; run_test's teardown can reach it while the
+        # screens are being removed, or after. The task is kept and awaited, so
+        # it runs either way.
         if app.is_running or not isinstance(message, events.Unmount) or queued:
             return
-        queued.append(2)
-        app.call_later(app._rebuild, 2)
+        queued.append(asyncio.get_running_loop().create_task(app._rebuild(2)))
 
     async with app.run_test(message_hook=during_shutdown) as pilot:
         await pilot.pause()
+    await asyncio.gather(*queued)
     assert ran == [2]
     assert app._initial_index == 0
 
