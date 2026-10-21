@@ -661,7 +661,12 @@ class SSHWorkbenchApp(App[None]):
                 path = state_path(machine_file, self._computer)
                 memory = load_state(path, self._computer)
             folder = ssh_folder()
-            names = tuple(host_names(folder)) if folder is not None else ()
+            # Workbench's exported entries are not the user's Host names.
+            names = (
+                tuple(host_names(folder, skip=folder / EXPORT_NAME))
+                if folder is not None
+                else ()
+            )
             result = review(memory, aliases, names, self.checker.resolve_alias)
         except Exception:
             # Without a review the round still checks the aliases not missing.
@@ -1056,6 +1061,9 @@ class SSHWorkbenchApp(App[None]):
             status = self.query_one("#connection-status", Static)
             status.update(f"{status.content} {self._export_problem}")
             self._export_problem = None
+            # The Include line would only point at a file that wasn't written,
+            # and answering the question would hide this message.
+            self._include_offer = False
         if self._include_offer and self._browsing():
             self._include_offer = False
             self._offer_include()
@@ -1068,7 +1076,7 @@ class SSHWorkbenchApp(App[None]):
                 return "Could not find your SSH folder for exported aliases."
             return None
         try:
-            write_exports(folder, self.machines)
+            write_exports(folder, self.machines, self.config_path)
         except ExportError as error:
             return str(error)
         return None
