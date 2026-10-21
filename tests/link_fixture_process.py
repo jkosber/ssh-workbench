@@ -17,27 +17,10 @@ from threading import Event, current_thread
 from types import SimpleNamespace
 from unittest.mock import patch
 
-BOUNDARIES = (
-    "socket.create_connection",
-    "socket.getaddrinfo",
-    "subprocess.Popen",
-    "subprocess.run",
-    "os.system",
-    "webbrowser.open",
-    "webbrowser.open_new",
-    "webbrowser.open_new_tab",
-    "asyncio.create_subprocess_exec",
-    "asyncio.create_subprocess_shell",
-    "os.startfile",
-    "ssh_workbench.links.shutil.which",
-    "ssh_workbench.app.open_link",
-    "ssh_workbench.app.launch_ssh",
-)
 
-
-def boundary_values() -> dict[str, object]:
+def boundary_values(boundaries: tuple[str, ...]) -> dict[str, object]:
     values = {}
-    for name in BOUNDARIES:
+    for name in boundaries:
         owner, attribute = name.rsplit(".", 1)
         # shutil is a module attribute of links, not an importable submodule.
         if owner == "ssh_workbench.links.shutil":
@@ -52,7 +35,17 @@ def main() -> None:
     root = Path(sys.argv[1]).resolve()
     scenario, *options = sys.argv[2:]
     # -I deliberately excludes inherited source paths; select this candidate.
+    # The fixture under test imports the shared guard list from scripts/.
     sys.path.insert(0, str(root / "src"))
+    sys.path.insert(0, str(root / "scripts"))
+    shared = importlib.import_module("external_boundaries")
+    boundaries = (
+        *shared.EXTERNAL_BOUNDARIES,
+        shared.WINDOWS_OPENER,
+        "ssh_workbench.links.shutil.which",
+        "ssh_workbench.app.open_link",
+        "ssh_workbench.app.launch_ssh",
+    )
     app_module = importlib.import_module("ssh_workbench.app")
     links = importlib.import_module("ssh_workbench.links")
     outer_calls = []
@@ -74,14 +67,14 @@ def main() -> None:
 
     # These independent sentinels remain for the child lifetime, even when the
     # pre-fix fixture restores its inner patches. No real opener is reachable.
-    for boundary in BOUNDARIES[:10]:
+    for boundary in shared.EXTERNAL_BOUNDARIES:
         patch(boundary, side_effect=reject_external_action).start()
-    patch("os.startfile", outer_windows, create=True).start()
+    patch(shared.WINDOWS_OPENER, outer_windows, create=True).start()
     patch("subprocess.run", outer_gio).start()
     patch("ssh_workbench.links.shutil.which", return_value="/fictional/gio").start()
     patch.dict(os.environ, {"DISPLAY": ":outer-fixture"}).start()
 
-    before_import = boundary_values()
+    before_import = boundary_values(boundaries)
     before_environment = dict(os.environ)
     fixture_path = root / "scripts" / "check_links.py"
     spec = importlib.util.spec_from_file_location(
@@ -90,7 +83,9 @@ def main() -> None:
     assert spec is not None and spec.loader is not None
     fixture = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fixture)
-    assert boundary_values() == before_import, "Import changed an external boundary"
+    assert boundary_values(boundaries) == before_import, (
+        "Import changed an external boundary"
+    )
     assert dict(os.environ) == before_environment, "Import changed the environment"
     if scenario == "import":
         assert not outer_calls
@@ -156,7 +151,7 @@ def main() -> None:
 
     def run_headless(app):
         apps.append(app)
-        installed_guards.append(boundary_values())
+        installed_guards.append(boundary_values(boundaries))
         asyncio.run(drive_quit(app))
         if scenario == "race" and ending == "error":
             raise RuntimeError("Controlled fixture run error")
@@ -179,7 +174,9 @@ def main() -> None:
         assert fixture_calls == [fixture.PROJECTS[-1].repository]
         assert not outer_calls
         assert worker_threads[0].daemon and worker_threads[0].is_alive()
-        assert boundary_values() == installed_guards[0], "Fixture restored its guards"
+        assert boundary_values(boundaries) == installed_guards[0], (
+            "Fixture restored its guards"
+        )
         print(
             f"Blocked {platform}/{ending}: fixture returned with daemon still blocked",
             flush=True,
@@ -193,7 +190,7 @@ def main() -> None:
     release.set()
     assert dispatch_reached.wait(5), "Worker never reached either dispatch sentinel"
     assert finished.wait(5), "Released worker did not complete open_link"
-    guards_retained = boundary_values() == installed_guards[0]
+    guards_retained = boundary_values(boundaries) == installed_guards[0]
     print(
         f"Race {platform}/{ending}: fixture dispatch={len(fixture_calls)}, "
         f"outer dispatch={len(outer_calls)}; guards retained={guards_retained}",
