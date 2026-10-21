@@ -214,7 +214,7 @@ class SSHWorkbenchApp(App[None]):
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         Binding("c", "connect", "Connect"),
-        Binding("o", "open_link", "Open link"),
+        Binding("o", "open_link", "Link"),
         Binding("a", "add", "Add"),
         Binding("e", "edit", "Edit"),
         Binding("x", "delete", "Delete"),
