@@ -457,9 +457,43 @@ Acceptance:
   the new name still resolves the same way.
 - [x] An alias that is not a literal `Host` name still connects; the details
   mark it "not in your SSH config" as information.
-- [ ] Tests use temporary SSH folders, machine files and state files and a fake
+- [x] Tests use temporary SSH folders, machine files and state files and a fake
   checker. Docs describe the state file and U. Full checks, CI and a native
   Windows Terminal check with a fictional SSH folder pass.
+
+## 12. Key login setup
+
+K sets up key login for the selected machine: pick or create a key, install
+its public half, and confirm key-only login, all in the handed-off terminal.
+
+Acceptance:
+
+- [x] K offers keys for the selected machine: a direct machine's own key;
+  otherwise the valid `.pub` files in the SSH folder and a new Ed25519 key
+  named for the machine; for an alias, the keys its SSH config names (from
+  `ssh -G`) first. Creating a key hands the terminal to `ssh-keygen`, which
+  asks for the passphrase itself. Workbench reads only `.pub` files and saves a
+  direct machine's chosen key as its `key`. For an alias it shows the
+  `IdentityFile` line the config would need and never edits the config.
+- [x] The public key is checked before use: one line, a known key type, base64
+  whose embedded type matches, and a comment of safe characters; an unsafe
+  comment is dropped.
+- [x] Installing runs one fixed command in the handed-off terminal, chosen by
+  the target system. POSIX targets get the key in `~/.ssh/authorized_keys`
+  once, with `700` and `600` permissions. Windows OpenSSH targets run
+  PowerShell explicitly; administrators get `administrators_authorized_keys`
+  with exactly SYSTEM and Administrators access, others
+  `%USERPROFILE%\.ssh\authorized_keys`.
+- [x] The login test allows only public-key authentication, runs `exit`, and
+  reports that key login works or what failed, including when an alias's
+  config pins other keys. A passphrase key works because SSH asks for it.
+  Every SSH call keeps `--`, `HostKeyAlias` for direct machines and host-key
+  checking.
+- [ ] Tests substitute every process. Docs explain key setup, ssh-agent and
+  Windows administrators. Full checks, CI and a native Windows Terminal check
+  with substituted children pass.
+- [ ] Install and login test against a real Windows target and a real Linux
+  target, with Jadon's approval.
 
 ## 0.1.x candidates
 
@@ -531,6 +565,21 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
 - Task 11: no test presses R, saves or reloads while an alias is missing and
   then asserts it was never resolved; no test moves the selection between two
   U presses; one test waits 0.2 s of real time for a negative result.
+- Task 12: a late `ssh -G` answer for K opens the picker even after C or an
+  edit in between; a second K while it resolves is ignored without a hint.
+- Task 12: a commented-out copy of the key in `authorized_keys` counts as
+  installed.
+- Task 12: RSA keys of about 7168 bits or more make the Windows command longer
+  than cmd.exe accepts; refuse them before the handoff with a clear message.
+- Task 12: an alias's login test can pass with an agent or default key; the
+  `IdentityFile` hint appears only on failure. The "doesn't name this key" note
+  ignores configured keys whose `.pub` is missing.
+- Task 12: the picker can open with no choices; "Key setup interrupted." names
+  no step and is reachable only by a fake; the handoff block repeats Connect's.
+- Task 12: the details pane does not show key-login state, which the design's
+  screen sketch mentions; zsh, fish and tcsh login shells are untested.
+- Task 12: a direct machine's key is saved after a failed login test, so
+  Connect then offers only that key.
 
 ## Deferred ideas
 

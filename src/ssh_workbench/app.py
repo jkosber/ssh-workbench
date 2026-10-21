@@ -35,10 +35,36 @@ from ssh_workbench.config import (
 )
 from ssh_workbench.display import display_lines as _display_lines
 from ssh_workbench.display import display_text as _display_text
-from ssh_workbench.forms import ConfirmDelete, MachineForm
+from ssh_workbench.forms import (
+    ConfirmDelete,
+    KeyChoice,
+    KeyPlan,
+    KeySetup,
+    MachineForm,
+)
+from ssh_workbench.keys import (
+    KeySetupError,
+    identity_paths,
+    key_setting,
+    keygen_arguments,
+    new_key_path,
+    posix_install_command,
+    public_key_files,
+    read_public_key,
+    windows_install_command,
+)
 from ssh_workbench.links import LinkResult, open_link
-from ssh_workbench.ssh import SSHLaunchError, launch_ssh, ssh_handoff
-from ssh_workbench.sshconfig import host_names, ssh_folder
+from ssh_workbench.ssh import (
+    SSHLaunchError,
+    find_ssh,
+    install_arguments,
+    key_argument,
+    launch_ssh,
+    login_test_arguments,
+    run_native,
+    ssh_handoff,
+)
+from ssh_workbench.sshconfig import host_names, ssh_folder, ssh_folder_override
 from ssh_workbench.status import (
     AliasTarget,
     MachineStatus,
@@ -66,6 +92,14 @@ class StatusFinished(Message):
     status: MachineStatus
     # Set when this check ran ssh -G for the alias.
     alias: str | None
+    target: AliasTarget | None
+
+
+@dataclass
+class KeyTargetResolved(Message):
+    """What `ssh -G` said about an alias when K was pressed."""
+
+    machine_id: str
     target: AliasTarget | None
 
 
@@ -243,7 +277,9 @@ class SSHWorkbenchApp(App[None]):
         Binding("a", "add", "Add"),
         Binding("e", "edit", "Edit"),
         Binding("x", "delete", "Delete"),
-        Binding("r", "refresh", "Refresh"),
+        Binding("k", "key_setup", "Key"),
+        # "Check", not "Refresh": eight keys must fit 60 columns.
+        Binding("r", "refresh", "Check"),
         Binding("q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
@@ -340,6 +376,8 @@ class SSHWorkbenchApp(App[None]):
         self._resolving = False
         # The machine and new alias a first U warned about.
         self._update_armed: tuple[str, str] | None = None
+        # The machine whose alias K is resolving, if any.
+        self._key_resolving: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -766,6 +804,19 @@ class SSHWorkbenchApp(App[None]):
             return True if ready else None
         if action == "add":
             return True if self._browsing() and self.config_path is not None else None
+        if action == "key_setup":
+            index = self._selected_index()
+            if index is None:
+                return None
+            machine = self.machines[index]
+            # A missing alias can't be reached, and a new key needs a file to go in.
+            if machine.alias in self._missing or (
+                machine.alias is None
+                and machine.key is None
+                and self.config_path is None
+            ):
+                return None
+            return True
         if action == "update_alias":
             index = self._selected_index()
             # Hidden, not dimmed: it appears only with a rename offer.
@@ -1088,3 +1139,242 @@ class SSHWorkbenchApp(App[None]):
             self.query_one("#connection-status", Static).update(
                 f"{message} Machine {index + 1}: {_display_text(machine.id)}"
             )
+
+    def action_key_setup(self) -> None:
+        index = self._selected_index()
+        if index is None or self.check_action("key_setup", ()) is not True:
+            return
+        machine = self.machines[index]
+        if machine.alias is None or self.checker is None:
+            self._open_key_setup(machine, None)
+            return
+        if self._key_resolving is not None:
+            return
+        # Key setup is one of the moments ssh -G may run: it names the keys
+        # the alias offers.
+        self._key_resolving = machine.id
+        if not self._start_thread(self._resolve_key_target, (machine,)):
+            self._key_resolving = None
+            self._open_key_setup(machine, None)
+
+    def _resolve_key_target(self, machine: Machine) -> None:
+        if self._status_closed.is_set():
+            return
+        try:
+            target = self.checker.resolve_alias(machine.alias)
+        except Exception:
+            target = None
+        if not self._status_closed.is_set():
+            try:
+                self.post_message(KeyTargetResolved(machine.id, target))
+            except RuntimeError:
+                # The event loop may close between the guard and enqueue.
+                pass
+
+    def on_key_target_resolved(self, message: KeyTargetResolved) -> None:
+        if self._status_closed.is_set() or not self.is_running:
+            return
+        self._key_resolving = None
+        ids = [machine.id for machine in self.machines]
+        if message.machine_id in ids and self._browsing():
+            machine = self.machines[ids.index(message.machine_id)]
+            self._open_key_setup(machine, message.target)
+
+    def _open_key_setup(self, machine: Machine, target: AliasTarget | None) -> None:
+        folder = ssh_folder()
+        if folder is None:
+            self._show_key_result(machine, "Could not find your SSH folder.")
+            return
+        # Only a direct machine without a key gets a key saved into the file.
+        warning = (
+            self._rewrite_warning()
+            if machine.alias is None and machine.key is None
+            else None
+        )
+        try:
+            choices = self._key_choices(machine, target, folder)
+        except SSHLaunchError as error:
+            # A machine key under "~" needs the home folder.
+            self._show_key_result(machine, str(error))
+            return
+        self.push_screen(
+            KeySetup(machine, choices, warning),
+            lambda plan: self._key_plan_chosen(machine.id, plan),
+        )
+
+    def _key_choices(
+        self, machine: Machine, target: AliasTarget | None, folder: Path
+    ) -> list[KeyChoice]:
+        """The machine's own key; else the alias's keys, the folder's and a new one."""
+        if machine.alias is None and machine.key is not None:
+            private = Path(key_argument(machine.key))
+            label = f"{machine.key} (this machine's key)"
+            return [KeyChoice(private, label)]
+        home = _home() if ssh_folder_override() is None else None
+        choices: list[KeyChoice] = []
+        if target is not None:
+            for private in identity_paths(target.identity_files, folder):
+                if _has_public_key(private):
+                    label = f"{private.name}.pub (your SSH config offers this)"
+                    choices.append(KeyChoice(private, label))
+        offered = {choice.private for choice in choices}
+        for public in public_key_files(folder):
+            private = public.with_name(public.name.removesuffix(".pub"))
+            if private not in offered:
+                choices.append(_key_choice(machine, target, private, public.name, home))
+        new = new_key_path(folder, machine.id)
+        if not new.exists() and not Path(f"{new}.pub").exists():
+            label = f"Create a new key: {new.name}"
+            choices.append(_key_choice(machine, target, new, label, home, True))
+        return choices
+
+    def _key_plan_chosen(self, machine_id: str, plan: KeyPlan | None) -> None:
+        ids = [machine.id for machine in self.machines]
+        if plan is not None and machine_id in ids:
+            index = ids.index(machine_id)
+            self._run_key_setup(index, self.machines[index], plan)
+
+    def _run_key_setup(self, index: int, machine: Machine, plan: KeyPlan) -> None:
+        """Create, install and test the key in one terminal handoff."""
+        setting = machine.key
+        if machine.alias is None and setting is None:
+            home = _home() if ssh_folder_override() is None else None
+            try:
+                setting = key_setting(plan.choice.private, home)
+            except KeySetupError as error:
+                self._show_key_result(machine, str(error))
+                return
+        machine_list = self.query_one(ListView)
+        installed = False
+        self._connecting = True
+        self.refresh_bindings()
+        with ssh_handoff():
+            try:
+                with self.suspend():
+                    # As for C: errors stay inside the suspension block, so
+                    # the terminal is always handed back.
+                    try:
+                        message, installed = self._key_steps(machine, plan, setting)
+                    except (SSHLaunchError, KeySetupError) as error:
+                        message = str(error)
+                    except KeyboardInterrupt:
+                        message = "Key setup interrupted."
+            except SuspendNotSupported:
+                message = (
+                    "Cannot hand off this terminal. "
+                    "Run SSH Workbench in a local terminal."
+                )
+            finally:
+                self._connecting = False
+                machine_list.focus()
+                self.refresh_bindings()
+        if installed and setting != machine.key:
+            machines = list(self.machines)
+            machines[index] = replace(machine, key=setting)
+            problem = self._save(machines, index, retry="set up the key")
+            message += (
+                f" {problem}"
+                if problem
+                else (" The key is saved as this machine's key.")
+            )
+        self._show_key_result(machine, message)
+
+    def _key_steps(
+        self, machine: Machine, plan: KeyPlan, setting: str | None
+    ) -> tuple[str, bool]:
+        """Runs while the terminal is handed over; returns the result and
+        whether the key was installed."""
+        choice = plan.choice
+        if choice.create:
+            print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
+            status = run_native(
+                keygen_arguments(choice.private, machine.id), "ssh-keygen"
+            )
+            if status != 0:
+                return (
+                    f"ssh-keygen exited with status {status}; nothing was installed.",
+                    False,
+                )
+        key = read_public_key(choice.private.with_name(f"{choice.private.name}.pub"))
+        address = self._online_address(machine)
+        command = (
+            windows_install_command(key) if plan.windows else posix_install_command(key)
+        )
+        ssh = find_ssh()
+        print("SSH Workbench: installing the key; SSH may ask for the password.")
+        status = run_native([ssh, *install_arguments(machine, address, command)])
+        if status != 0:
+            return (
+                f"Installing the key failed (SSH exited with status {status}); "
+                "login was not tested."
+            ), False
+        tested = machine if setting is None else replace(machine, key=setting)
+        print("SSH Workbench: testing key-only login.")
+        status = run_native([ssh, *login_test_arguments(tested, address)])
+        if status == 0:
+            return "Key login works.", True
+        message = (
+            "The key was installed, but key-only login failed "
+            f"(SSH exited with status {status})."
+        )
+        return (f"{message} {choice.hint}" if choice.hint else message), True
+
+    def _show_key_result(self, machine: Machine, message: str) -> None:
+        ids = [item.id for item in self.machines]
+        position = ids.index(machine.id) + 1 if machine.id in ids else "?"
+        self.query_one("#connection-status", Static).update(
+            f"{_display_text(message)} Machine {position}: {_display_text(machine.id)}"
+        )
+
+
+def _home() -> Path | None:
+    try:
+        return Path.home()
+    except RuntimeError:
+        return None
+
+
+def _has_public_key(private: Path) -> bool:
+    try:
+        read_public_key(private.with_name(f"{private.name}.pub"))
+    except KeySetupError:
+        return False
+    return True
+
+
+def _identity_value(private: Path, home: Path | None) -> str:
+    if home is not None and private.parent == home / ".ssh":
+        return f"~/.ssh/{private.name}"
+    value = str(private)
+    return f'"{value}"' if " " in value else value
+
+
+def _key_choice(
+    machine: Machine,
+    target: AliasTarget | None,
+    private: Path,
+    label: str,
+    home: Path | None,
+    create: bool = False,
+) -> KeyChoice:
+    """A choice that an alias's own SSH config does not name explains the line
+    it would need; Workbench never edits that config."""
+    alias = machine.alias
+    if alias is None:
+        return KeyChoice(private, label, create)
+    line = f"IdentityFile {_identity_value(private, home)}"
+    note = (
+        f"Your SSH config doesn't name this key for {alias}. Add this line under "
+        f"Host {alias}; Workbench never edits the config: {line}"
+    )
+    if target is not None and target.identities_only:
+        hint = (
+            f"Your SSH config offers only its own keys for {alias} (IdentitiesOnly); "
+            f"add this line under Host {alias}: {line}"
+        )
+    else:
+        hint = (
+            f"Your SSH config doesn't name this key for {alias}; add this line "
+            f"under Host {alias}: {line}"
+        )
+    return KeyChoice(private, label, create, note, hint)

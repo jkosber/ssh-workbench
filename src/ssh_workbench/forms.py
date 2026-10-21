@@ -1,4 +1,4 @@
-"""The machine form and the delete confirmation.
+"""The machine form, the delete confirmation and the key-setup picker.
 
 The form checks a machine with `config.validate_machine`, the loader's own rules,
 and shows the first problem under its field. Saving is the app's job: the form
@@ -7,14 +7,26 @@ hands over a valid machine and shows any problem the save reports.
 
 import re
 from collections.abc import Callable, Collection, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.content import Content
 from textual.screen import ModalScreen
 from textual.suggester import SuggestFromList
 from textual.widget import Widget
-from textual.widgets import Button, Input, RadioButton, RadioSet, Static, TextArea
+from textual.widgets import (
+    Button,
+    Input,
+    OptionList,
+    RadioButton,
+    RadioSet,
+    Static,
+    TextArea,
+)
+from textual.widgets.option_list import Option
 
 from ssh_workbench.config import ConfigError, Machine, validate_machine
 from ssh_workbench.display import display_text
@@ -326,6 +338,138 @@ class ConfirmDelete(ModalScreen[bool]):
         if not self._answered:
             self._answered = True
             self.dismiss(confirmed)
+
+
+@dataclass(frozen=True)
+class KeyChoice:
+    """A key the picker offers; `private` names the key file, which is never read."""
+
+    private: Path
+    label: str
+    create: bool = False
+    # Shown while the choice is highlighted.
+    note: str | None = None
+    # Added to the result when key-only login fails.
+    hint: str | None = None
+
+
+@dataclass(frozen=True)
+class KeyPlan:
+    choice: KeyChoice
+    windows: bool
+
+
+class KeySetup(ModalScreen[KeyPlan | None]):
+    """Pick a key and the target system; Enter starts, Escape cancels."""
+
+    BINDINGS = [
+        Binding("enter", "start", "Start", priority=True),
+        Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
+    ]
+    DEFAULT_CSS = """
+    KeySetup {
+        align: center middle;
+    }
+    #key-setup {
+        width: 90%;
+        max-width: 100;
+        height: auto;
+        max-height: 90%;
+        border: solid $accent;
+        background: $surface;
+        padding: 0 1;
+        overflow-y: auto;
+    }
+    /* Borderless lists keep the picker within 60x20 with a wrapped note. */
+    #key-choices, #key-system {
+        border: none;
+        padding: 0;
+        height: auto;
+    }
+    #key-choices {
+        max-height: 8;
+    }
+    .key-label {
+        text-style: bold;
+    }
+    #key-note {
+        height: auto;
+        color: $warning;
+    }
+    """
+
+    def __init__(
+        self, machine: Machine, choices: Sequence[KeyChoice], warning: str | None
+    ) -> None:
+        super().__init__()
+        self.machine = machine
+        self.choices = tuple(choices)
+        # The rewrite warning, shown unless a choice has its own note.
+        self.warning = warning
+        self._answered = False
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="key-setup") as box:
+            box.border_title = "Key login"
+            yield Static(
+                f"Set up key login for {display_text(self.machine.name)} "
+                f"({display_text(self.machine.id)}).",
+                markup=False,
+            )
+            # Above the lists, so a small terminal still shows it.
+            yield Static("", id="key-note", markup=False)
+            yield Static("Key", classes="key-label", markup=False)
+            yield OptionList(
+                *(
+                    Option(Content(display_text(choice.label)))
+                    for choice in self.choices
+                ),
+                id="key-choices",
+            )
+            yield Static("Target system", classes="key-label", markup=False)
+            with RadioSet(id="key-system"):
+                yield RadioButton(
+                    "Linux, macOS or other POSIX", value=True, id="system-posix"
+                )
+                yield RadioButton("Windows (OpenSSH Server)", id="system-windows")
+            yield Static(
+                "Up/Down: key  Tab, Space: system  Enter: start  Escape: cancel",
+                id="key-help",
+                markup=False,
+            )
+
+    def on_mount(self) -> None:
+        options = self.query_one(OptionList)
+        options.highlighted = 0
+        options.focus()
+        self._show_note()
+
+    def on_option_list_option_highlighted(
+        self, event: OptionList.OptionHighlighted
+    ) -> None:
+        self._show_note()
+
+    def _show_note(self) -> None:
+        index = self.query_one(OptionList).highlighted
+        choice = self.choices[index] if index is not None else None
+        text = (choice.note if choice is not None else None) or self.warning or ""
+        self.query_one("#key-note", Static).update(display_text(text))
+
+    def action_start(self) -> None:
+        index = self.query_one(OptionList).highlighted
+        if index is None:
+            return
+        windows = self.query_one("#system-windows", RadioButton).value
+        self._close(KeyPlan(self.choices[index], windows))
+
+    def action_cancel(self) -> None:
+        self._close(None)
+
+    def _close(self, plan: KeyPlan | None) -> None:
+        if not self._answered:
+            self._answered = True
+            self.dismiss(plan)
 
 
 def _field(field: str, label: str, widget: Widget) -> ComposeResult:

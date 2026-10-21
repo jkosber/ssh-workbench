@@ -8,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from types import FrameType
 
@@ -52,7 +53,7 @@ def ssh_handoff() -> Iterator[None]:
         signal.signal(signal.SIGINT, previous_handler)
 
 
-def _key_argument(key: str) -> str:
+def key_argument(key: str) -> str:
     # OpenSSH expands only "~/". Expand "~\" too, accepting either separator so
     # one machine file names the same key on Windows and Linux.
     if not key.startswith(("~/", "~\\")):
@@ -106,21 +107,95 @@ def ssh_arguments(machine: Machine, address: str | None = None) -> list[str]:
     if machine.port is not None:
         arguments += ["-p", str(machine.port)]
     if machine.key is not None:
-        arguments += ["-i", _key_argument(machine.key), "-o", "IdentitiesOnly=yes"]
+        arguments += ["-i", key_argument(machine.key), "-o", "IdentitiesOnly=yes"]
     return [*arguments, "--", machine.addresses[0] if address is None else address]
 
 
+def install_arguments(machine: Machine, address: str | None, command: str) -> list[str]:
+    """Arguments for the fixed key-install command.
+
+    A direct machine's key is left out: it is not installed yet, and a new key
+    would only ask for its passphrase before SSH falls back to the password.
+    An alias's own RemoteCommand would make SSH refuse the command.
+    """
+    return [
+        "-o",
+        "RemoteCommand=none",
+        *ssh_arguments(replace(machine, key=None), address),
+        command,
+    ]
+
+
+def login_test_arguments(machine: Machine, address: str | None) -> list[str]:
+    """A login that may use only public keys and exits at once.
+
+    No BatchMode: SSH may still ask for the key's passphrase. No shared
+    connection either: one left open by the install would skip authentication.
+    """
+    return [
+        "-o",
+        "PreferredAuthentications=publickey",
+        "-o",
+        "PasswordAuthentication=no",
+        "-o",
+        "KbdInteractiveAuthentication=no",
+        "-o",
+        "ControlPath=none",
+        "-o",
+        "RemoteCommand=none",
+        *ssh_arguments(machine, address),
+        "exit",
+    ]
+
+
+def _find_native(name: str) -> str:
+    """Resolve a native OpenSSH tool from absolute PATH entries only."""
+    label = "SSH" if name == "ssh" else name
+    command = f"{name}.exe" if sys.platform == "win32" else name
+    try:
+        executable = shutil.which(command)
+        if executable is not None and not os.path.isabs(executable):
+            # Windows tries the launch directory before PATH, and a relative
+            # PATH entry does the same anywhere. Never run a client found so.
+            executable = _which_on_absolute_path(command)
+        if executable is None:
+            raise SSHLaunchError(
+                f"{label} not found. Install OpenSSH and add it to PATH."
+            )
+        return str(Path(executable).resolve())
+    except OSError:
+        # Key setup looks tools up inside the terminal handoff, where only
+        # launch errors are handled.
+        raise SSHLaunchError(
+            f"Could not start {label}. Check its installation and executable "
+            "permissions."
+        ) from None
+
+
 def find_ssh() -> str:
-    """Resolve the native client from absolute PATH entries only."""
-    command = "ssh.exe" if sys.platform == "win32" else "ssh"
-    executable = shutil.which(command)
-    if executable is not None and not os.path.isabs(executable):
-        # Windows tries the launch directory before PATH, and a relative
-        # PATH entry does the same anywhere. Never run a client found so.
-        executable = _which_on_absolute_path(command)
-    if executable is None:
-        raise SSHLaunchError("SSH not found. Install OpenSSH and add it to PATH.")
-    return str(Path(executable).resolve())
+    return _find_native("ssh")
+
+
+def find_ssh_keygen() -> str:
+    return _find_native("ssh-keygen")
+
+
+def run_native(arguments: list[str], name: str = "SSH") -> int:
+    """Wait for a resolved native tool that owns the terminal; never read its output."""
+    try:
+        return subprocess.run(
+            arguments,
+            shell=False,
+            check=False,
+            stdin=None,
+            stdout=None,
+            stderr=None,
+        ).returncode
+    except OSError:
+        raise SSHLaunchError(
+            f"Could not start {name}. Check its installation and executable "
+            "permissions."
+        ) from None
 
 
 def launch_ssh(machine: Machine, address: str | None = None) -> int:
@@ -128,16 +203,10 @@ def launch_ssh(machine: Machine, address: str | None = None) -> int:
     with ssh_handoff():
         arguments = ssh_arguments(machine, address)
         try:
-            return subprocess.run(
-                [find_ssh(), *arguments],
-                shell=False,
-                check=False,
-                stdin=None,
-                stdout=None,
-                stderr=None,
-            ).returncode
+            executable = find_ssh()
         except OSError:
             raise SSHLaunchError(
                 "Could not start SSH. "
                 "Check its installation and executable permissions."
             ) from None
+        return run_native([executable, *arguments])

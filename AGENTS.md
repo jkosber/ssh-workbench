@@ -29,10 +29,10 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Tasks 1–11 support explicit or per-user default machine files (schema 1
+- Tasks 1–12 support explicit or per-user default machine files (schema 1
   still loads), machine browsing, adding, editing and deleting machines, live
-  status, renamed-alias detection, alias and direct SSH launch and return, and
-  named links opened with O. Do not add
+  status, renamed-alias detection, key login setup with K, alias and direct
+  SSH launch and return, and named links opened with O. Do not add
   controls for deferred roadmap features.
 - `status.py` is the only network code: TCP port checks, never a login. Tests
   inject a fake checker; `ssh -G` never runs on the status timer.
@@ -51,6 +51,10 @@ checks above after relevant changes; package validation is described in
   on the real SSH config and checks every machine's port, the example file's
   fictional names included; native checks and manual runs set those
   variables to ignored `.local/` folders first.
+- Key setup reads only `.pub` files; `keys.py` builds the two fixed remote
+  commands and the app runs them in the handed-off terminal. Tests and native checks never create real keys, run real
+  `ssh-keygen` or install a key anywhere real; `scripts/check_keys.py` uses
+  local children and fictional keys.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate
   every machine value with the loader's predicates, pass argument lists without a
   shell and put `--` before the destination. Never disable host-key

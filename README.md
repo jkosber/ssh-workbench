@@ -272,6 +272,47 @@ user and port `ssh -G` resolved; no passwords or keys. Workbench writes it
 only when the machine file exists. Deleting it is safe: Workbench then forgets
 which aliases existed until the next startup or **R**.
 
+## Key login
+
+**K** sets up key login for the selected machine in three steps, all in the
+terminal Workbench hands over, as for Connect. Workbench never sees a password
+or passphrase: SSH and `ssh-keygen` ask for them.
+
+1. **Pick a key.** A direct machine with a `key` uses it. Otherwise the list
+   shows the public keys (`.pub` files) in your SSH folder and **Create a new
+   key**, an Ed25519 key named for the machine, such as `id_ed25519_box`. For
+   an alias, the keys its SSH config offers come first. Choose the target
+   system too: Linux, macOS or other POSIX, or Windows (OpenSSH Server). Enter
+   starts; Escape cancels.
+2. **Install it.** SSH logs in, asking for the account's password if needed,
+   and runs one fixed command that adds the public key once:
+   - POSIX: `~/.ssh/authorized_keys`, with the folder at `700` and the file at
+     `600`.
+   - Windows: the command starts PowerShell itself, because the default remote
+     shell is cmd.exe. An administrator's key goes into
+     `C:\ProgramData\ssh\administrators_authorized_keys`, which may grant
+     access only to SYSTEM and Administrators (sshd ignores it otherwise);
+     other accounts use `%USERPROFILE%\.ssh\authorized_keys`.
+3. **Test it.** SSH logs in once more allowing only public-key authentication
+   and runs `exit`. Workbench reports "Key login works." or what failed. A key
+   with a passphrase works: SSH asks for it.
+
+A direct machine's chosen key is saved as its `key` once it is installed. An
+alias machine's SSH config decides its keys, and Workbench never edits that
+config: when you pick a key the alias doesn't name, Workbench shows the
+`IdentityFile` line to add under its `Host` entry.
+
+Workbench reads only `.pub` files and never opens a private key. To type a
+passphrase once per session instead of at every login, load the key into
+ssh-agent. On Windows the agent service is disabled by default; in an elevated
+PowerShell:
+
+```powershell
+Get-Service ssh-agent | Set-Service -StartupType Automatic
+Start-Service ssh-agent
+ssh-add $env:USERPROFILE\.ssh\id_ed25519_box
+```
+
 ## Keys
 
 | Key | Action |
@@ -282,6 +323,7 @@ which aliases existed until the next startup or **R**.
 | C | Connect to the selected machine |
 | R | Check every machine's status again, resolving aliases too |
 | U | Update the selected machine's alias when Workbench offers a renamed one |
+| K | Set up key login for the selected machine |
 | O | Open the selected machine's link, or choose one when it has several |
 | Enter / Escape | In the link list: open the highlighted link / cancel |
 | A / E / X | Add a machine / edit the selected one / delete it after asking |
@@ -289,11 +331,12 @@ which aliases existed until the next startup or **R**.
 | Y / N | When deleting: delete / keep |
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
-C, O, A, E, X, R and Q also appear in the footer and can be clicked; O is
-labelled Link there. For a machine whose alias is not found, C is hidden, and
-U appears in its place when Workbench offers a rename. C, O, E and X are
-dimmed when nothing is selected, O when the machine has no links, and A, E
-and X when Workbench has no file location.
+C, O, A, E, X, K, R and Q also appear in the footer and can be clicked; O is
+labelled Link and R Check there. For a machine whose alias is not found, C
+is hidden, U appears in its place when Workbench offers a rename, and K is
+dimmed. C, O, E, X and K are dimmed when nothing is selected, O when the
+machine has no links, and A, E and X, and K for a direct machine without a
+key, when Workbench has no file location.
 Startup, selection and Enter in the machine list never connect, open or change
 anything; the status checks are the only thing that starts on its own.
 
@@ -337,10 +380,14 @@ Workbench reads and writes its machine file, its `.bak` copy and its
 `machines.state.<computer>.json` state file. To suggest aliases it reads only
 the `Host` and `Include` lines of your SSH config. At startup and on **R** it
 also runs `ssh -G` for each alias, and for new `Host` names that could replace
-a missing alias: SSH then evaluates your whole SSH config, including any
-`Match exec` commands, and Workbench reads only the host, user, port and proxy
-settings it prints. Workbench doesn't
-change your SSH config, read keys or `known_hosts`, store credentials, change
+a missing alias, and **K** runs it for the alias it sets up: SSH then
+evaluates your whole SSH config, including any `Match exec` commands, and
+Workbench reads only the host, user, port, key and proxy settings it prints.
+**K** reads the `.pub` files in your SSH folder, and the one next to each key
+an alias's config names, and runs two fixed commands on
+the machine, in the terminal it hands over: the key install, and `exit` for
+the login test. Workbench doesn't change your SSH config, open private keys
+or read `known_hosts`, store credentials, change
 host-key settings, collect telemetry or need an AI service. Its own network
 traffic is the status checks: DNS lookups for host names, and one TCP
 connection to each checked address's SSH port, closed at once without
