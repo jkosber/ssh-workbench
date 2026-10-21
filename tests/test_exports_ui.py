@@ -88,9 +88,7 @@ async def test_the_export_checkbox_belongs_to_direct_machines(
         box = form.query_one("#form-export_alias", Checkbox)
         assert box.parent.id == "direct-fields"
         assert box.value is False
-        assert str(box.label) == (
-            "Export as an SSH alias: ssh <ID> works in any terminal"
-        )
+        assert str(box.label) == "ssh <ID> works in any terminal"
 
 
 async def test_saving_an_export_writes_the_file_and_y_adds_the_include(
