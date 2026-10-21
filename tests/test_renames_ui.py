@@ -122,6 +122,11 @@ async def wait_for(pilot, predicate) -> None:
             await pilot.pause()
 
 
+# push_screen makes a screen current before it has composed its widgets.
+def showing(app, kind) -> bool:
+    return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
 async def checked(app, pilot) -> None:
     await wait_for(
         pilot,
@@ -470,7 +475,7 @@ async def test_saving_the_machine_from_the_form_keeps_its_alias(
         await checked(app, pilot)
         assert field(app, "status") == NO_OFFER
         await pilot.press("e")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: symbols(app)[:1] == [State.UNKNOWN])
         assert field(app, "status") == "◇ Can't check: press R to resolve this alias"

@@ -53,8 +53,9 @@ async def completed(app, pilot) -> None:
 
 
 async def picker_open(app, pilot) -> LinkPicker:
+    # push_screen makes a screen current before it has composed its widgets.
     async with asyncio.timeout(5):
-        while not isinstance(app.screen, LinkPicker):
+        while not (isinstance(app.screen, LinkPicker) and app.screen.is_mounted):
             await pilot.pause()
     return app.screen
 
