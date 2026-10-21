@@ -296,6 +296,10 @@ task is one pull request; its acceptance criteria are added when it starts.
 
 ## 7. Tooling cleanup
 
+**Merged in [PR #8](https://github.com/jkosber/ssh-workbench/pull/8)** as
+`11449aa`, containing tested head `d6f3a61`; the merge tree matches that head.
+See the [Task 7 evidence](validation.md#task-7-tooling-cleanup-2026-10-20).
+
 Three development items from the 0.1.x candidates. No user-visible behavior
 changes.
 
@@ -314,14 +318,58 @@ Acceptance:
   installed-wheel checks live in their own file, still run with `python -I`
   against the installed wheel, and keep the isolation and import-path
   assertions. A test fails if Python source returns to strings there.
-- [ ] Full checks, build, package check and CI on Windows and Ubuntu pass.
+- [x] Full checks, build, package check and CI on Windows and Ubuntu pass.
   CONTRIBUTING and the architecture module map describe the new files.
+
+## 8. Machines replace projects
+
+Read-only: Workbench still writes nothing. Saving, status checks and SSH config
+reading come in Tasks 9-11.
+
+Acceptance:
+
+- [ ] Schema 2 machine file with a `machines` array. Each machine has a unique
+  `id` and a `name`, plus either `alias` or `addresses` (with optional `user`,
+  `port` and `key`), never both, and optional named `links`. Unknown fields stay
+  errors, and errors never repeat values, unknown keys or paths.
+- [ ] Field rules shared by the loader and the launch boundary. `user` and each
+  address reject anything that could become an SSH option or several arguments
+  (a leading `-`, whitespace, control characters, `@` in `user`). Addresses
+  accept hostnames, IPv4 and IPv6. Ports are 1-65535. A `key` is an absolute or
+  `~/` path to a private key, without quotes, `%`, `${` or a `.pub` ending.
+  Link names are unique within a machine; URLs keep the 0.1.0 rule.
+- [ ] Schema 1 files still load: each project becomes an alias machine whose
+  `repository` and `documentation` become links named "Repository" and
+  "Documentation". Their errors keep `projects[N]` locations.
+- [ ] The default file is `machines.toml` in the 0.1.0 folders, with no
+  fallback to `projects.toml`. `--config PATH` still overrides it.
+- [ ] Connect runs `ssh -- <alias>` for alias machines. Direct machines run
+  `ssh -o HostKeyAlias=<id> [-l user] [-p port] [-i key -o IdentitiesOnly=yes]
+  -- <address>` with the first listed address. Values are revalidated just
+  before launch; every 0.1.0 handoff safeguard stays. Real OpenSSH on Windows
+  and a portable build accept the arguments.
+- [ ] O opens the selected machine's only link, or a picker when there are
+  several: Enter opens, Escape cancels, and C, O and a second request are blocked
+  while it is open. R and D are gone. The 0.1.0 browser boundary is unchanged.
+- [ ] The details pane shows the connection kind, alias or addresses, user, port,
+  key and links, all literal. C and O are dimmed without a selection, while
+  connecting and (O) without links. Status lines name the machine.
+- [ ] Folded 0.1.x fixes: a folder given with `--config` or at the default path
+  reports "expected a file, got a directory"; the empty-file screen no longer
+  says to restart with `--config PATH`; `--help` prints the default path on its
+  own line; a test shows `--help` and `--version` ignore an invalid default
+  file; the help line fits 60 columns; README escaping and Git-tag upgrade
+  wording.
+- [ ] Tests, fixtures, the package check and the example file use machines.
+  Full checks and CI pass; a native Windows Terminal check with fictional
+  machines and a real alias connect to an approved target pass.
 
 ## 0.1.x candidates
 
 Findings from the 0.1.0 review, deferred as non-blocking. Each needs its own
-explicit task. Task 7 takes the `uv_build`, guard-list and `check_package.py`
-items; Task 8 takes the items in code it rewrites.
+explicit task. Task 7 took the `uv_build`, guard-list and `check_package.py`
+items. Task 8 takes every item below except the `validation.md` split and the
+U+202E/U+200B URLs, whose validation 0.2.0 keeps unchanged.
 
 - Split current test procedures from `validation.md` into a short testing guide
   and keep the dated log.
