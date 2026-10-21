@@ -407,6 +407,10 @@ Acceptance:
 
 ## 10. Live status
 
+**Merged in [PR #11](https://github.com/jkosber/ssh-workbench/pull/11)** as
+`56c6d47`, containing tested head `4d4d473`; the merge tree matches that head.
+See the [Task 10 evidence](validation.md#task-10-live-status-2026-10-21).
+
 Workbench opens its first network connections of its own: one TCP connection to
 each checked address's SSH port, closed at once, with no login.
 
@@ -432,6 +436,10 @@ Acceptance:
   check with a local listener and fictional machines pass.
 
 ## 11. Alias rename detection
+
+**Merged in [PR #13](https://github.com/jkosber/ssh-workbench/pull/13)** as
+`56fab1a`, containing tested head `67bdee7`; the merge tree matches that head.
+See the [Task 11 evidence](validation.md#task-11-alias-rename-detection-2026-10-21).
 
 Workbench remembers which SSH aliases it saw, so a renamed `Host` entry is
 caught before a connect fails.
@@ -463,6 +471,10 @@ Acceptance:
 
 ## 12. Key login setup
 
+**Merged in [PR #14](https://github.com/jkosber/ssh-workbench/pull/14)** as
+`5dda419`, containing tested head `43b6448`; the merge tree matches that head.
+See the [Task 12 evidence](validation.md#task-12-key-login-setup-2026-10-21).
+
 K sets up key login for the selected machine: pick or create a key, install
 its public half, and confirm key-only login, all in the handed-off terminal.
 
@@ -492,10 +504,15 @@ Acceptance:
 - [x] Tests substitute every process. Docs explain key setup, ssh-agent and
   Windows administrators. Full checks, CI and a native Windows Terminal check
   with substituted children pass.
-- [ ] Install and login test against a real Windows target and a real Linux
-  target, with Jadon's approval.
+- [x] Install and login test against a real Windows target and a real Linux
+  target, with Jadon's approval. Done in
+  [Task 14](validation.md#task-14-020-release-2026-10-21).
 
 ## 13. Exported aliases
+
+**Merged in [PR #15](https://github.com/jkosber/ssh-workbench/pull/15)** as
+`777d766`, containing tested head `4d77236`; the merge tree matches that head.
+See the [Task 13 evidence](validation.md#task-13-exported-aliases-2026-10-21).
 
 A direct machine can be exported, so `ssh <id>` works in any terminal and for
 agents, through Workbench's own SSH config file and one confirmed `Include`
@@ -521,12 +538,39 @@ Acceptance:
   line. N leaves the config alone and is not asked again in that session.
 - [x] An exported ID that matches a `Host` name in the user's own SSH config is
   refused in the form, because SSH would use the exported entry first.
-- [ ] Tests use temporary SSH folders. Docs explain exported aliases. Full
+- [x] Tests use temporary SSH folders. Docs explain exported aliases. Full
   checks, CI and a native Windows Terminal check against a fictional SSH folder
   pass, including `ssh -F` resolving an exported machine from the generated
   file.
-- [ ] Inserting the `Include` line into a real `~/.ssh/config`, with Jadon's
-  approval.
+- [x] Inserting the `Include` line into a real `~/.ssh/config`, with Jadon's
+  approval. Done in [Task 14](validation.md#task-14-020-release-2026-10-21).
+
+## 14. Prepare the 0.2.0 release
+
+Supervised release work after Tasks 7-13 merged. On 2026-10-21 Jadon approved
+the real-target checks below, ruled that none of the 0.2.x candidates block
+0.2.0, and authorized the branch, PR, merge and an annotated `v0.2.0` tag. No
+GitHub Release and no visibility change.
+
+Acceptance:
+
+- [x] Record the PR #15 integration and tick Task 13's CI box.
+- [x] Update every line that describes the current state, including the
+  `pyproject.toml` description. Set version 0.2.0 with `uv lock`, and move
+  Unreleased into a dated 0.2.0 changelog entry.
+- [x] Full checks, a fresh build, an isolated install and an installed-tool
+  smoke test in Windows Terminal pass.
+- [x] With the installed build against approved real targets: K installs a new
+  key on a Linux target and, as an administrator, on a Windows target, and both
+  login tests pass; K on an alias whose key is already set up finds it
+  installed; Workbench runs natively on Linux; Y adds the `Include` line to a
+  real `~/.ssh/config` and `ssh <id>` then works in a plain terminal; a direct
+  machine's first Connect asks to trust its host key, or, under a matching
+  `StrictHostKeyChecking yes`, refuses until the README's one-time command
+  records it; a real alias shows live status. macOS is not available and stays untested. See the
+  [Task 14 evidence](validation.md#task-14-020-release-2026-10-21).
+- [ ] PR, two fresh reviews, CI on Windows and Ubuntu, a merge guarded on the
+  tested head, and an annotated `v0.2.0` tag on the merge commit.
 
 ## 0.1.x candidates
 
@@ -627,6 +671,13 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
 - Task 13: the first creation of `ssh-workbench.config` isn't named in the
   status line; failure paths of `write_exports` and `add_include` have few
   tests.
+- Task 14: Windows PowerShell wrote a CLIXML progress record ("Preparing
+  modules for first use.") into the terminal after "key installed."; proposal:
+  `$ProgressPreference = 'SilentlyContinue'` at the top of the install script.
+- Task 14: the login test also accepts keys from a `Host` entry in the user's
+  SSH config that matches a direct machine's address (documented).
+- Task 14: a login test interrupted with Ctrl+C on Windows reported "SSH
+  exited with status 4294967295" instead of an interruption.
 
 ## Deferred ideas
 

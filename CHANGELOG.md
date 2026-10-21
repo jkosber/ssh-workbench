@@ -5,6 +5,11 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-21
+
+Machines replace projects: add, edit and delete them in Workbench, with live
+status, key login setup and exported aliases. Tagged privately.
+
 ### Added
 
 - Machines replace projects. Each machine connects through an SSH `alias`, or
@@ -64,7 +69,8 @@ Changes by release, newest first. Version numbers follow the policy in
 - Direct machines use `HostKeyAlias` with the machine's ID, so you confirm one
   host key per machine whichever address is used. Keys already recorded under
   an address don't carry over, so the first connection asks once.
-- A machine's key is offered with `IdentitiesOnly`, so SSH tries no other key.
+- A machine's key is offered with `IdentitiesOnly`, so SSH skips the other
+  keys in your agent and the default keys.
   Workbench passes the key's path to SSH and never opens the file.
 - A save or delete never overwrites a machine file that changed on disk since
   Workbench loaded it; it reloads the list and keeps your unsaved change so you
@@ -94,6 +100,19 @@ Changes by release, newest first. Version numbers follow the policy in
 - Tests, fixtures and the package check share one list of guarded process,
   network and browser entry points. The installed-wheel checks moved from
   strings in `scripts/check_package.py` into `scripts/package_smoke.py`.
+
+### Known limitations
+
+- Tested on Windows 11 in Windows Terminal and on Linux Mint 22.3 in a
+  terminal reached over SSH; CI runs the tests on Ubuntu. macOS is untested
+  and cannot open links, and links on a Linux desktop are untested.
+- Your SSH config still applies to a direct machine's address. A matching
+  `Host` entry with `StrictHostKeyChecking yes` makes the first connection
+  fail instead of asking; the README shows the one-time fix.
+- The key login test can pass with another key SSH offers: any key
+  `ssh <alias>` would use, or one named in a `Host` entry that matches a direct
+  machine's address.
+- Requires Python 3.14 or later, which uv installs when needed.
 
 ## 0.1.0 - 2026-10-20
 

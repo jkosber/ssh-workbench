@@ -15,7 +15,7 @@ agent and host-key checks all stay with OpenSSH.
 | Platform | Status |
 | --- | --- |
 | Windows 11 | Tested in Windows Terminal with real SSH hosts and browser links |
-| Linux | Automated tests in CI only. Opening links needs a desktop session with `gio` and is untested on a real desktop |
+| Linux | Tested on Linux Mint 22.3 with a real SSH host, in a terminal reached over SSH; CI runs the tests on Ubuntu. Opening links needs a desktop session with `gio` and is untested on a real desktop |
 | macOS | Untested. Links report "browser unavailable" |
 
 ## Requirements
@@ -42,11 +42,8 @@ ssh-workbench --version
 Or directly from GitHub, which needs access to the private repository:
 
 ```text
-uv tool install git+https://github.com/jkosber/ssh-workbench@v0.1.0
+uv tool install git+https://github.com/jkosber/ssh-workbench@v0.2.0
 ```
-
-The `v0.1.0` tag predates machines: it reads `projects.toml` and uses R and D
-instead of O. Install from a clone to get the version this README describes.
 
 If your shell can't find `ssh-workbench`, run `uv tool update-shell` and open a
 new terminal. To upgrade a clone install, run `git pull`, then
@@ -210,8 +207,20 @@ A machine with addresses needs no SSH config. `HostKeyAlias` makes SSH remember
 the machine's host key under its ID, so you confirm the key once per machine
 whichever address is used. Host keys that `known_hosts` already holds under an
 address don't carry over: the first connection asks once. With a `key`, SSH
-offers only that key (`IdentitiesOnly`); a key with a passphrase asks for it,
-unless your SSH agent already holds the key.
+offers that key instead of the other keys in your agent and the default keys
+(`IdentitiesOnly`); a key with a passphrase asks for it, unless your SSH agent
+already holds the key.
+
+Your SSH config still applies to the address: a `Host` entry that matches it
+adds its options, such as `IdentityFile` or `StrictHostKeyChecking`. With
+`StrictHostKeyChecking yes`, SSH refuses the first connection instead of
+asking (`No <type> host key is known for <id>`, status 255). To record the
+key once, run this in a terminal and check the fingerprint, or the names SSH
+says the key is already known by, before answering yes:
+
+```text
+ssh -o HostKeyAlias=<id> -o StrictHostKeyChecking=ask [-l <user>] [-p <port>] -- <address>
+```
 
 Run Workbench in a local terminal. Environments that can't hand the terminal
 over, such as Textual Web, show a message instead of starting SSH.
@@ -298,7 +307,9 @@ or passphrase: SSH and `ssh-keygen` ask for them.
      other accounts use `%USERPROFILE%\.ssh\authorized_keys`.
 3. **Test it.** SSH logs in once more allowing only public-key authentication
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
-   with a passphrase works: SSH asks for it.
+   with a passphrase works: SSH asks for it. The test can also pass with
+   another key SSH offers: any key `ssh <alias>` would use, or one named in a
+   `Host` entry that matches a direct machine's address.
 
 A direct machine's chosen key is saved as its `key` once it is installed. An
 alias machine's SSH config decides its keys, and Workbench never edits that

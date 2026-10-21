@@ -1,6 +1,6 @@
 # SSH Workbench
 
-SSH Workbench is a Python/Textual terminal interface; 0.1.0 is its first
+SSH Workbench is a Python/Textual terminal interface; 0.2.0 is its current
 release, tagged privately. Read [the roadmap](docs/roadmap.md)
 for the single backlog and [the architecture](docs/architecture.md) for boundaries.
 Implement only the requested task; keep the `src/` layout and runtime dependencies small.
