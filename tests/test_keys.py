@@ -321,6 +321,14 @@ def test_windows_install_script_holds_the_key_once() -> None:
         assert fact in script, fact
 
 
+def test_windows_install_script_hides_progress() -> None:
+    # Set-Acl prints "Preparing modules for first use." as a CLIXML progress
+    # record when the module cache is rebuilt; it lands in the terminal.
+    assert windows_script(ED_KEY).splitlines()[1] == (
+        "$ProgressPreference = 'SilentlyContinue'"
+    )
+
+
 def test_windows_install_script_parses(tmp_path: Path) -> None:
     shell = shutil.which("pwsh") or shutil.which("powershell")
     assert shell is not None, "PowerShell is needed to parse the Windows script"
