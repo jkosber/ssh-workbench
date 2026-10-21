@@ -428,6 +428,69 @@ async def test_an_alias_offers_its_own_keys_first_and_explains_others(
     assert path.read_text(encoding="utf-8") == text
 
 
+@pytest.mark.parametrize(
+    ("identities_only", "hint"),
+    [
+        (
+            True,
+            "Your SSH config offers only its own keys for garden-host "
+            "(IdentitiesOnly); add this line under Host garden-host:",
+        ),
+        (
+            False,
+            "Your SSH config doesn't name this key for garden-host; add this line "
+            "under Host garden-host:",
+        ),
+    ],
+)
+async def test_an_alias_test_passing_with_an_unnamed_key_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identities_only: bool, hint: str
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10",
+        22,
+        proxied=False,
+        user="dev",
+        identity_files=("~/ssh/id_lab",),
+        identities_only=identities_only,
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("down")
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "Key-only login works, but SSH may have used another key. "
+            f"{hint} IdentityFile {folder / 'id_a'} Machine 1: garden"
+        )
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_an_alias_test_passing_with_its_configured_key_says_it_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, user="dev", identity_files=("~/ssh/id_lab",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == "Key login works. Machine 1: garden"
+
+
 async def test_k_waits_for_the_alias_and_quitting_does_not(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
