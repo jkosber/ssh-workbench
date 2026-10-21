@@ -68,6 +68,7 @@ from ssh_workbench.ssh import (
     SSHLaunchError,
     find_ssh,
     install_arguments,
+    interrupted,
     key_argument,
     launch_ssh,
     login_test_arguments,
@@ -1392,6 +1393,8 @@ class SSHWorkbenchApp(App[None]):
             status = run_native(
                 keygen_arguments(choice.private, machine.id), "ssh-keygen"
             )
+            if interrupted(status):
+                return "Key setup interrupted.", False
             if status != 0:
                 return (
                     f"ssh-keygen exited with status {status}; nothing was installed.",
@@ -1405,6 +1408,8 @@ class SSHWorkbenchApp(App[None]):
         ssh = find_ssh()
         print("SSH Workbench: installing the key; SSH may ask for the password.")
         status = run_native([ssh, *install_arguments(machine, address, command)])
+        if interrupted(status):
+            return "Key setup interrupted.", False
         if status != 0:
             return (
                 f"Installing the key failed (SSH exited with status {status}); "
@@ -1422,12 +1427,15 @@ class SSHWorkbenchApp(App[None]):
                     f"{choice.hint}"
                 ), True
             return "Key login works.", True
-        message = (
-            "The key was installed, but key-only login failed "
-            f"(SSH exited with status {status})."
-        )
-        if choice.hint:
-            message += f" {choice.hint}"
+        if interrupted(status):
+            message = "The key was installed, but the login test was interrupted."
+        else:
+            message = (
+                "The key was installed, but key-only login failed "
+                f"(SSH exited with status {status})."
+            )
+            if choice.hint:
+                message += f" {choice.hint}"
         if setting != machine.key:
             message += " The key was not saved as this machine's key."
         return message, False
