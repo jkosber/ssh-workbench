@@ -178,14 +178,14 @@ async def test_direct_machine_without_optional_fields_shows_not_set() -> None:
             "[@click=app.quit]click[/] [link=https://example.com]link[/link]",
             "[@click=app.quit]click[/] [link=https://example.com]link[/link]",
         ),
-        ("Café / 東京 / \U0001f331", "Café / 東京 / \U0001f331"),
+        ("Cafe\u0301 / 東京 / \U0001f331", "Cafe\u0301 / 東京 / \U0001f331"),
         ("row\nnext\r\t\b\0", r"row\nnext\r\t\x08\x00"),
         (
             "escape\x1b]8;;https://example.com\x07",
             r"escape\x1b]8;;https://example.com\x07",
         ),
         ("C1\x85\x9b31m", r"C1\x85\x9b31m"),
-        ("direction‮⁦​ ", r"direction‮⁦​ "),
+        ("direction\u202e\u2066\u200b\u2028", r"direction\u202e\u2066\u200b\u2028"),
     ],
 )
 async def test_names_are_literal_and_controls_are_visible(
