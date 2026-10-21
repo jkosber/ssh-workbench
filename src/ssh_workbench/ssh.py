@@ -8,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from types import FrameType
 
@@ -110,17 +111,70 @@ def ssh_arguments(machine: Machine, address: str | None = None) -> list[str]:
     return [*arguments, "--", machine.addresses[0] if address is None else address]
 
 
-def find_ssh() -> str:
-    """Resolve the native client from absolute PATH entries only."""
-    command = "ssh.exe" if sys.platform == "win32" else "ssh"
+def install_arguments(machine: Machine, address: str | None, command: str) -> list[str]:
+    """Arguments for the fixed key-install command.
+
+    A direct machine's key is left out: it is not installed yet, and a new key
+    would only ask for its passphrase before SSH falls back to the password.
+    """
+    return [*ssh_arguments(replace(machine, key=None), address), command]
+
+
+def login_test_arguments(machine: Machine, address: str | None) -> list[str]:
+    """A login that may use only public keys and exits at once.
+
+    No BatchMode: SSH may still ask for the key's passphrase.
+    """
+    return [
+        "-o",
+        "PreferredAuthentications=publickey",
+        "-o",
+        "PasswordAuthentication=no",
+        "-o",
+        "KbdInteractiveAuthentication=no",
+        *ssh_arguments(machine, address),
+        "exit",
+    ]
+
+
+def _find_native(name: str) -> str:
+    """Resolve a native OpenSSH tool from absolute PATH entries only."""
+    command = f"{name}.exe" if sys.platform == "win32" else name
     executable = shutil.which(command)
     if executable is not None and not os.path.isabs(executable):
         # Windows tries the launch directory before PATH, and a relative
         # PATH entry does the same anywhere. Never run a client found so.
         executable = _which_on_absolute_path(command)
     if executable is None:
-        raise SSHLaunchError("SSH not found. Install OpenSSH and add it to PATH.")
+        label = "SSH" if name == "ssh" else name
+        raise SSHLaunchError(f"{label} not found. Install OpenSSH and add it to PATH.")
     return str(Path(executable).resolve())
+
+
+def find_ssh() -> str:
+    return _find_native("ssh")
+
+
+def find_ssh_keygen() -> str:
+    return _find_native("ssh-keygen")
+
+
+def run_native(arguments: list[str], name: str = "SSH") -> int:
+    """Wait for a resolved native tool that owns the terminal; never read its output."""
+    try:
+        return subprocess.run(
+            arguments,
+            shell=False,
+            check=False,
+            stdin=None,
+            stdout=None,
+            stderr=None,
+        ).returncode
+    except OSError:
+        raise SSHLaunchError(
+            f"Could not start {name}. Check its installation and executable "
+            "permissions."
+        ) from None
 
 
 def launch_ssh(machine: Machine, address: str | None = None) -> int:
@@ -128,16 +182,10 @@ def launch_ssh(machine: Machine, address: str | None = None) -> int:
     with ssh_handoff():
         arguments = ssh_arguments(machine, address)
         try:
-            return subprocess.run(
-                [find_ssh(), *arguments],
-                shell=False,
-                check=False,
-                stdin=None,
-                stdout=None,
-                stderr=None,
-            ).returncode
+            executable = find_ssh()
         except OSError:
             raise SSHLaunchError(
                 "Could not start SSH. "
                 "Check its installation and executable permissions."
             ) from None
+        return run_native([executable, *arguments])

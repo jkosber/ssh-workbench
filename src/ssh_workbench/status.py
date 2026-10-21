@@ -40,6 +40,9 @@ class AliasTarget:
     proxied: bool
     # Recorded for rename suggestions; never displayed.
     user: str = ""
+    # The keys SSH offers for the alias, as `ssh -G` prints them, for key setup.
+    identity_files: tuple[str, ...] = ()
+    identities_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -92,8 +95,11 @@ def resolve_alias(alias: str, timeout: float = 10.0) -> AliasTarget | None:
     if result.returncode != 0:
         return None
     values: dict[str, str] = {}
+    identity_files: list[str] = []
     for line in result.stdout.splitlines():
         key, _, value = line.partition(" ")
+        if key.lower() == "identityfile":
+            identity_files.append(value.strip())
         values.setdefault(key.lower(), value.strip())
     host, port = values.get("hostname"), values.get("port", "")
     if not host or re.fullmatch(r"[0-9]{1,5}", port) is None:
@@ -102,7 +108,14 @@ def resolve_alias(alias: str, timeout: float = 10.0) -> AliasTarget | None:
         values.get(key, "none").lower() != "none"
         for key in ("proxyjump", "proxycommand")
     )
-    return AliasTarget(host, int(port), proxied, values.get("user", ""))
+    return AliasTarget(
+        host,
+        int(port),
+        proxied,
+        values.get("user", ""),
+        tuple(identity_files),
+        values.get("identitiesonly", "no").lower() == "yes",
+    )
 
 
 def check_machine(
