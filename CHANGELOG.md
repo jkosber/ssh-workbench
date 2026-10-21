@@ -45,8 +45,9 @@ Changes by release, newest first. Version numbers follow the policy in
   an address don't carry over, so the first connection asks once.
 - A machine's key is offered with `IdentitiesOnly`, so SSH tries no other key.
   Workbench passes the key's path to SSH and never opens the file.
-- A save never overwrites a machine file that changed on disk since Workbench
-  loaded it; it reloads the list and keeps your form open instead.
+- A save or delete never overwrites a machine file that changed on disk since
+  Workbench loaded it; it reloads the list and keeps your unsaved change so you
+  can try again. A read-only machine file is never replaced.
 - Only `Host` and `Include` lines of your SSH config are read; Workbench never
   opens an included file named like a key, `known_hosts` or `authorized_keys`,
   and never changes the config.

@@ -75,7 +75,7 @@ Textual's standard scrolling keys. List rows shorten long names while details
 wrap the full value. Selection uses the list's highlight and focus uses an
 accent border. The footer shows C / Connect, O / Open link, A / Add, E / Edit,
 X / Delete and Q / Quit, with Ctrl+Q as an additional exit key. `check_action`
-dims every action while connecting, while a modal screen is open and while the
+dims every action except quitting while connecting, while a modal screen is open and while the
 panes rebuild after a save; it also dims C, O, E and X without a selection, O
 for a machine without links, and A, E and X without a file location. Textual
 owns the event loop and terminal lifecycle. Link actions do not change pane
@@ -343,8 +343,9 @@ The form hands a valid machine to the app, which calls
 | --- | --- |
 | Outside change | The current text is read the same way as when loading. If it differs from the text loaded (or the file appeared or vanished), `FileChangedError` stops the save. The app reloads the file and keeps the form open with a message; an invalid file is reported and nothing changes |
 | Unchanged | When the new text equals the current text, nothing is written |
+| Read-only | A file the user made read-only is refused with "permission denied" before anything is written, on POSIX as on Windows |
 | Backup | The previous bytes go to `machines.toml.bak`, written like the file itself but with the default mode, so a read-only original never makes the backup read-only |
-| Write | `config.format_machines` produces schema 2 TOML in a fixed layout, escaping every control character. The bytes go to a temporary file in the same folder, are flushed and fsynced, take the old file's mode on POSIX, and `os.replace` puts them in place. On Windows the mode is not copied: it is only the read-only flag, and a read-only file is refused with "permission denied" |
+| Write | `config.format_machines` produces schema 2 TOML in a fixed layout, escaping every control character. The bytes go to a temporary file in the same folder, are flushed and fsynced, take the old file's mode on POSIX, and `os.replace` puts them in place. On Windows the mode is not copied, because it is only the read-only flag |
 | Failure | The temporary file is made writable and removed, and a `SaveError` names only the reason, never the path |
 
 A text comparison catches edits that keep the modification time, such as some

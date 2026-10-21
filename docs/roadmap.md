@@ -433,6 +433,21 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   that schema would reject; the hint should name `schema_version = 2`.
 - Task 8: at 80x24 the details pane needs scrolling to show a machine's key and
   links; alias machines spend three rows on "From your SSH config".
+- Task 9: a symlinked machine file is replaced by a regular file (write to the
+  resolved path); untested because this Windows account cannot create symlinks.
+- Task 9: a save that fails after the backup step has already replaced the
+  previous `.bak`.
+- Task 9: link names with line breaks or surrounding spaces do not survive the
+  edit form.
+- Task 9: changing a direct machine's ID makes SSH ask to trust its host key
+  again; the form gives no hint.
+- Task 9: duplicate messages show internal locations such as
+  `machine.links[1].name`.
+- Task 9: `Include` lines are missed when the SSH folder path contains `[`.
+- Task 9: `Host` names are read on the UI thread when a form opens; a slow
+  network share would pause the screen.
+- Task 9: `test_actions_wait_for_the_rebuilt_list` collects the active bindings
+  without asserting them.
 
 ## Deferred ideas
 

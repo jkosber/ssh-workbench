@@ -9,7 +9,7 @@ Branch `feat/task9-edit-machines`. Environment as in Task 8.
 | New tests before implementation | The formatter, store and SSH config tests failed at collection for the missing functions and modules; the form tests failed at collection, and five app and two CLI tests failed on the new empty-screen text and the loaded-text handoff |
 | Tests added during the task, each red first | Saving unchanged text writes nothing; E and X need a file location; actions stay off while a saved list is rebuilt (an `IndexError` before the fix) |
 | `uv sync --locked`, Ruff check and format | Passed |
-| `uv run --locked pytest` | 751 passed (685 before Task 9) |
+| `uv run --locked pytest` | 751 passed (685 before Task 9); 759 after the review fixes |
 | `uv build`, `scripts/check_package.py` | Passed. The installed wheel now also adds a machine headless and saves it into a new folder, with `SSH_WORKBENCH_SSH_DIR` pointed at an empty temporary folder |
 
 Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
@@ -31,6 +31,24 @@ bindings while the old three-item list was still mounted and the app already
 held two machines, and `check_action` indexed past the end. A failing test
 reproduced it inside the rebuild window, the fix keeps actions off until the
 rebuild ends, and the second run passed every step above.
+
+Two fresh reviewers (spec compliance; code and docs quality) found no critical
+issues. One quality reviewer stopped on a service error before reporting; a
+replacement with a reworded brief completed the review. Fixes, each after a
+failing test:
+
+| Finding | Fix and test |
+| --- | --- |
+| Comments added by an outside edit were dropped without the warning, because it was computed when the form opened | The form asks for the warning at each save and again after a refused save. `test_outside_comment_is_warned_about_before_saving` |
+| A read-only machine file on Windows left a temporary file and a read-only `.bak` that blocked later saves; Linux replaced read-only files silently | A file the user made read-only is refused before anything is written, on every platform; no mode is copied to the backup or on Windows; the temporary file is made writable before removal. `test_read_only_file_is_refused_and_saves_once_writable` |
+| Ctrl+Q did not quit from the form or the delete question | Both repeat a priority Ctrl+Q. `test_ctrl_q_quits_from_the_form_and_the_delete_question` |
+| After a reload the selection stayed on the same row, so a machine inserted above moved C onto another machine | The same machine stays selected. `test_reload_keeps_the_selected_machine`; a refused delete now says to delete again |
+| A port of thousands of digits crashed the app | Five digits at most become an integer. `test_huge_port_is_an_error_not_a_crash` |
+| "Never opens keys" was true only for some names | `*.pem`, `*.ppk` and `*.key` are skipped too, and the docs name the skipped patterns. `test_other_key_file_names_are_never_read` |
+
+After the fixes: 759 tests passed and the native check above was repeated with
+the same results. Remaining minor findings are in the roadmap's 0.2.x
+candidates.
 
 ## Task 8: machines replace projects, 2026-10-20
 
