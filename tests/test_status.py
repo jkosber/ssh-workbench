@@ -84,7 +84,10 @@ def test_resolve_alias_runs_ssh_g_without_a_shell(
         shell=False,
         check=False,
         stdin=subprocess.DEVNULL,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        # A Match exec child that keeps a captured stderr open would make the
+        # Windows timeout wait for it; stderr is never read.
+        stderr=subprocess.DEVNULL,
         encoding="utf-8",
         errors="replace",
         timeout=10.0,

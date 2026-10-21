@@ -153,6 +153,33 @@ async def test_connect_uses_the_first_online_address(
         assert launcher.call_args_list[1].args == (MACHINES[2],)
 
 
+async def test_connect_during_a_round_uses_the_last_online_address(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = Mock(return_value=0)
+    monkeypatch.setattr(app_module, "launch_ssh", launcher)
+    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
+    monkeypatch.setattr(HeadlessDriver, "suspend_application_mode", lambda self: None)
+    monkeypatch.setattr(HeadlessDriver, "resume_application_mode", lambda self: None)
+    hold = threading.Event()
+    hold.set()
+    checker = FakeChecker(hold=hold)
+    app = SSHWorkbenchApp(MACHINES, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await checked(app, pilot)
+            hold.clear()
+            await pilot.press("r")
+            await pilot.pause()
+            assert symbols(app)[1] is State.CHECKING
+            await pilot.press("down")
+            app.action_connect()
+            await pilot.pause()
+            assert launcher.call_args_list[0].args == (MACHINES[1], "192.0.2.40")
+    finally:
+        hold.set()
+
+
 async def test_results_from_an_older_round_are_ignored() -> None:
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test() as pilot:
