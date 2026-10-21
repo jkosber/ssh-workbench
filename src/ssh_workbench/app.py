@@ -1076,7 +1076,8 @@ class SSHWorkbenchApp(App[None]):
                 return "Could not find your SSH folder for exported aliases."
             return None
         try:
-            write_exports(folder, self.machines, self.config_path)
+            # A relative --config path would name a different file elsewhere.
+            write_exports(folder, self.machines, self.config_path.absolute())
         except ExportError as error:
             return str(error)
         return None
