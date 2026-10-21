@@ -61,6 +61,12 @@ roadmap's 0.2.x candidates.
 
 Open for Jadon: inserting the `Include` line into a real `~/.ssh/config`.
 
+| Integration step | Result |
+| --- | --- |
+| [PR #15](https://github.com/jkosber/ssh-workbench/pull/15) CI on head `4d77236` | [Push run 39567661862](https://github.com/jkosber/ssh-workbench/actions/runs/39567661862) and [PR run 39567703611](https://github.com/jkosber/ssh-workbench/actions/runs/39567703611) passed on Windows and Ubuntu, 993 tests each |
+| Merge | Merged as **`777d766`**, guarded on head `4d77236`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39568301185](https://github.com/jkosber/ssh-workbench/actions/runs/39568301185) passed on Windows and Ubuntu, 993 tests each |
+
 ## Task 12: key login setup, 2026-10-21
 
 Branch `feat/task12-key-setup`. Environment as in Task 8. No real key was
