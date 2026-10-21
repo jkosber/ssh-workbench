@@ -1,7 +1,8 @@
 """Machine selection, literal details, editing and explicit SSH and link actions."""
 
+import platform
 from collections.abc import Callable, Collection, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Event, Thread
 
@@ -16,6 +17,15 @@ from textual.widget import Widget
 from textual.widgets import Footer, Header, ListItem, ListView, OptionList, Static
 from textual.widgets.option_list import Option
 
+from ssh_workbench.aliases import (
+    AliasMemory,
+    Review,
+    format_state,
+    load_state,
+    review,
+    save_state,
+    state_path,
+)
 from ssh_workbench.config import (
     ConfigError,
     Link,
@@ -59,6 +69,15 @@ class StatusFinished(Message):
     target: AliasTarget | None
 
 
+@dataclass
+class AliasesReviewed(Message):
+    round: int
+    # The literal Host names read for this review.
+    names: tuple[str, ...]
+    # None when the review failed; the round then checks the aliases anyway.
+    review: Review | None
+
+
 class StatusSymbol(Widget):
     """A machine's status symbol. Each state has its own shape; color and
     motion are only added on top."""
@@ -85,6 +104,9 @@ class StatusSymbol(Widget):
     }
     StatusSymbol.state-not_checked {
         color: $text-muted;
+    }
+    StatusSymbol.state-not_found {
+        color: $error;
     }
     """
 
@@ -214,6 +236,8 @@ class SSHWorkbenchApp(App[None]):
     ENABLE_COMMAND_PALETTE = False
     BINDINGS = [
         Binding("c", "connect", "Connect"),
+        # Shown only for a machine with a rename offer, which hides Connect.
+        Binding("u", "update_alias", "Update"),
         Binding("o", "open_link", "Link"),
         Binding("a", "add", "Add"),
         Binding("e", "edit", "Edit"),
@@ -300,6 +324,19 @@ class SSHWorkbenchApp(App[None]):
         self._round = 0
         self._frame = 0
         self._status_closed = Event()
+        # Rename detection. The state file is loaded by the first review.
+        self._computer = platform.node()
+        self._memory: AliasMemory | None = None
+        self._memory_loaded = False
+        self._state_text: str | None = None
+        # The literal Host names at the last review; None before one finished.
+        self._host_names: frozenset[str] | None = None
+        # Missing aliases and their rename offers, from the last review.
+        self._missing: dict[str, str | None] = {}
+        # Aliases this round still resolves; the state is saved when none are left.
+        self._pending_aliases: set[str] = set()
+        # The machine and new alias a first U warned about.
+        self._update_armed: tuple[str, str] | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -397,6 +434,7 @@ class SSHWorkbenchApp(App[None]):
             self.set_interval(ANIMATION_TICK, self._tick_animation)
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
+        self._update_armed = None
         self.refresh_bindings()
         index = event.list_view.index
         # An old list can still report a highlight while the panes rebuild.
@@ -417,12 +455,7 @@ class SSHWorkbenchApp(App[None]):
             ("name", _display_text(machine.name)),
             ("status", self._status_text(machine)),
             ("connection", "Direct" if direct else "SSH alias"),
-            (
-                "target",
-                _display_lines(machine.addresses)
-                if direct
-                else _display_text(machine.alias),
-            ),
+            ("target", self._target_text(machine)),
             ("user", _display_text(machine.user) if machine.user else unset),
             ("port", str(machine.port) if machine.port is not None else unset),
             ("key", _display_text(machine.key) if machine.key else unset),
@@ -443,9 +476,33 @@ class SSHWorkbenchApp(App[None]):
         default = State.NOT_CHECKED if self.checker is None else State.CHECKING
         return self._statuses.get(machine.id, MachineStatus(default))
 
+    def _target_text(self, machine: Machine) -> str:
+        if machine.alias is None:
+            return _display_lines(machine.addresses)
+        alias = _display_text(machine.alias)
+        # Information only: SSH may still resolve it through a pattern.
+        if (
+            self._host_names is not None
+            and machine.alias not in self._host_names
+            and machine.alias not in self._missing
+        ):
+            return f"{alias} (not in your SSH config)"
+        return alias
+
+    def _rename_offer(self, machine: Machine) -> str | None:
+        return self._missing.get(machine.alias) if machine.alias is not None else None
+
     def _status_text(self, machine: Machine) -> str:
         status = self._status_of(machine)
         text = f"{status.state.symbol} {status.state.word}"
+        if status.state is State.NOT_FOUND:
+            offer = self._rename_offer(machine)
+            if offer is None:
+                return f"{text}. Edit the machine, or fix your SSH config and press R."
+            return (
+                f"{text}. Looks like {_display_text(machine.alias)} became "
+                f"{_display_text(offer)}. Press U to update."
+            )
         if status.state is State.ONLINE:
             if status.address is None:
                 return f"{text} via alias"
@@ -474,25 +531,113 @@ class SSHWorkbenchApp(App[None]):
             self._start_round(resolve=False)
 
     def _start_round(self, resolve: bool) -> None:
-        """Check every machine in the background; only `resolve` runs ssh -G."""
+        """Check every machine in the background; only `resolve` runs ssh -G.
+
+        A resolving round first reviews the aliases against the SSH config, so
+        an alias that vanished never reaches ssh -G or a port check.
+        """
         self._round += 1
+        aliases = [machine.alias for machine in self.machines if machine.alias]
+        reviewing = resolve and bool(aliases)
         for machine in self.machines:
+            if not resolve and machine.alias in self._missing:
+                self._statuses[machine.id] = MachineStatus(State.NOT_FOUND)
+                continue
             self._statuses[machine.id] = MachineStatus(State.CHECKING)
-            known = machine.alias is None or machine.alias in self._targets
-            target = self._targets.get(machine.alias) if machine.alias else None
-            # Daemon threads, like the link worker: quitting never waits for a
-            # check that hangs on DNS or a dropped connection.
-            try:
-                Thread(
-                    target=self._check,
-                    args=(self._round, machine, resolve, known, target),
-                    daemon=True,
-                ).start()
-            except RuntimeError:
-                self._statuses[machine.id] = MachineStatus(
-                    State.UNKNOWN, reason="the check could not start"
-                )
+            # Alias checks start once the review is in.
+            if not (reviewing and machine.alias is not None):
+                self._start_check(machine, resolve)
+        if reviewing:
+            first = self.config_path if not self._memory_loaded else None
+            arguments = (self._round, aliases, self._memory, first)
+            if not self._start_thread(self._review_aliases, arguments):
+                self.on_aliases_reviewed(AliasesReviewed(self._round, (), None))
+                return
         self._show_statuses()
+
+    def _start_thread(self, target: Callable[..., None], arguments: tuple) -> bool:
+        # Daemon threads, like the link worker: quitting never waits for a
+        # check that hangs on DNS, ssh -G or a dropped connection.
+        try:
+            Thread(target=target, args=arguments, daemon=True).start()
+        except RuntimeError:
+            return False
+        return True
+
+    def _start_check(self, machine: Machine, resolve: bool) -> None:
+        known = machine.alias is None or machine.alias in self._targets
+        target = self._targets.get(machine.alias) if machine.alias else None
+        arguments = (self._round, machine, resolve, known, target)
+        if not self._start_thread(self._check, arguments):
+            self._statuses[machine.id] = MachineStatus(
+                State.UNKNOWN, reason="the check could not start"
+            )
+
+    def _review_aliases(
+        self,
+        round_id: int,
+        aliases: list[str],
+        memory: AliasMemory | None,
+        machine_file: Path | None,
+    ) -> None:
+        if self._status_closed.is_set():
+            return
+        try:
+            if machine_file is not None:
+                memory = load_state(state_path(machine_file), self._computer)
+            folder = ssh_folder()
+            names = tuple(host_names(folder)) if folder is not None else ()
+            result = review(memory, aliases, names, self.checker.resolve_alias)
+        except Exception:
+            # Without a review the round still checks every alias.
+            names, result = (), None
+        if not self._status_closed.is_set():
+            try:
+                self.post_message(AliasesReviewed(round_id, names, result))
+            except RuntimeError:
+                # The event loop may close between the guard and enqueue.
+                pass
+
+    def on_aliases_reviewed(self, message: AliasesReviewed) -> None:
+        if (
+            self._status_closed.is_set()
+            or not self.is_running
+            or message.round != self._round
+        ):
+            return
+        if message.review is not None:
+            self._memory = message.review.memory
+            self._memory_loaded = True
+            self._host_names = frozenset(message.names)
+            self._missing = message.review.missing
+            self._targets.update(message.review.resolved)
+        self._pending_aliases = set()
+        for machine in self.machines:
+            if machine.alias is None:
+                continue
+            if machine.alias in self._missing:
+                self._statuses[machine.id] = MachineStatus(State.NOT_FOUND)
+            else:
+                self._pending_aliases.add(machine.alias)
+                self._start_check(machine, resolve=True)
+        if not self._pending_aliases:
+            self._write_state()
+        self._show_statuses()
+        self.refresh_bindings()
+
+    def _write_state(self) -> None:
+        """Save what the review and ssh -G found, next to an existing machine file."""
+        if self._memory is None or self.config_path is None or self.file_text is None:
+            return
+        text = format_state(self._memory, self._computer)
+        if text == self._state_text:
+            return
+        try:
+            save_state(state_path(self.config_path), text)
+        except OSError:
+            # The state is a cache; losing it only loses rename offers.
+            return
+        self._state_text = text
 
     def _check(
         self,
@@ -541,6 +686,12 @@ class SSHWorkbenchApp(App[None]):
             return
         if message.alias is not None:
             self._targets[message.alias] = message.target
+            if message.target is not None and self._memory is not None:
+                self._memory.remember(message.alias, message.target)
+            if message.alias in self._pending_aliases:
+                self._pending_aliases.discard(message.alias)
+                if not self._pending_aliases:
+                    self._write_state()
         if message.machine_id in {machine.id for machine in self.machines}:
             self._statuses[message.machine_id] = message.status
             if message.status.state is State.ONLINE and message.status.address:
@@ -559,9 +710,10 @@ class SSHWorkbenchApp(App[None]):
             symbol.state = self._status_of(machine).state
         index = machine_list.index
         if index is not None and index < len(self.machines):
-            self.query_one("#machine-status", Static).update(
-                self._status_text(self.machines[index])
-            )
+            machine = self.machines[index]
+            self.query_one("#machine-status", Static).update(self._status_text(machine))
+            # A review changes whether the alias is marked.
+            self.query_one("#machine-target", Static).update(self._target_text(machine))
 
     def _tick_animation(self) -> None:
         if self.animation_level == "none" or not self.is_running:
@@ -590,10 +742,21 @@ class SSHWorkbenchApp(App[None]):
             return True if ready else None
         if action == "add":
             return True if self._browsing() and self.config_path is not None else None
+        if action == "update_alias":
+            index = self._selected_index()
+            # Hidden, not dimmed: it appears only with a rename offer.
+            return (
+                index is not None
+                and self.config_path is not None
+                and self._rename_offer(self.machines[index]) is not None
+            )
         if action in ("connect", "open_link", "edit", "delete"):
             index = self._selected_index()
             if index is None:
                 return None
+            if action == "connect" and self.machines[index].alias in self._missing:
+                # Hidden until the alias is fixed; U takes its place.
+                return False
             if action in ("edit", "delete") and self.config_path is None:
                 return None
             if action == "open_link" and not self.machines[index].links:
@@ -681,6 +844,28 @@ class SSHWorkbenchApp(App[None]):
             )
 
         self.push_screen(ConfirmDelete(machine, self._rewrite_warning()), answered)
+
+    def action_update_alias(self) -> None:
+        index = self._selected_index()
+        if index is None or self.check_action("update_alias", ()) is not True:
+            return
+        machine = self.machines[index]
+        new = self._rename_offer(machine)
+        status = self.query_one("#connection-status", Static)
+        warning = self._rewrite_warning()
+        if warning is not None and self._update_armed != (machine.id, new):
+            self._update_armed = (machine.id, new)
+            status.update(f"{warning} Press U again to update.")
+            return
+        self._update_armed = None
+        machines = list(self.machines)
+        machines[index] = replace(machine, alias=new)
+        problem = self._save(machines, index, retry="update")
+        status.update(
+            problem
+            or f"Updated machine {index + 1}: {_display_text(machine.id)} "
+            f"now uses alias {_display_text(new)}."
+        )
 
     def _save_one(self, machines: list[Machine], position: int) -> str | None:
         problem = self._save(machines, position)
@@ -833,7 +1018,7 @@ class SSHWorkbenchApp(App[None]):
 
     def action_connect(self) -> None:
         index = self._selected_index()
-        if index is None:
+        if index is None or self.check_action("connect", ()) is not True:
             return
         machine = self.machines[index]
         machine_list = self.query_one(ListView)
