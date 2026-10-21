@@ -12,6 +12,8 @@
 | `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
 | `tests/` | Loader, CLI, boundary and headless UI tests with fictional data |
 | `scripts/check_package.py` | Installs the wheel from `uv build` in a temporary environment and checks it |
+| `scripts/package_smoke.py` | The installed-wheel loader, headless app and blocked-opener quit checks, run by `check_package.py` with `python -I` |
+| `scripts/external_boundaries.py` | The shared list of process, network and browser entry points that tests, fixtures and the package check reject |
 | `scripts/check_terminal.py` | Interactive terminal handoff check with harmless local children instead of SSH |
 | `scripts/check_links.py` | Interactive link check with substituted openers; never opens a real browser |
 | `examples/` | Fictional configuration |
@@ -80,7 +82,9 @@ the application's control.
 The source and wheel are built by `uv build`. The package check installs
 the wheel and locked runtime dependencies in a disposable environment outside
 the checkout, where it checks help/version, missing-configuration errors, and the
-loader. It also substitutes the terminal-run boundary with Textual's headless
+loader. The checks that import the installed package live in
+`scripts/package_smoke.py`; each run starts with the isolation and module-path
+assertions. It also substitutes the terminal-run boundary with Textual's headless
 pilot to exercise CLI loading, initial selection, navigation and quit at 80x24.
 Common process, connection and browser entry points fail that smoke check if
 called unexpectedly. During explicit Connect checks, only executable resolution

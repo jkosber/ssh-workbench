@@ -301,16 +301,16 @@ changes.
 
 Acceptance:
 
-- [ ] Raise the build backend to `uv_build>=0.13.3,<0.14.0` and the uv version
+- [x] Raise the build backend to `uv_build>=0.13.3,<0.14.0` and the uv version
   pinned in CI to `0.13.3` in the same change. A test fails when the CI pin and
   the range's lower bound differ, or the upper bound is not the next minor
   release. `uv build` no longer warns about the `uv_build` upper bound.
-- [ ] One shared list names the process, network and browser entry points that
+- [x] One shared list names the process, network and browser entry points that
   tests and fixtures must never reach. `tests/conftest.py`,
   `tests/link_fixture_process.py`, `scripts/check_links.py` and the package check
   use it instead of their own copies. A test checks that the in-process guard
   rejects every listed entry point.
-- [ ] `scripts/check_package.py` holds no Python source in strings. The
+- [x] `scripts/check_package.py` holds no Python source in strings. The
   installed-wheel checks live in their own file, still run with `python -I`
   against the installed wheel, and keep the isolation and import-path
   assertions. A test fails if Python source returns to strings there.
