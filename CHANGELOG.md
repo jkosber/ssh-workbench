@@ -85,7 +85,7 @@ Changes by release, newest first. Version numbers follow the policy in
 - To suggest aliases, only `Host` and `Include` lines of your SSH config are
   read; Workbench never
   opens an included file named like a key, `known_hosts` or `authorized_keys`,
-  and never changes the config.
+  and changes the config only by the one confirmed `Include` line.
 
 ### Development
 

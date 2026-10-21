@@ -512,8 +512,8 @@ Acceptance:
   is readable and writable only by the user on POSIX, and is not created while
   no machine is exported.
 - [x] Values are escaped for SSH config syntax: `IdentityFile` is quoted, with
-  `/` for `\` and `%%` for `%`; values with quotes or line breaks never reach
-  the file.
+  `/` for `\`; key paths with `%`, quotes or line breaks never reach the
+  file.
 - [x] After a form save of an exported machine, if the SSH config has no
   `Include ssh-workbench.config` before its first `Host` or `Match`, Workbench
   shows that exact line and asks. Y keeps a backup, inserts only that line at
@@ -613,6 +613,20 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   screen sketch mentions; zsh, fish and tcsh login shells are untested.
 - Task 12: a direct machine's key is saved after a failed login test, so
   Connect then offers only that key.
+- Task 13: an exported ID may equal another machine's alias, or a `Host` the
+  user adds later; the form checks only the user's literal `Host` names at save.
+- Task 13: the Include check does not follow the user's own `Include` files,
+  compares names case-sensitively, and counts an `Include` of a same-named file
+  in another folder.
+- Task 13: every `\` in a key path becomes `/`, also on Linux, where `\` is a
+  legal file-name character.
+- Task 13: the generated file is not rewritten at startup or after an outside
+  reload; a hand-set `export_alias` waits for the next save.
+- Task 13: `exports.py` copies `sshconfig.py`'s line parser and `store.py`'s
+  error wording; the extra `chmod 600` calls repeat what the atomic write does.
+- Task 13: the first creation of `ssh-workbench.config` isn't named in the
+  status line; failure paths of `write_exports` and `add_include` have few
+  tests.
 
 ## Deferred ideas
 

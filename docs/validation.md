@@ -32,6 +32,23 @@ passed once both containers got `height: auto`. At 60x20 the export checkbox's
 long label overflowed, so its explanation moved into the field label. The check
 above is the repeat.
 
+Two fresh reviews, one for spec compliance and one for code and docs quality,
+found these issues to fix; each was fixed after a failing test:
+
+| Finding | Fix | Test |
+| --- | --- | --- |
+| A config that starts with a byte-order mark hid the added line from the check, so a second Y would add it again and overwrite the backup | The check ignores a leading mark | `test_include_present` (two new cases), `test_the_line_added_after_a_byte_order_mark_is_found` |
+| A linked config (dotfile managers) would become an unlinked file, and a read-only one was replaced anyway | Both are refused with the line to add by hand | `test_a_linked_or_read_only_config_is_refused`; the link case fakes `Path.is_symlink`, because this Windows account cannot create links |
+| Saving another machine file, opened with `--config`, rewrote the generated file and dropped the first file's exports | The header names its machine file; another machine file's exports are refused with a message | `test_another_machine_files_exports_are_left_alone` |
+| The Include question opened after the generated file failed to write, and answering it hid the failure | No question then | `test_a_failed_export_is_shown_instead_of_the_question` |
+| The rename review counted exported names as the user's `Host` names | It skips the generated file, like the form | `test_exported_names_are_not_the_users_host_names` |
+| Docs still said Workbench never changes the SSH config, and described `%%` for key paths the loader already refuses | Reworded | Reviewed diff |
+
+Two fakes of `host_names` in `tests/test_renames_ui.py` took the new `skip`
+argument in their own commit; they passed against the code before the fix.
+After the fixes: 992 tests passed. Remaining minor findings are in the
+roadmap's 0.2.x candidates.
+
 Open for Jadon: inserting the `Include` line into a real `~/.ssh/config`.
 
 ## Task 12: key login setup, 2026-10-21
