@@ -565,8 +565,9 @@ Acceptance:
   login tests pass; K on an alias whose key is already set up finds it
   installed; Workbench runs natively on Linux; Y adds the `Include` line to a
   real `~/.ssh/config` and `ssh <id>` then works in a plain terminal; a direct
-  machine's first Connect asks once to trust its host key; a real alias shows
-  live status. macOS is not available and stays untested. See the
+  machine's first Connect asks to trust its host key, or, under a matching
+  `StrictHostKeyChecking yes`, refuses until the README's one-time command
+  records it; a real alias shows live status. macOS is not available and stays untested. See the
   [Task 14 evidence](validation.md#task-14-020-release-2026-10-21).
 - [ ] PR, two fresh reviews, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.0` tag on the merge commit.

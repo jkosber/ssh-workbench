@@ -26,9 +26,9 @@ aside, with their hashes, permissions and ACL recorded.
 | Live status | An alias machine showed Online via alias; direct machines showed Online with their address |
 | First Connect of a direct machine for this workstation's own SSH server | SSH asked to trust the host key under the machine's ID and listed the names that key is already known by. Answered no: nothing was trusted and no login ran. Workbench returned with status 255 |
 | First Connect of a direct machine for the Linux target | Status 255 without a question. The user's SSH config has a `Host` entry matching that address with `StrictHostKeyChecking yes`, and no key was recorded under the machine's ID, so OpenSSH refused as configured. The README now explains this and the one-time `StrictHostKeyChecking=ask` command |
-| That command, then C | The fingerprint matched the key already recorded for the address before yes was typed. C then reached the remote prompt; `exit` returned with status 0 and the same machine selected |
-| K on that direct machine: new key, POSIX | `ssh-keygen` asked for the passphrase, left empty for this test key. Install and test needed no password: "Key login works. The key is saved as this machine's key." `authorized_keys` gained one line, the first unchanged, modes 700 and 600. A login with no config file and only the new key succeeded |
-| E, export ticked, Ctrl+S, Y | The question named the config path and the exact line. The real config gained `Include ssh-workbench.config` and CRLF at the top; every other byte matched the original, and so did `config.ssh-workbench.bak`. Details: `Direct, exported as ssh <id>` |
+| That command, then C | Before yes was typed, the fingerprint shown was compared with the key already recorded for the address and matched. C then reached the remote prompt; `exit` returned with status 0 and the same machine selected |
+| K on that direct machine: new key, POSIX | `ssh-keygen` asked for the passphrase, left empty for this test key. Install and test needed no password, because the matching `Host` entry names another authorized key: "Key login works. The key is saved as this machine's key." `authorized_keys` gained one line, the first unchanged, modes 700 and 600. A login with no config file and only the new key succeeded |
+| E, export ticked, Ctrl+S, Y | The question named the config path and the exact line. The real config gained `Include ssh-workbench.config` and CRLF at the top; every other byte matched the original, and `config.ssh-workbench.bak` was byte-identical to the original. Details: `Direct, exported as ssh <id>` |
 | `ssh <id>` in a plain terminal | Reached the remote prompt with no question; `ssh -G` showed the generated `HostName`, `User`, `HostKeyAlias` and only the new key |
 | K on an alias whose key was already set up | "the key was already installed.", then "Key login works."; no line was added |
 
@@ -42,7 +42,7 @@ Windows workstation:
 | --- | --- |
 | Start | List and details drew at 80x24; Online via alias |
 | C, then `exit` at the PowerShell prompt | Returned with status 0 and the same machine selected |
-| K: new key, Windows | The picker listed the alias's key first and showed the `IdentityFile` note for the new key. After `ssh-keygen`, the install printed "SSH Workbench: key installed." from the administrator branch, then "Key login works." |
+| K: new key, Windows | The picker listed the alias's key first and showed the `IdentityFile` note for the new key. After `ssh-keygen`, the install printed "SSH Workbench: key installed." from the administrator branch, then "Key login works.", which another key passed: the alias's config doesn't name the new key |
 | Windows result | `administrators_authorized_keys` gained exactly one line ending in CRLF, earlier lines unchanged; its ACL stayed SYSTEM and Administrators only, protected. A login from the Linux target with no config file and only the new key succeeded |
 | Q | Exited with status 0 |
 
@@ -56,14 +56,23 @@ New minor findings, added to the roadmap's 0.2.x candidates:
 | The login test also accepts keys from a `Host` entry matching a direct machine's address | The Linux target's matching entry names another authorized key; the separate new-key-only login above is what proved the new key. Documented in the README |
 | A login test interrupted with Ctrl+C on Windows reported "SSH exited with status 4294967295" instead of an interruption | The check's own prompt detector matched an earlier passphrase line and sent Ctrl+C; the step was repeated and passed |
 
-Afterwards both test keys were deleted and their lines removed: each key file
-was truncated back to its original length after confirming it held the
+Afterwards both test keys were deleted and their lines removed: each
+authorized-keys file was truncated back to its original length after confirming it held the
 original bytes plus that one line, and compared identical to its copy, with the
 ACL and modes unchanged. The generated `ssh-workbench.config` was deleted,
 because it named the session's machine file. The `Include` line stays, as
 approved; SSH ignores it while that file is missing, and the alias still logged
 in. The test machine's host-key record, uv and the 0.2.0 tool on the Linux
 target, and the pre-check copies remain.
+
+Two fresh reviews, one for spec compliance and one for docs quality, found no
+code issue. Fixed in the docs: the README install line still named `v0.1.0`;
+"SSH offers only that key" in the README and the changelog's Security list,
+which a matching `Host` entry's `IdentityFile` contradicts; and stale
+current-state lines in CONTRIBUTING's version table, AGENTS and the
+architecture's SSH config rule. Wording fixes covered the key type in the
+strict-checking message, which keys the login test can pass with, and this
+record.
 
 ## Task 13: exported aliases, 2026-10-21
 
@@ -125,6 +134,7 @@ After the fixes: 993 tests passed. Remaining minor findings are in the
 roadmap's 0.2.x candidates.
 
 Open for Jadon: inserting the `Include` line into a real `~/.ssh/config`.
+Done in [Task 14](#task-14-020-release-2026-10-21).
 
 | Integration step | Result |
 | --- | --- |
@@ -179,7 +189,8 @@ After the fixes: 944 tests passed. Remaining minor findings are in the
 roadmap's 0.2.x candidates.
 
 Open for Jadon: installing and testing a real key against a real Windows
-target and a real Linux target.
+target and a real Linux target. Done in
+[Task 14](#task-14-020-release-2026-10-21).
 
 | Integration step | Result |
 | --- | --- |
