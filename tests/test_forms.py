@@ -9,7 +9,7 @@ from textual.containers import VerticalScroll
 from textual.widgets import Footer, Input, ListView, RadioButton, Static, TextArea
 
 from ssh_workbench import store
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import MachinePanes, SSHWorkbenchApp
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
 from ssh_workbench.forms import ConfirmDelete, MachineForm
 
@@ -371,6 +371,44 @@ async def test_delete_asks_first(tmp_path: Path) -> None:
         assert app.query_one(ListView).index == 1
         assert str(app.query_one("#machine-id", Static).content) == "lab"
         assert status(app) == "Deleted machine 2: studio."
+
+
+async def test_actions_wait_for_the_rebuilt_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = asyncio.Event()
+    original = MachinePanes.recompose
+
+    async def slow_recompose(self: MachinePanes) -> None:
+        await release.wait()
+        await original(self)
+
+    monkeypatch.setattr(MachinePanes, "recompose", slow_recompose)
+    # A crash must fail the test, not leave it waiting for the held rebuild.
+    asyncio.get_running_loop().call_later(10, release.set)
+    app, path = saved_app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "down", "x")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: status(app) == "Deleted machine 3: lab.")
+        # The old three-item list is still on screen until the rebuild finishes.
+        app.refresh_bindings()
+        await pilot.pause()
+        for action in ("connect", "open_link", "add", "edit", "delete"):
+            assert app.check_action(action, ()) is None
+        await pilot.press("o", "c", "e", "x", "a")
+        assert app.is_running
+        assert len(app.screen_stack) == 1
+        release.set()
+        await wait_for(pilot, lambda: len(app.query_one(ListView).children) == 2)
+        await pilot.pause()
+        assert app.check_action("edit", ()) is True
+        assert app.query_one(ListView).index == 1
+        assert [m.id for m in parse_machines(path.read_text(encoding="utf-8"))] == [
+            "garden",
+            "studio",
+        ]
 
 
 async def test_deleting_the_last_machine_shows_the_empty_screen(
