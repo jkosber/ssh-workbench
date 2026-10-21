@@ -14,7 +14,7 @@ passed with 993 tests on each system.
 | Order of errors | The test's own `query_one(OptionList)` failed first. The app's `KeySetup.on_mount` then raised the same `NoMatches` while the screens closed, and `run_test` re-raised it on exit |
 | Cause | `push_screen` makes the new screen current at once; the screen composes in its own task. The helpers waited only for `isinstance(app.screen, X)`. On an alias, K pushes the picker from a thread's message, which can arrive during a `pilot.pause()` after that pause has already waited for the screen, so `picker()` could return before the picker had any widgets. A scratch script showed `app.screen` as an unmounted `KeySetup` with no `OptionList` right after `push_screen` |
 | Reproduction | A scratch pytest plugin delayed the modal screens' compose by 0.3 s and the alias's resolve by 0.3 s. The test then failed the same way on every run: the picker was pushed during a pause, and the pause ended with the picker current and not mounted |
-| Fix (tests only) | Each UI test file's `showing(app, kind)` also requires `app.screen.is_mounted`; all 21 waits for a screen to appear use it |
+| Fix (tests only) | Five UI test files get `showing(app, kind)`, which also requires `app.screen.is_mounted`; all 21 of their waits for a screen to appear use it. `picker_open` in `tests/test_link_actions.py` checks the same. Only the thread-driven K wait was reproduced; a screen pushed by a key has a narrower window, which a review pointed out for `picker_open` |
 | After the fix | The reproduction passed three times out of three; the five UI test files passed under it, 104 tests |
 | `uv run --locked pytest`, Ruff check and format | 993 passed; Ruff passed |
 
