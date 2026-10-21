@@ -580,9 +580,13 @@ Acceptance:
 
 ## 15. 0.2.1 real-use fixes
 
+**Merged in [PR #19](https://github.com/jkosber/ssh-workbench/pull/19)** as
+`ca7d984`, containing tested head `2032157`; the merge tree matches that head.
+Released as 0.2.1 by Task 16.
+
 Fixes for key setup problems seen on real machines in 0.2.0. Jadon chose this
 task on 2026-10-21 and authorized the branch, PR and merge; the 0.2.1 version
-and tag wait for a separate decision.
+and tag were a separate decision, made the same day.
 
 Acceptance:
 
@@ -604,9 +608,25 @@ Acceptance:
 - [x] A direct machine's key is saved only after its login test passes;
   otherwise the result adds `The key was not saved as this machine's key.`
   See the [Task 15 evidence](validation.md#task-15-021-real-use-fixes-2026-10-21).
-- [ ] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
+- [x] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   real check on the Windows laptop shows no CLIXML record; README, changelog
   and validation updated.
+
+## 16. Release 0.2.1
+
+Jadon asked on 2026-10-21 to release Task 15's fixes as 0.2.1 and tag it. No
+GitHub Release and no visibility change.
+
+Acceptance:
+
+- [x] Record the PR #19 integration and tick Task 15's last box.
+- [x] Set version 0.2.1 with `uv lock`, move Unreleased into a dated 0.2.1
+  changelog entry, and update every line that describes the current release.
+- [x] Full checks, a fresh build, an isolated install of the wheel and the
+  package check pass.
+- [ ] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
+  tested head, and an annotated `v0.2.1` tag on the merge commit that installs
+  from GitHub.
 
 ## 0.1.x candidates
 

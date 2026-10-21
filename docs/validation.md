@@ -51,6 +51,12 @@ Also corrected: the roadmap's RSA figures, its stale "reachable only by a
 fake", and the comment on `ssh.interrupted`. The review's other findings are
 in the roadmap's 0.2.x candidates.
 
+| Integration step | Result |
+| --- | --- |
+| [PR #19](https://github.com/jkosber/ssh-workbench/pull/19) CI on head `2032157` | [Push run 39641216603](https://github.com/jkosber/ssh-workbench/actions/runs/39641216603) and [PR run 39641251724](https://github.com/jkosber/ssh-workbench/actions/runs/39641251724) passed on Windows and Ubuntu, 1021 tests each |
+| Merge | Merged as **`ca7d984`**, guarded on head `2032157`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39641969719](https://github.com/jkosber/ssh-workbench/actions/runs/39641969719) passed on Windows and Ubuntu, 1021 tests each |
+
 ## Screen waits in UI tests, 2026-10-21
 
 [PR run 39621203373](https://github.com/jkosber/ssh-workbench/actions/runs/39621203373)
