@@ -547,6 +547,12 @@ Acceptance:
 
 ## 14. Prepare the 0.2.0 release
 
+**Merged in [PR #16](https://github.com/jkosber/ssh-workbench/pull/16)** as
+`155808e`, containing tested head `b6e22db`; the merge tree matches that head,
+and the annotated `v0.2.0` tag is on it. See the
+[Task 14 evidence](validation.md#task-14-020-release-2026-10-21) and the
+[follow-up checks](validation.md#020-follow-up-checks-2026-10-21).
+
 Supervised release work after Tasks 7-13 merged. On 2026-10-21 Jadon approved
 the real-target checks below, ruled that none of the 0.2.x candidates block
 0.2.0, and authorized the branch, PR, merge and an annotated `v0.2.0` tag. No
@@ -569,7 +575,7 @@ Acceptance:
   `StrictHostKeyChecking yes`, refuses until the README's one-time command
   records it; a real alias shows live status. macOS is not available and stays untested. See the
   [Task 14 evidence](validation.md#task-14-020-release-2026-10-21).
-- [ ] PR, two fresh reviews, CI on Windows and Ubuntu, a merge guarded on the
+- [x] PR, two fresh reviews, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.0` tag on the merge commit.
 
 ## 0.1.x candidates
