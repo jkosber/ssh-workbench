@@ -46,7 +46,17 @@ found these issues to fix; each was fixed after a failing test:
 
 Two fakes of `host_names` in `tests/test_renames_ui.py` took the new `skip`
 argument in their own commit; they passed against the code before the fix.
-After the fixes: 992 tests passed. Remaining minor findings are in the
+
+The repeated native check then showed the header naming the machine file by
+the relative path typed after `--config`, which would compare differently from
+another folder; `test_the_generated_file_names_the_machine_file_absolutely`
+failed, then passed, and a further repeat showed the absolute path. One full
+run also showed `test_shutdown_skips_a_pending_rebuild` (from PR #12) failing
+once: a rebuild queued with `call_later` during teardown did not always run.
+The test now creates and awaits that task; it passed eight times in a row and
+fails when the `_rebuild` guard is removed.
+
+After the fixes: 993 tests passed. Remaining minor findings are in the
 roadmap's 0.2.x candidates.
 
 Open for Jadon: inserting the `Include` line into a real `~/.ssh/config`.
