@@ -682,12 +682,14 @@ on success, the key saved after a failed test and the commented-out key.
   U presses; one test waits 0.2 s of real time for a negative result.
 - Task 12: a late `ssh -G` answer for K opens the picker even after C or an
   edit in between; a second K while it resolves is ignored without a hint.
-- Task 12: RSA keys of about 7168 bits or more make the Windows command longer
-  than cmd.exe accepts; refuse them before the handoff with a clear message.
+- Task 12: large RSA keys make the Windows command longer than cmd.exe
+  accepts; refuse them before the handoff with a clear message. Since Task 15
+  the largest that fits is 6704 bits with no comment and 6104 bits with a
+  100-character one (0.2.0: 7384 and 6760).
 - Task 12: the "doesn't name this key" note ignores configured keys whose
   `.pub` is missing.
 - Task 12: the picker can open with no choices; "Key setup interrupted." names
-  no step and is reachable only by a fake; the handoff block repeats Connect's.
+  no step; the handoff block repeats Connect's.
 - Task 12: the details pane does not show key-login state, which the design's
   screen sketch mentions; zsh, fish and tcsh login shells are untested.
 - Task 13: an exported ID may equal another machine's alias, or a `Host` the
@@ -706,6 +708,17 @@ on success, the key saved after a failed test and the commented-out key.
   tests.
 - Task 14: the login test also accepts keys from a `Host` entry in the user's
   SSH config that matches a direct machine's address (documented).
+- Task 15: after Ctrl+C, Windows ssh-keygen exits 255 and ssh can exit 0, so
+  those interruptions read as a failure or, for the login test, as "Key login
+  works.", which now also saves a direct machine's key. Ctrl+C at the login
+  test's passphrase prompt is unchecked. Proposal, after a native check that
+  SSH does not catch Ctrl+C and continue during these steps: a flag set by the
+  parent's shield handler during each `run_native` call.
+- Task 15: no test covers an alias's login test interrupted with an unnamed key
+  (the hint is dropped), or a file holding both a commented and an active copy
+  of the key (it counts as installed).
+- Task 15: an error thrown by the Windows script may also reach the terminal as
+  CLIXML; unchecked.
 
 ## Deferred ideas
 

@@ -9,8 +9,8 @@ fixes and approved the real checks on the Windows laptop.
 | --- | --- |
 | Tests first | Each fix's tests failed before its implementation commit: `test_windows_install_script_hides_progress` (line 2 was `$key`); six POSIX and three Windows commented-copy cases, and `test_posix_install_command_text`; both unnamed-key cases of `test_an_alias_test_passing_with_an_unnamed_key_says_so`; `test_a_failed_login_test_does_not_save_the_key`; seven `test_interrupted_statuses` cases and three new cases of `test_a_failed_step_stops_the_later_ones` |
 | Guards that passed before their fix, as intended | `#` inside a key's options still counts as installed (POSIX and Windows); a configured key keeps the plain "Key login works."; a machine's own key that fails its test gets no save note |
-| Existing assertions changed | `test_posix_install_command_text`: the script now skips comment lines. `test_a_failed_login_test_still_saves_the_installed_key` became `test_a_failed_login_test_does_not_save_the_key`: Jadon reversed the Task 12 ruling to save a key once installed |
-| Ruff check and format, `uv run --locked pytest` | Passed; 1019 passed (993 before) |
+| Existing assertions changed | `test_posix_install_command_text`: the script now skips comment lines, and after the review runs both greps with `LC_ALL=C`. `test_a_failed_login_test_still_saves_the_installed_key` became `test_a_failed_login_test_does_not_save_the_key`: Jadon reversed the Task 12 ruling to save a key once installed |
+| Ruff check and format, `uv run --locked pytest` | Passed; 1021 passed after the review's fixes (993 before the task) |
 | `uv build`, `scripts/check_package.py` | Passed |
 | An invalid escape | The first Windows comment filter wrote `\s` in a normal Python string, and Python 3.14 warned at compile time. The source now writes `\\s`; the script still holds `^\s*#`, and the key tests pass with `SyntaxWarning` as an error |
 
@@ -38,6 +38,18 @@ alias's configured key and the Windows target:
 | --- | --- |
 | First attempt | The install exited 255 after ssh reported a connection timeout; the status had shown Offline. The key file was unchanged |
 | R, then K again | Online via alias. "the key was already installed.", "testing key-only login.", then "Key login works.", with no CLIXML in the handoff. This shows the new script works on Windows PowerShell 5.1; the absence of the record alone proves nothing, so the evidence above is what shows the fix. The administrator file stayed byte-identical, with its ACL unchanged, and its copy was deleted |
+
+A fresh whole-branch review found no critical issue. Fixed from it, test first:
+
+| Finding | Fix and test |
+| --- | --- |
+| The new grep pipeline missed the key when `authorized_keys` held non-UTF-8 bytes, so in a UTF-8 locale K appended a duplicate | Both greps run with `LC_ALL=C`. `test_posix_install_finds_a_key_whose_comment_is_not_utf8` failed first with "key installed." |
+| The Windows command grew by about 480 characters, so a 6144-bit RSA key with a 40-character comment no longer fit (8250 characters) | The comment inside the script moved to Python. `test_windows_command_fits_cmd_with_a_6144_bit_rsa_key_and_a_comment` failed first. The largest key that fits is now 6704 bits with no comment and 6104 bits with a 100-character one (0.2.0: 7384 and 6760) |
+| README and changelog said Workbench always reports Ctrl+C as an interruption | Both now name the Windows statuses that still show as they are |
+
+Also corrected: the roadmap's RSA figures, its stale "reachable only by a
+fake", and the comment on `ssh.interrupted`. The review's other findings are
+in the roadmap's 0.2.x candidates.
 
 ## Screen waits in UI tests, 2026-10-21
 
