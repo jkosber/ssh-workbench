@@ -180,10 +180,10 @@ def find_ssh_keygen() -> str:
     return _find_native("ssh-keygen")
 
 
-# Statuses only Ctrl+C produces: a POSIX child killed by SIGINT, Windows'
-# STATUS_CONTROL_C_EXIT, and Windows OpenSSH stopped while it connects. After
-# Ctrl+C, Windows ssh-keygen also exits 255 and ssh may exit 0, which say
-# nothing about an interruption.
+# Statuses Ctrl+C leaves: a POSIX child killed by SIGINT, Windows'
+# STATUS_CONTROL_C_EXIT, and the -1 Windows OpenSSH exits with when stopped
+# while it connects. After Ctrl+C, Windows ssh-keygen also exits 255 and ssh
+# may exit 0, which say nothing about an interruption.
 _INTERRUPTED = (-signal.SIGINT, 0xC000013A, 0xFFFFFFFF)
 
 

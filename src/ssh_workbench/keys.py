@@ -188,12 +188,13 @@ def posix_install_command(key: PublicKey) -> str:
     `exec sh -c` runs it the same from any login shell. The script holds no
     single quote and no `!` (tcsh history), and the key line needs no escaping
     inside double quotes. A copy on a comment line, as sshd reads them, does
-    not count.
+    not count. `LC_ALL=C` keeps grep from dropping lines with non-UTF-8 bytes.
     """
     script = (
         'umask 077 && mkdir -p "$HOME/.ssh" && f="$HOME/.ssh/authorized_keys"'
         ' && touch "$f" && chmod 700 "$HOME/.ssh" && chmod 600 "$f"'
-        f' && if grep -v "^[[:space:]]*#" "$f" | grep -qF "{key.blob}";'
+        ' && if LC_ALL=C grep -v "^[[:space:]]*#" "$f"'
+        f' | LC_ALL=C grep -qF "{key.blob}";'
         ' then echo "SSH Workbench: the key was already installed.";'
         ' else { if [ -s "$f" ] && [ -n "$(tail -c 1 "$f")" ]; then echo; fi;'
         f' echo "{key.line}"; }} >> "$f"'
@@ -207,6 +208,9 @@ def posix_install_command(key: PublicKey) -> str:
 # shared file sshd reads for the Administrators group; sshd ignores that file
 # unless only SYSTEM and Administrators may access it. Without a console,
 # progress records reach the terminal as CLIXML, so they are switched off.
+# sshd skips comment lines, so a commented-out copy of the key does not count.
+# Comments stay out of the script: every character counts against cmd.exe's
+# 8191-character limit.
 _WINDOWS_SCRIPT = """$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $key = '@KEY@'
@@ -223,7 +227,6 @@ if ($admin) {
 }
 $found = $false
 if (Test-Path -LiteralPath $file) {
-  # sshd skips comment lines, so a commented-out copy does not count.
   $found = [bool](Get-Content -LiteralPath $file |
     Where-Object { $_ -notmatch '^\\s*#' } |
     Select-String -SimpleMatch -Quiet -Pattern $blob)
