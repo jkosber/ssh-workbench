@@ -1,7 +1,9 @@
 import ast
 import importlib
+import re
 import sys
 import textwrap
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -54,3 +56,16 @@ def test_package_check_keeps_python_out_of_strings() -> None:
             ):
                 embedded.append(node.lineno)
     assert embedded == []
+
+
+def test_ci_uv_pin_matches_build_backend_range() -> None:
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    requires = project["build-system"]["requires"]
+    assert len(requires) == 1
+    match = re.fullmatch(r"uv_build>=(\d+)\.(\d+)\.(\d+),<(\d+)\.(\d+)\.0", requires[0])
+    assert match is not None, requires[0]
+    major, minor, patch, upper_major, upper_minor = map(int, match.groups())
+    assert (upper_major, upper_minor) == (major, minor + 1)
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    pins = re.findall(r'^\s+version: "([^"]+)"$', workflow, re.MULTILINE)
+    assert pins == [f"{major}.{minor}.{patch}"]
