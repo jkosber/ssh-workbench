@@ -197,6 +197,30 @@ def test_no_single_match_means_no_suggestion(
     assert result.memory.renames == {}
 
 
+def test_a_new_name_matching_two_vanished_aliases_is_offered_to_neither() -> None:
+    state = memory(records={"old-host": RECORD, "old-shed": RECORD})
+    first = review(
+        state, ["old-host", "old-shed"], ["new-host"], Resolver({"new-host": SAME})
+    )
+
+    assert first.missing == {"old-host": None, "old-shed": None}
+    assert first.memory.renames == {}
+
+    kept = memory(
+        records={"old-host": RECORD, "old-shed": RECORD},
+        renames={"old-host": "new-host"},
+    )
+    second = review(
+        kept,
+        ["old-host", "old-shed"],
+        ["hop-host", "new-host"],
+        Resolver({"new-host": SAME}),
+    )
+
+    assert second.missing == {"old-host": None, "old-shed": None}
+    assert second.memory.renames == {}
+
+
 def test_a_name_that_already_existed_is_never_suggested() -> None:
     resolve = Resolver({"hop-host": SAME})
 
