@@ -41,6 +41,19 @@ build and package check passed again, and redirected help with a fictional
 non-cp1252 `APPDATA` exited 0 with the path escaped. The native smoke test was
 not repeated; the fix changes only help text.
 
+### Integration and release
+
+Each step below had Jadon's approval.
+
+| Step | Result |
+| --- | --- |
+| [PR #6](https://github.com/jkosber/ssh-workbench/pull/6) CI on head `8320728` | [Push run 39518641055](https://github.com/jkosber/ssh-workbench/actions/runs/39518641055) and [PR run 39518656107](https://github.com/jkosber/ssh-workbench/actions/runs/39518656107) passed on Windows and Ubuntu; the PR run logs show 446 tests on each |
+| Merge | Merged at 2026-10-21 00:03 UTC (2026-10-20 locally) as **`54f6a3e`**, guarded on head `8320728`. Parents `ac4f6e8` and `8320728`; tree identical to the tested head. Local `main` fast-forwarded to it |
+| Merged `main` CI | [Run 39518897638](https://github.com/jkosber/ssh-workbench/actions/runs/39518897638) passed on Windows and Ubuntu |
+| Tag | Annotated `v0.1.0` ("Release 0.1.0", tagger Jadon Kosberg) on `54f6a3e`, pushed to origin |
+| Install from the tag | `uv tool install --reinstall git+https://github.com/jkosber/ssh-workbench@v0.1.0` installed 0.1.0; `ssh-workbench --version` printed `ssh-workbench 0.1.0` |
+| Repository | Description updated to match `pyproject.toml`. Still private, with no GitHub Release. The merged branch was deleted |
+
 ## Task 5: preparation and safe local verification, 2026-10-12
 
 **Task 5 is complete and merged in PR #5.** Initial preparation merged Task 4, verified the

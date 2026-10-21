@@ -246,9 +246,10 @@ A passing test or completed task does not authorize a release. Follow
 
 ## 6. Prepare the 0.1.0 release
 
-**In progress** on `feat/task6-0.1.0-readiness`, from Task 5 merge `ac4f6e8`.
-Implementation and [verification](validation.md#task-6-010-readiness-2026-10-20)
-are complete; integration waits for approval.
+**Merged in [PR #6](https://github.com/jkosber/ssh-workbench/pull/6)** as
+`54f6a3e`, based on Task 5 merge `ac4f6e8`, and tagged as the annotated, private
+`v0.1.0` on 2026-10-20. See the
+[Task 6 evidence](validation.md#task-6-010-readiness-2026-10-20).
 The 0.1.0 review found the features sufficient but daily use and user
 documentation lacking. This task closes those gaps and tags 0.1.0 privately.
 
@@ -271,7 +272,7 @@ Acceptance:
   changelog entry and remove "unreleased" and "scaffold" status wording.
 - [x] Run the full checks, then smoke-test the installed tool in Windows
   Terminal with one approved SSH target loaded from the default file.
-- [ ] With Jadon's approval for each step: PR, merge, annotated `v0.1.0` tag on
+- [x] With Jadon's approval for each step: PR, merge, annotated `v0.1.0` tag on
   the merge commit and the updated GitHub description. No GitHub Release.
 
 ## 0.1.x candidates
