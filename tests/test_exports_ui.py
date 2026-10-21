@@ -229,3 +229,26 @@ async def test_details_name_the_exported_alias(
         await pilot.press("down")
         await pilot.pause()
         assert str(connection.content) == "Direct"
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+async def test_every_connection_field_shows_in_the_form(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size: tuple[int, int]
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (LAB,))
+    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
+    async with app.run_test(size=size) as pilot:
+        await pilot.press("a")
+        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        form = app.screen
+        await pilot.pause()
+        aliases = form.query_one("#alias-fields")
+        assert aliases.region.contains_region(form.query_one("#form-alias").region)
+        assert aliases.region.contains_region(form.query_one("#form-hosts").region)
+        form.query_one("#kind-direct", RadioButton).value = True
+        await pilot.pause()
+        direct = form.query_one("#direct-fields")
+        for field in ("addresses", "user", "port", "key", "export_alias"):
+            region = form.query_one(f"#form-{field}").region
+            assert region.height > 0, field
+            assert direct.region.contains_region(region), field
