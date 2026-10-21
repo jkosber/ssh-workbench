@@ -1,1 +1,1 @@
-"""SSH Workbench: a keyboard-driven terminal interface for project SSH aliases."""
+"""SSH Workbench: a keyboard-driven terminal interface for the machines you work on."""
