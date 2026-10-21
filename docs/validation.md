@@ -1,5 +1,29 @@
 # Validation
 
+## Task 7: tooling cleanup, 2026-10-20
+
+Branch `feat/task7-tooling-cleanup`. Environment as in Task 6: Windows 11,
+Python 3.14.7, Textual 8.2.8, uv 0.13.3, Ruff 0.16.10 and pytest 9.1.1.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | The shared-list tests failed at collection (`No module named 'external_boundaries'`); the strings test failed listing lines 13, 34, 192 and 357 of `check_package.py` |
+| Drift test | Passed on the old 0.12.24 pair, failed (`['0.12.24'] == ['0.13.3']`) after only `pyproject.toml` changed, and passed once CI matched |
+| `uv build` before and after | The warning that `uv-build>=0.12.24,<0.13.0` excludes uv 0.13.3 appeared before the change and is gone after it. `uv lock --check` reported the lock unchanged |
+| Isolation assertions | `package_smoke.py` without `-I` failed on `sys.flags.isolated`; with `-I` against the development environment it failed naming `ssh_workbench`, whose editable install points at the checkout |
+| `uv sync --locked`, Ruff check and format | Passed; 32 files already formatted |
+| `uv run --locked pytest` | 450 passed (446 before Task 7) |
+| `uv build`, `scripts/check_package.py` | Passed, with the same success line as before |
+| Relative Markdown links | 62 checked, 0 broken |
+
+No native terminal check was needed: no application code changed.
+
+Two fresh reviewers (spec compliance; code and docs quality) found no critical
+or important issues. Both confirmed the moved checks match the old string bodies
+and reproduced the two isolation failures. Three documentation statements were
+corrected; four minor test-strength findings are listed under 0.2.x candidates
+in the roadmap.
+
 ## Task 6: 0.1.0 readiness, 2026-10-20
 
 Branch `feat/task6-0.1.0-readiness`. Environment: Windows 11 Home Insider

@@ -5,6 +5,14 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Development
+
+- Builds use `uv_build` 0.13 and CI uses uv 0.13.3, which removes the build
+  warning about the backend's version range.
+- Tests, fixtures and the package check share one list of guarded process,
+  network and browser entry points. The installed-wheel checks moved from
+  strings in `scripts/check_package.py` into `scripts/package_smoke.py`.
+
 ## 0.1.0 - 2026-10-20
 
 First usable release, tagged privately.

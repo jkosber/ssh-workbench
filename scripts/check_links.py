@@ -21,6 +21,8 @@ import sys
 from threading import Event
 from unittest.mock import patch
 
+from external_boundaries import EXTERNAL_BOUNDARIES, WINDOWS_OPENER
+
 from ssh_workbench.app import SSHWorkbenchApp
 from ssh_workbench.config import Project
 from ssh_workbench.links import LinkResult, open_link
@@ -89,21 +91,10 @@ def install_fixture_guards() -> None:
     # start() retains each patch without context-manager teardown. Do not stop
     # these patches, even on errors: a daemon can outlive app.run(). Waiting for
     # the intentionally blocked daemon would prevent normal interpreter exit.
-    for boundary in (
-        "socket.create_connection",
-        "socket.getaddrinfo",
-        "subprocess.Popen",
-        "subprocess.run",
-        "os.system",
-        "webbrowser.open",
-        "webbrowser.open_new",
-        "webbrowser.open_new_tab",
-        "asyncio.create_subprocess_exec",
-        "asyncio.create_subprocess_shell",
-    ):
+    for boundary in EXTERNAL_BOUNDARIES:
         patch(boundary, side_effect=reject_external_action).start()
     if hasattr(os, "startfile"):
-        patch("os.startfile", simulate_dispatch).start()
+        patch(WINDOWS_OPENER, simulate_dispatch).start()
     if sys.platform == "linux":
         patch.dict(os.environ, {"DISPLAY": ":fixture"}).start()
         patch("ssh_workbench.links.shutil.which", return_value="/fictional/gio").start()

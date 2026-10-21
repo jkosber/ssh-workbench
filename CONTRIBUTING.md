@@ -76,8 +76,16 @@ uv run --locked python scripts/check_package.py
   CLI-to-browser selection/quit and substituted SSH success, failure and
   interruption, plus explicit link outcomes and quit with a blocked browser
   opener. Isolated Python mode and imported-module path assertions check the
-  wheel rather than the checkout. A build alone does not prove SSH functionality
-  or interactive terminal compatibility.
+  wheel rather than the checkout. The checks that import the installed package
+  live in `scripts/package_smoke.py`, which `check_package.py` runs with
+  `python -I`. A build alone does not prove SSH functionality or interactive
+  terminal compatibility.
+
+`scripts/external_boundaries.py` lists the module-level process, network and
+browser entry points that guarded tests, fixtures and package checks reject.
+Add a new module-level entry point there, not to an individual test. Socket
+`connect` and `connect_ex` are patched separately, once the event loop exists,
+because Windows opens a local socket pair when the loop starts.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
 itself, with and without `--config examples/projects.example.toml`; check

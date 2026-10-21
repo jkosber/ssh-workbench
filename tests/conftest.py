@@ -1,13 +1,11 @@
-import asyncio
-import os
+import importlib
 import socket
-import subprocess
-import webbrowser
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from external_boundaries import EXTERNAL_BOUNDARIES, WINDOWS_OPENER
 
 
 @pytest.fixture(scope="session")
@@ -31,16 +29,11 @@ def no_external_actions(monkeypatch: pytest.MonkeyPatch) -> None:
     def unexpected(*args: object, **kwargs: object) -> None:
         pytest.fail("The project browser attempted an external action")
 
-    for target, names in (
-        (socket, ("create_connection", "getaddrinfo")),
-        (subprocess, ("Popen",)),
-        (asyncio, ("create_subprocess_exec", "create_subprocess_shell")),
-        (os, ("system", "startfile")),
-        (webbrowser, ("open", "open_new", "open_new_tab")),
-    ):
-        for name in names:
-            if hasattr(target, name):
-                monkeypatch.setattr(target, name, unexpected)
+    for name in (*EXTERNAL_BOUNDARIES, WINDOWS_OPENER):
+        owner, attribute = name.rsplit(".", 1)
+        module = importlib.import_module(owner)
+        if hasattr(module, attribute):
+            monkeypatch.setattr(module, attribute, unexpected)
 
 
 @pytest_asyncio.fixture

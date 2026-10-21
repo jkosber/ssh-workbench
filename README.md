@@ -20,7 +20,7 @@ Passwords, keys, the SSH agent and host-key checks all stay with OpenSSH.
 ## Requirements
 
 - [uv](https://docs.astral.sh/uv/getting-started/installation/). It downloads
-  Python 3.14 for Workbench if you don't have it.
+  Python 3.14 or later for Workbench if you don't have it.
 - The OpenSSH client: `ssh.exe` on Windows (the built-in "OpenSSH Client"
   optional feature), `ssh` elsewhere. Only absolute `PATH` entries count, so an
   `ssh.exe` in the folder you start Workbench from is never run.
