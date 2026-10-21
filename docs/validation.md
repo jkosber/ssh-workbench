@@ -1,5 +1,56 @@
 # Validation
 
+## Task 15: 0.2.1 real-use fixes, 2026-10-21
+
+Branch `feat/task15-real-use-fixes`. Environment as in Task 14. Jadon chose the
+fixes and approved the real checks on the Windows laptop.
+
+| Check | Agent-observed result |
+| --- | --- |
+| Tests first | Each fix's tests failed before its implementation commit: `test_windows_install_script_hides_progress` (line 2 was `$key`); six POSIX and three Windows commented-copy cases, and `test_posix_install_command_text`; both unnamed-key cases of `test_an_alias_test_passing_with_an_unnamed_key_says_so`; `test_a_failed_login_test_does_not_save_the_key`; seven `test_interrupted_statuses` cases and three new cases of `test_a_failed_step_stops_the_later_ones` |
+| Guards that passed before their fix, as intended | `#` inside a key's options still counts as installed (POSIX and Windows); a configured key keeps the plain "Key login works."; a machine's own key that fails its test gets no save note |
+| Existing assertions changed | `test_posix_install_command_text`: the script now skips comment lines, and after the review runs both greps with `LC_ALL=C`. `test_a_failed_login_test_still_saves_the_installed_key` became `test_a_failed_login_test_does_not_save_the_key`: Jadon reversed the Task 12 ruling to save a key once installed |
+| Ruff check and format, `uv run --locked pytest` | Passed; 1021 passed after the review's fixes (993 before the task) |
+| `uv build`, `scripts/check_package.py` | Passed |
+| An invalid escape | The first Windows comment filter wrote `\s` in a normal Python string, and Python 3.14 warned at compile time. The source now writes `\\s`; the script still holds `^\s*#`, and the key tests pass with `SyntaxWarning` as an error |
+
+Evidence gathered before the code:
+
+| Question | Result |
+| --- | --- |
+| What prints the progress record, on the Windows laptop | The install script with its key check forced and its `Set-Acl` run on a new temporary file printed one CLIXML block with three "Preparing modules for first use." records, both times. With `$ProgressPreference = 'SilentlyContinue'` on line 2 it printed none, both times. The script without `Set-Acl` printed none either way. The temporary files were removed; the real key file was not touched |
+| Which statuses Ctrl+C leaves, local tools only | In an owned Windows Terminal window, with the parent shielded as K's handoff shields it: `ssh-keygen` at its passphrase prompt exited 255, and `ssh` waiting on a local ProxyCommand exited 0, twice each. Neither can mark an interruption, so `interrupted` keeps -SIGINT, 0xC000013A and 0xFFFFFFFF, the status Task 14 saw when Ctrl+C stopped a login test |
+
+`scripts/check_keys.py` in an owned 80x24 Windows Terminal window, with local
+children only:
+
+| Step | Result |
+| --- | --- |
+| Box, new key, the test child exits 255 | The keygen, install and test children ran. "The key was installed, but key-only login failed (SSH exited with status 255). The key was not saved as this machine's key."; the machine file gained no key |
+| Box, `id_a.pub`, the test child exits 4294967295 | "The key was installed, but the login test was interrupted. The key was not saved as this machine's key." |
+| Garden, an alias with `IdentitiesOnly`, `id_a.pub`, the test child exits 0 | The picker showed the `IdentityFile` note. "Key-only login works, but SSH may have used another key. Your SSH config offers only its own keys for garden-host (IdentitiesOnly); add this line under Host garden-host: IdentityFile <path>" |
+
+Real check on the Windows laptop. The branch build was installed into ignored
+folders and the administrator key file copied aside first. K ran with the
+alias's configured key and the Windows target:
+
+| Step | Result |
+| --- | --- |
+| First attempt | The install exited 255 after ssh reported a connection timeout; the status had shown Offline. The key file was unchanged |
+| R, then K again | Online via alias. "the key was already installed.", "testing key-only login.", then "Key login works.", with no CLIXML in the handoff. This shows the new script works on Windows PowerShell 5.1; the absence of the record alone proves nothing, so the evidence above is what shows the fix. The administrator file stayed byte-identical, with its ACL unchanged, and its copy was deleted |
+
+A fresh whole-branch review found no critical issue. Fixed from it, test first:
+
+| Finding | Fix and test |
+| --- | --- |
+| The new grep pipeline missed the key when `authorized_keys` held non-UTF-8 bytes, so in a UTF-8 locale K appended a duplicate | Both greps run with `LC_ALL=C`. `test_posix_install_finds_a_key_whose_comment_is_not_utf8` failed first with "key installed." |
+| The Windows command grew by about 480 characters, so a 6144-bit RSA key with a 40-character comment no longer fit (8250 characters) | The comment inside the script moved to Python. `test_windows_command_fits_cmd_with_a_6144_bit_rsa_key_and_a_comment` failed first. The largest key that fits is now 6704 bits with no comment and 6104 bits with a 100-character one (0.2.0: 7384 and 6760) |
+| README and changelog said Workbench always reports Ctrl+C as an interruption | Both now name the Windows statuses that still show as they are |
+
+Also corrected: the roadmap's RSA figures, its stale "reachable only by a
+fake", and the comment on `ssh.interrupted`. The review's other findings are
+in the roadmap's 0.2.x candidates.
+
 ## Screen waits in UI tests, 2026-10-21
 
 [PR run 39621203373](https://github.com/jkosber/ssh-workbench/actions/runs/39621203373)
@@ -17,6 +68,10 @@ passed with 993 tests on each system.
 | Fix (tests only) | Five UI test files get `showing(app, kind)`, which also requires `app.screen.is_mounted`; all 21 of their waits for a screen to appear use it. `picker_open` in `tests/test_link_actions.py` checks the same. Only the thread-driven K wait was reproduced; a screen pushed by a key has a narrower window, which a review pointed out for `picker_open` |
 | After the fix | The reproduction passed three times out of three; the five UI test files passed under it, 104 tests |
 | `uv run --locked pytest`, Ruff check and format | 993 passed; Ruff passed |
+| [PR #18](https://github.com/jkosber/ssh-workbench/pull/18) CI on first head `1672a5c` | [Push run 39632124615](https://github.com/jkosber/ssh-workbench/actions/runs/39632124615) and [PR run 39632133087](https://github.com/jkosber/ssh-workbench/actions/runs/39632133087) passed on Windows and Ubuntu, 993 tests each |
+| CI on head `d31c47d`, after the review's `picker_open` fix | [Push run 39633064673](https://github.com/jkosber/ssh-workbench/actions/runs/39633064673) and [PR run 39633072307](https://github.com/jkosber/ssh-workbench/actions/runs/39633072307) passed on Windows and Ubuntu, 993 tests each |
+| Merge | Merged as **`497c5a8`**, guarded on head `d31c47d`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39633874192](https://github.com/jkosber/ssh-workbench/actions/runs/39633874192) passed on Windows and Ubuntu, 993 tests each |
 
 ## 0.2.0 follow-up checks, 2026-10-21
 

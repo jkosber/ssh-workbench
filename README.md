@@ -309,12 +309,17 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
    with a passphrase works: SSH asks for it. The test can also pass with
    another key SSH offers: any key `ssh <alias>` would use, or one named in a
-   `Host` entry that matches a direct machine's address.
+   `Host` entry that matches a direct machine's address. When the alias's
+   config doesn't name the key you picked, a passing test says SSH may have
+   used another key. Ctrl+C stops the setup. Workbench reports it as
+   interrupted when the tool's exit status shows it. On Windows, ssh-keygen
+   exits 255 after Ctrl+C at its passphrase prompt and ssh can exit 0, so
+   those show as that status.
 
-A direct machine's chosen key is saved as its `key` once it is installed. An
-alias machine's SSH config decides its keys, and Workbench never edits that
-config: when you pick a key the alias doesn't name, Workbench shows the
-`IdentityFile` line to add under its `Host` entry.
+A direct machine's chosen key is saved as its `key` once the login test
+passes. An alias machine's SSH config decides its keys, and Workbench never
+edits that config: when you pick a key the alias doesn't name, Workbench shows
+the `IdentityFile` line to add under its `Host` entry.
 
 Workbench reads only `.pub` files and never opens a private key. To type a
 passphrase once per session instead of at every login, load the key into

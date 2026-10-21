@@ -578,6 +578,36 @@ Acceptance:
 - [x] PR, two fresh reviews, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.0` tag on the merge commit.
 
+## 15. 0.2.1 real-use fixes
+
+Fixes for key setup problems seen on real machines in 0.2.0. Jadon chose this
+task on 2026-10-21 and authorized the branch, PR and merge; the 0.2.1 version
+and tag wait for a separate decision.
+
+Acceptance:
+
+- [x] The Windows install script sets `$ProgressPreference = 'SilentlyContinue'`
+  right after `$ErrorActionPreference`, so no CLIXML progress record reaches the
+  terminal.
+- [x] A copy of the key on a line whose first non-blank character is `#` does
+  not count as installed, in the POSIX and the Windows script, and the key is
+  added. A key line whose options contain `#` still counts.
+- [x] Ctrl+C ending ssh-keygen or the install reads `Key setup interrupted.`;
+  during the login test it reads `The key was installed, but the login test
+  was interrupted.` Interrupted statuses are a POSIX child killed by SIGINT,
+  and 0xC000013A and 0xFFFFFFFF on Windows. The native check found that
+  Windows ssh-keygen exits 255 and ssh can exit 0 after Ctrl+C; those stay
+  statuses. Connect's messages do not change.
+- [x] When an alias's login test passes with a key its SSH config doesn't name,
+  the result says SSH may have used another key and gives the `IdentityFile`
+  line.
+- [x] A direct machine's key is saved only after its login test passes;
+  otherwise the result adds `The key was not saved as this machine's key.`
+  See the [Task 15 evidence](validation.md#task-15-021-real-use-fixes-2026-10-21).
+- [ ] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
+  real check on the Windows laptop shows no CLIXML record; README, changelog
+  and validation updated.
+
 ## 0.1.x candidates
 
 Findings from the 0.1.0 review, deferred as non-blocking. Each needs its own
@@ -591,7 +621,9 @@ items; Task 8 took the R/D, help line, status line, folder, empty-file,
 
 ## 0.2.x candidates
 
-Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
+Minor review findings from the 0.2.0 tasks, deferred as non-blocking. Task 15
+took the CLIXML record, the Ctrl+C status, the alias login test's missing hint
+on success, the key saved after a failed test and the commented-out key.
 
 - Task 7: `test_no_external_actions_rejects_every_shared_boundary` passes even
   without a direct `subprocess.run` guard, because the guarded `Popen` fails
@@ -650,19 +682,16 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   U presses; one test waits 0.2 s of real time for a negative result.
 - Task 12: a late `ssh -G` answer for K opens the picker even after C or an
   edit in between; a second K while it resolves is ignored without a hint.
-- Task 12: a commented-out copy of the key in `authorized_keys` counts as
-  installed.
-- Task 12: RSA keys of about 7168 bits or more make the Windows command longer
-  than cmd.exe accepts; refuse them before the handoff with a clear message.
-- Task 12: an alias's login test can pass with an agent or default key; the
-  `IdentityFile` hint appears only on failure. The "doesn't name this key" note
-  ignores configured keys whose `.pub` is missing.
+- Task 12: large RSA keys make the Windows command longer than cmd.exe
+  accepts; refuse them before the handoff with a clear message. Since Task 15
+  the largest that fits is 6704 bits with no comment and 6104 bits with a
+  100-character one (0.2.0: 7384 and 6760).
+- Task 12: the "doesn't name this key" note ignores configured keys whose
+  `.pub` is missing.
 - Task 12: the picker can open with no choices; "Key setup interrupted." names
-  no step and is reachable only by a fake; the handoff block repeats Connect's.
+  no step; the handoff block repeats Connect's.
 - Task 12: the details pane does not show key-login state, which the design's
   screen sketch mentions; zsh, fish and tcsh login shells are untested.
-- Task 12: a direct machine's key is saved after a failed login test, so
-  Connect then offers only that key.
 - Task 13: an exported ID may equal another machine's alias, or a `Host` the
   user adds later; the form checks only the user's literal `Host` names at save.
 - Task 13: the Include check does not follow the user's own `Include` files,
@@ -677,13 +706,19 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
 - Task 13: the first creation of `ssh-workbench.config` isn't named in the
   status line; failure paths of `write_exports` and `add_include` have few
   tests.
-- Task 14: Windows PowerShell wrote a CLIXML progress record ("Preparing
-  modules for first use.") into the terminal after "key installed."; proposal:
-  `$ProgressPreference = 'SilentlyContinue'` at the top of the install script.
 - Task 14: the login test also accepts keys from a `Host` entry in the user's
   SSH config that matches a direct machine's address (documented).
-- Task 14: a login test interrupted with Ctrl+C on Windows reported "SSH
-  exited with status 4294967295" instead of an interruption.
+- Task 15: after Ctrl+C, Windows ssh-keygen exits 255 and ssh can exit 0, so
+  those interruptions read as a failure or, for the login test, as "Key login
+  works.", which now also saves a direct machine's key. Ctrl+C at the login
+  test's passphrase prompt is unchecked. Proposal, after a native check that
+  SSH does not catch Ctrl+C and continue during these steps: a flag set by the
+  parent's shield handler during each `run_native` call.
+- Task 15: no test covers an alias's login test interrupted with an unnamed key
+  (the hint is dropped), or a file holding both a commented and an active copy
+  of the key (it counts as installed).
+- Task 15: an error thrown by the Windows script may also reach the terminal as
+  CLIXML; unchecked.
 
 ## Deferred ideas
 

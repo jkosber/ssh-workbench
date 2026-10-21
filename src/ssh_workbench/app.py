@@ -68,6 +68,7 @@ from ssh_workbench.ssh import (
     SSHLaunchError,
     find_ssh,
     install_arguments,
+    interrupted,
     key_argument,
     launch_ssh,
     login_test_arguments,
@@ -1346,7 +1347,7 @@ class SSHWorkbenchApp(App[None]):
                 self._show_key_result(machine, str(error))
                 return
         machine_list = self.query_one(ListView)
-        installed = False
+        works = False
         self._connecting = True
         self.refresh_bindings()
         with ssh_handoff():
@@ -1355,7 +1356,7 @@ class SSHWorkbenchApp(App[None]):
                     # As for C: errors stay inside the suspension block, so
                     # the terminal is always handed back.
                     try:
-                        message, installed = self._key_steps(machine, plan, setting)
+                        message, works = self._key_steps(machine, plan, setting)
                     except (SSHLaunchError, KeySetupError) as error:
                         message = str(error)
                     except KeyboardInterrupt:
@@ -1369,7 +1370,7 @@ class SSHWorkbenchApp(App[None]):
                 self._connecting = False
                 machine_list.focus()
                 self.refresh_bindings()
-        if installed and setting != machine.key:
+        if works and setting != machine.key:
             machines = list(self.machines)
             machines[index] = replace(machine, key=setting)
             problem = self._save(machines, index, retry="set up the key")
@@ -1384,13 +1385,16 @@ class SSHWorkbenchApp(App[None]):
         self, machine: Machine, plan: KeyPlan, setting: str | None
     ) -> tuple[str, bool]:
         """Runs while the terminal is handed over; returns the result and
-        whether the key was installed."""
+        whether key-only login works, which a new machine key needs before
+        it is saved."""
         choice = plan.choice
         if choice.create:
             print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
             status = run_native(
                 keygen_arguments(choice.private, machine.id), "ssh-keygen"
             )
+            if interrupted(status):
+                return "Key setup interrupted.", False
             if status != 0:
                 return (
                     f"ssh-keygen exited with status {status}; nothing was installed.",
@@ -1404,6 +1408,8 @@ class SSHWorkbenchApp(App[None]):
         ssh = find_ssh()
         print("SSH Workbench: installing the key; SSH may ask for the password.")
         status = run_native([ssh, *install_arguments(machine, address, command)])
+        if interrupted(status):
+            return "Key setup interrupted.", False
         if status != 0:
             return (
                 f"Installing the key failed (SSH exited with status {status}); "
@@ -1413,12 +1419,26 @@ class SSHWorkbenchApp(App[None]):
         print("SSH Workbench: testing key-only login.")
         status = run_native([ssh, *login_test_arguments(tested, address)])
         if status == 0:
+            # A hint means the alias's config doesn't name this key, so SSH
+            # offered other keys and the test cannot show which one worked.
+            if choice.hint:
+                return (
+                    "Key-only login works, but SSH may have used another key. "
+                    f"{choice.hint}"
+                ), True
             return "Key login works.", True
-        message = (
-            "The key was installed, but key-only login failed "
-            f"(SSH exited with status {status})."
-        )
-        return (f"{message} {choice.hint}" if choice.hint else message), True
+        if interrupted(status):
+            message = "The key was installed, but the login test was interrupted."
+        else:
+            message = (
+                "The key was installed, but key-only login failed "
+                f"(SSH exited with status {status})."
+            )
+            if choice.hint:
+                message += f" {choice.hint}"
+        if setting != machine.key:
+            message += " The key was not saved as this machine's key."
+        return message, False
 
     def _show_key_result(self, machine: Machine, message: str) -> None:
         ids = [item.id for item in self.machines]

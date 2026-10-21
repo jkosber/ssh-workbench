@@ -8,6 +8,7 @@ import asyncio
 import base64
 import dataclasses
 import platform
+import signal
 import struct
 import threading
 from pathlib import Path
@@ -317,6 +318,25 @@ async def test_a_machine_with_a_key_uses_only_that_key(
             ["install"],
             "Key setup interrupted.",
         ),
+        (
+            ["down", "down"],
+            Native(statuses={"keygen": -signal.SIGINT}),
+            ["keygen"],
+            "Key setup interrupted.",
+        ),
+        (
+            [],
+            Native(statuses={"install": 0xC000013A}),
+            ["install"],
+            "Key setup interrupted.",
+        ),
+        (
+            [],
+            Native(statuses={"test": 0xFFFFFFFF}),
+            ["install", "test"],
+            "The key was installed, but the login test was interrupted. "
+            "The key was not saved as this machine's key.",
+        ),
     ],
 )
 async def test_a_failed_step_stops_the_later_ones(
@@ -339,7 +359,7 @@ async def test_a_failed_step_stops_the_later_ones(
     assert path.read_text(encoding="utf-8") == text
 
 
-async def test_a_failed_login_test_still_saves_the_installed_key(
+async def test_a_failed_login_test_does_not_save_the_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     native = Native(statuses={"test": 255})
@@ -351,9 +371,30 @@ async def test_a_failed_login_test_still_saves_the_installed_key(
         await finished(app, pilot)
         assert connection_status(app) == (
             "The key was installed, but key-only login failed (SSH exited with "
-            "status 255). The key is saved as this machine's key. Machine 1: box"
+            "status 255). The key was not saved as this machine's key. "
+            "Machine 1: box"
         )
-    assert read_machines(path)[0][0].key == str(folder / "id_a")
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_a_failed_test_of_a_machines_own_key_adds_no_save_note(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native(statuses={"test": 255})
+    key = tmp_path / "ssh" / "id_keyed"
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key=str(key))
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+    Path(f"{key}.pub").write_text(public_key(3, "keyed").line + "\n", "ascii")
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "The key was installed, but key-only login failed (SSH exited with "
+            "status 255). Machine 1: keyed"
+        )
+    assert path.read_text(encoding="utf-8") == text
 
 
 async def test_saving_a_key_warns_about_comments_in_the_picker(
@@ -426,6 +467,69 @@ async def test_an_alias_offers_its_own_keys_first_and_explains_others(
         [SSH, *KEY_ONLY, "--", "garden-host", "exit"],
     ]
     assert path.read_text(encoding="utf-8") == text
+
+
+@pytest.mark.parametrize(
+    ("identities_only", "hint"),
+    [
+        (
+            True,
+            "Your SSH config offers only its own keys for garden-host "
+            "(IdentitiesOnly); add this line under Host garden-host:",
+        ),
+        (
+            False,
+            "Your SSH config doesn't name this key for garden-host; add this line "
+            "under Host garden-host:",
+        ),
+    ],
+)
+async def test_an_alias_test_passing_with_an_unnamed_key_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, identities_only: bool, hint: str
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10",
+        22,
+        proxied=False,
+        user="dev",
+        identity_files=("~/ssh/id_lab",),
+        identities_only=identities_only,
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("down")
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "Key-only login works, but SSH may have used another key. "
+            f"{hint} IdentityFile {folder / 'id_a'} Machine 1: garden"
+        )
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_an_alias_test_passing_with_its_configured_key_says_it_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, user="dev", identity_files=("~/ssh/id_lab",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == "Key login works. Machine 1: garden"
 
 
 async def test_k_waits_for_the_alias_and_quitting_does_not(

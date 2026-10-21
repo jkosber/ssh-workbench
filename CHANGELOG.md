@@ -5,6 +5,22 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Fixed
+
+- K on a Windows target no longer prints PowerShell's "Preparing modules for
+  first use." progress record as XML after "key installed.".
+- A commented-out copy of the key in `authorized_keys` no longer counts as
+  installed; K adds the key.
+- Ctrl+C during key setup reads "Key setup interrupted.", or "The key was
+  installed, but the login test was interrupted.", instead of a failed login
+  with status 4294967295. On Windows, ssh-keygen exits 255 after Ctrl+C at its
+  passphrase prompt and ssh can exit 0; those statuses still show as they are.
+- When an alias's login test passes with a key its SSH config doesn't name, the
+  result says SSH may have used another key and gives the `IdentityFile` line
+  to add.
+- A direct machine's new key is saved only after its login test passes, so a
+  key that doesn't work no longer becomes the only key Connect offers.
+
 ## 0.2.0 - 2026-10-21
 
 Machines replace projects: add, edit and delete them in Workbench, with live
