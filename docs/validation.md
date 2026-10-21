@@ -50,8 +50,10 @@ issues. Their important findings were fixed after failing tests:
 
 They also corrected the docs: Workbench connects to the first address (not each
 in turn); a Windows key path needs single quotes in TOML; the `v0.1.0` tag
-predates machines. After the fixes: 685 tests passed. Remaining minor findings
-are listed under 0.2.x candidates in the roadmap.
+predates machines. After the fixes: 685 tests passed, the build and package
+check passed, and the fictional Windows Terminal check above was repeated with
+the same results. Remaining minor findings are listed under 0.2.x candidates in
+the roadmap.
 
 No direct machine was connected for real: its first connection asks to trust
 the host key under the new `HostKeyAlias`, and the approved actions allow only
