@@ -1,5 +1,39 @@
 # Validation
 
+## Task 13: exported aliases, 2026-10-21
+
+Branch `feat/task13-exported-aliases`. Environment as in Task 8. The real
+`~/.ssh/config` was not read or changed.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_exports.py` and `tests/test_exports_ui.py` failed at collection for the missing module and prompt; the `export_alias` schema tests and the `host_names` skip test failed. One existing assertion changed: the exact list of allowed machine fields gains `export_alias` |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 984 passed (944 before Task 13) |
+| `uv build`, `scripts/check_package.py` | Passed |
+
+Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
+and `SSH_WORKBENCH_SSH_DIR` pointed at ignored `.local/task13-session/`
+folders; the fictional SSH config had CRLF line endings:
+
+| Step | Result |
+| --- | --- |
+| Add `box` by keyboard: direct, `192.0.2.60`, user, port, a key path with a space, export ticked with Space | Saved; the Include question showed the exact line and the config path |
+| Y | `Added "Include ssh-workbench.config" to <path>; a copy is in config.ssh-workbench.bak.` The config bytes were the new line plus CRLF, then the original bytes unchanged; the backup was byte-identical to the original. Details: `Direct, exported as ssh box` |
+| Generated file | The header, then `Host box` with `HostName 192.0.2.60`, `User dev`, `Port 2222`, `HostKeyAlias box`, `IdentityFile "C:/Fictional Keys/id_box"` and `IdentitiesOnly yes` |
+| `ssh -F <generated file> -G box` | OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 both printed that host, user, port, host-key alias and the key path as one value. Only the generated file was given, since a relative `Include` in a `-F` file would resolve against the real `~/.ssh` |
+| E on `box` at 60x20, export unticked | Saved without a question; the generated file kept only its header |
+
+The first run of this check showed the add form squeezing the alias and direct
+fields to one row, so typed addresses, users, ports and keys were invisible; it
+had been so since Task 9, because a `Vertical` defaults to `height: 1fr`.
+`test_every_connection_field_shows_in_the_form` failed at 80x24 and 60x20, then
+passed once both containers got `height: auto`. At 60x20 the export checkbox's
+long label overflowed, so its explanation moved into the field label. The check
+above is the repeat.
+
+Open for Jadon: inserting the `Include` line into a real `~/.ssh/config`.
+
 ## Task 12: key login setup, 2026-10-21
 
 Branch `feat/task12-key-setup`. Environment as in Task 8. No real key was

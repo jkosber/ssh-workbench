@@ -32,6 +32,10 @@ Changes by release, newest first. Version numbers follow the policy in
   `ssh-keygen`, install its public half on a POSIX or Windows OpenSSH target
   with one fixed command, and confirm key-only login. A direct machine saves
   the key; for an alias Workbench shows the `IdentityFile` line to add.
+- Exported aliases: a direct machine with `export_alias = true` (a
+  checkbox in the form) gets a `Host <id>` block in Workbench's own
+  `ssh-workbench.config`, so `ssh <id>` works in any terminal. After a save,
+  Workbench offers to add `Include ssh-workbench.config` to your SSH config.
 
 ### Changed
 
@@ -70,6 +74,10 @@ Changes by release, newest first. Version numbers follow the policy in
   without sending anything. `ssh -G` resolves aliases at startup and on R
   only, never on the timer; it evaluates your whole SSH config, including
   `Match exec` lines.
+- Workbench changes your SSH config only after you press Y, and only by
+  adding one `Include` line at the top, after keeping a copy as
+  `config.ssh-workbench.bak`. Values in its generated file are quoted or
+  refused.
 - Key setup runs two fixed remote commands in the handed-off terminal, the
   install and `exit`; their only variable part is a public key line checked
   for type, base64 and a safe comment. Workbench reads only `.pub` files and

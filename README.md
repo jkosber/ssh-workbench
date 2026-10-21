@@ -102,6 +102,7 @@ first problem under its field; **Ctrl+S** saves only a valid machine, and
 | SSH alias | A `Host` name. The form lists the literal `Host` names in your SSH config and completes them as you type (Right accepts); any other name is allowed too |
 | Addresses | One or more, separated by commas or spaces. Workbench connects to the first |
 | User, Port, Key | Optional. Leave them empty to use SSH's defaults |
+| Export as an SSH alias | Optional, for direct machines. See [Exported aliases](#exported-aliases) |
 | Links | One per line: the name, then the URL, such as `Dashboard https://192.168.1.20:8006` |
 
 To list `Host` names, Workbench reads `config` in your SSH folder (`~/.ssh`, or
@@ -159,6 +160,7 @@ The file is UTF-8 TOML; a byte-order mark is fine. Schema version 2:
 | `user` | Optional, with `addresses` only. The login name, such as `admin` |
 | `port` | Optional, with `addresses` only. An integer from 1 to 65535; SSH's default otherwise |
 | `key` | Optional, with `addresses` only. The path of this machine's private key |
+| `export_alias` | Optional, with `addresses` only. `true` also writes the machine to Workbench's own SSH config file; see [Exported aliases](#exported-aliases) |
 | `links` | Optional array of tables, written as `[[machines.links]]` after the machine, each with a `name` and a `url` |
 
 Each machine has either `alias` or `addresses`, never both. Rules for the values:
@@ -313,6 +315,47 @@ Start-Service ssh-agent
 ssh-add $env:USERPROFILE\.ssh\id_ed25519_box
 ```
 
+## Exported aliases
+
+A direct machine can also be exported, so `ssh <id>` works in any terminal, in
+scripts and for coding agents, not only inside Workbench. Tick **Export as an
+SSH alias** in the form (or set `export_alias = true`); it is off by default.
+
+Workbench then writes its own file, `ssh-workbench.config`, in your SSH folder
+and rewrites it from the machine file at every save. Each exported machine
+becomes one block:
+
+```text
+Host box
+    HostName 192.0.2.60
+    User dev
+    Port 2222
+    HostKeyAlias box
+    IdentityFile "~/.ssh/id_ed25519_box"
+    IdentitiesOnly yes
+```
+
+`HostName` is the first address, and `HostKeyAlias` is the ID, as for
+Connect, so both use the same host key. `User`, `Port` and the key appear when
+the machine has them; the key path is quoted, with `/` for `\` and `%%` for
+`%`. On Linux and macOS the file is readable and writable only by you, as SSH
+requires. Inside Workbench, C still connects directly.
+
+SSH reads that file only once your own SSH config includes it, with one line
+before any `Host` or `Match` block:
+
+```text
+Include ssh-workbench.config
+```
+
+After you save an exported machine, Workbench shows this line and asks. **Y**
+copies your config to `config.ssh-workbench.bak`, then adds only that line at
+the top and changes no other byte; a missing config is created with the line.
+**N** changes nothing, and Workbench doesn't ask again until you restart it.
+
+The form refuses to export an ID that your own SSH config already names as a
+`Host`, because SSH would use Workbench's entry first.
+
 ## Keys
 
 | Key | Action |
@@ -377,7 +420,10 @@ status 2.
 ## Privacy
 
 Workbench reads and writes its machine file, its `.bak` copy and its
-`machines.state.<computer>.json` state file. To suggest aliases it reads only
+`machines.state.<computer>.json` state file. For exported machines it also
+writes `ssh-workbench.config` in your SSH folder and, only after you press
+**Y**, adds one `Include` line to your SSH config, keeping a copy first. To
+suggest aliases it reads only
 the `Host` and `Include` lines of your SSH config. At startup and on **R** it
 also runs `ssh -G` for each alias, and for new `Host` names that could replace
 a missing alias, and **K** runs it for the alias it sets up: SSH then

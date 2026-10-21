@@ -24,6 +24,7 @@ user = "studio"
 addresses = ["studio-box.example.com", "192.0.2.40"]
 port = 2222
 key = "~/.ssh/id_ed25519_studio_box"
+# export_alias = true would also write Host studio-box to ssh-workbench.config.
 
 [[machines.links]]
 name = "Dashboard"
