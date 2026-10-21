@@ -1,5 +1,24 @@
 # Validation
 
+## Status timer during shutdown, 2026-10-21
+
+After [PR #11](https://github.com/jkosber/ssh-workbench/pull/11) merged as
+`56c6d47` (guarded on head `4d4d473`, tree identical; the PR's
+[push run 39547483007](https://github.com/jkosber/ssh-workbench/actions/runs/39547483007)
+and [PR run 39547486885](https://github.com/jkosber/ssh-workbench/actions/runs/39547486885)
+passed on Windows and Ubuntu with 799 tests each), the
+[main run 39547849863](https://github.com/jkosber/ssh-workbench/actions/runs/39547849863)
+failed on Ubuntu: `test_timer_rounds_never_run_ssh_g` raised `NoMatches` for
+`#machine-status` from `_timer_round`, re-raised when `run_test` exited.
+
+| Item | Result |
+| --- | --- |
+| Cause | Textual 8.2.8's `App._shutdown` sets `_running` False, removes the screens in `_close_all`, and only then stops the app's timers. The test's 0.05 s status timer fired in that window and queried a half-removed screen |
+| Test first | `test_timers_start_nothing_once_the_app_stops_running` calls both timer callbacks after the app stopped; it failed with a new round started, then passed |
+| Fix | `_timer_round` and `_tick_animation` return once `App.is_running` is False |
+| `uv run --locked pytest` | 800 passed; the timer test passed eight times in a row locally (the failure was not reproduced on Windows) |
+| `uv build`, `scripts/check_package.py` | Passed |
+
 ## Task 10: live status, 2026-10-21
 
 Branch `feat/task10-live-status`. Environment as in Task 8.

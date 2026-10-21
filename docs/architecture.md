@@ -200,7 +200,7 @@ resolving every `STATUS_INTERVAL` (30 s) and after each save:
 | Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
 | Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, output captured and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `port`, `proxyjump` and `proxycommand` are read, and the host is never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
 | Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
-| Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R |
+| Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R. The status and animation timers do nothing once `App.is_running` is False: on shutdown Textual removes the screens before it stops the app's timers |
 | Connect | A direct machine connects to the address its latest status found online, else the first listed |
 
 `StatusSymbol` is a small widget, not a `Static`, so the name `Static` in a
