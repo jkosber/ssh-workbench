@@ -1413,6 +1413,13 @@ class SSHWorkbenchApp(App[None]):
         print("SSH Workbench: testing key-only login.")
         status = run_native([ssh, *login_test_arguments(tested, address)])
         if status == 0:
+            # A hint means the alias's config doesn't name this key, so SSH
+            # offered other keys and the test cannot show which one worked.
+            if choice.hint:
+                return (
+                    "Key-only login works, but SSH may have used another key. "
+                    f"{choice.hint}"
+                ), True
             return "Key login works.", True
         message = (
             "The key was installed, but key-only login failed "
