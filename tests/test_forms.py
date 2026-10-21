@@ -112,6 +112,16 @@ async def test_actions_are_dimmed_without_a_location_or_selection(
             assert app.check_action(action, ()) is None
 
 
+async def test_edit_and_delete_need_a_file_location() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        assert app.query_one(ListView).index == 0
+        for action in ("add", "edit", "delete"):
+            assert app.check_action(action, ()) is None
+        await pilot.press("a", "e", "x")
+        assert len(app.screen_stack) == 1
+
+
 async def test_add_first_alias_machine_creates_the_file(tmp_path: Path) -> None:
     path = tmp_path / "new folder" / "ssh-workbench" / "machines.toml"
     app = SSHWorkbenchApp(None, config_path=path)
