@@ -32,9 +32,21 @@ class Machine:
     port: int | None = None
     key: str | None = None
     links: tuple[Link, ...] = ()
+    # Also written to Workbench's own SSH config file as `Host <id>`.
+    export_alias: bool = False
 
 
-_MACHINE_FIELDS = {"id", "name", "alias", "user", "addresses", "port", "key", "links"}
+_MACHINE_FIELDS = {
+    "id",
+    "name",
+    "alias",
+    "user",
+    "addresses",
+    "port",
+    "key",
+    "links",
+    "export_alias",
+}
 _HOST_LABEL = r"[A-Za-z0-9](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9])?"
 _ALIAS_RULE = (
     "start with an ASCII letter/digit; "
@@ -108,6 +120,8 @@ def format_machines(machines: Sequence[Machine]) -> str:
                 lines.append(f"port = {machine.port}")
             if machine.key is not None:
                 lines.append(f"key = {_toml_string(machine.key)}")
+            if machine.export_alias:
+                lines.append("export_alias = true")
         blocks.append("\n".join(lines) + "\n")
         for link in machine.links:
             blocks.append(
@@ -289,7 +303,7 @@ def validate_machine(entry: dict[str, object], location: str) -> Machine:
     if "alias" in entry and "addresses" in entry:
         raise ConfigError(f"{location}: use either alias or addresses, not both")
     if "alias" in entry:
-        for field in ("user", "port", "key"):
+        for field in ("user", "port", "key", "export_alias"):
             if field in entry:
                 raise ConfigError(
                     f"{location}.{field}: only machines with addresses take this field"
@@ -304,6 +318,7 @@ def validate_machine(entry: dict[str, object], location: str) -> Machine:
             "addresses": _addresses(entry, location),
             "port": _optional_port(entry, location),
             "key": _optional_key(entry, location),
+            "export_alias": _export_alias(entry, location),
         }
     else:
         raise ConfigError(f"{location}: add alias or addresses")
@@ -330,6 +345,13 @@ def _identifier(
         )
     seen[identifier] = index
     return identifier
+
+
+def _export_alias(entry: dict[str, object], location: str) -> bool:
+    value = entry.get("export_alias", False)
+    if type(value) is not bool:
+        raise ConfigError(f"{location}.export_alias: expected true or false")
+    return value
 
 
 def _optional_user(entry: dict[str, object], location: str) -> str | None:
