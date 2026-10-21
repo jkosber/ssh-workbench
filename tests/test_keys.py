@@ -360,3 +360,56 @@ def test_windows_command_fits_cmd_with_a_large_rsa_key() -> None:
     rsa = PublicKey("ssh-rsa", blob("ssh-rsa", b"\x01" * 535), "dev@workstation")
 
     assert len(windows_install_command(rsa)) < 8191
+
+
+def install_with_powershell(home: Path, key: PublicKey) -> str:
+    """Run the Windows script's standard-user branch with USERPROFILE in `home`.
+
+    The administrator lines are replaced: that branch would change real ACLs.
+    """
+    script = windows_script(key)
+    lines = script.splitlines(keepends=True)
+    detect = [line for line in lines if line.startswith(("$me = ", "$admin = "))]
+    assert len(detect) == 2
+    for line in detect:
+        script = script.replace(line, "")
+    script = "$admin = $false\n" + script
+    # Windows targets run Windows PowerShell 5.1; elsewhere pwsh runs the script.
+    shell = shutil.which("powershell") or shutil.which("pwsh")
+    assert shell is not None, "PowerShell is needed to run the Windows script"
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    result = subprocess.run(
+        [shell, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
+        env={**os.environ, "USERPROFILE": str(home)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout
+
+
+def test_windows_install_adds_the_key_once_for_a_standard_user(
+    tmp_path: Path,
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+
+    assert install_with_powershell(tmp_path, ED_KEY) == (
+        "SSH Workbench: key installed.\n"
+    )
+    assert install_with_powershell(tmp_path, ED_KEY) == (
+        "SSH Workbench: the key was already installed.\n"
+    )
+
+    assert keys_file.read_bytes() == (ED_LINE + "\r\n").encode()
+
+
+def test_windows_install_keeps_existing_lines_whole(tmp_path: Path) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    keys_file.write_bytes(b"other")
+
+    install_with_powershell(tmp_path, ED_KEY)
+
+    assert keys_file.read_bytes() == f"other\r\n{ED_LINE}\r\n".encode()

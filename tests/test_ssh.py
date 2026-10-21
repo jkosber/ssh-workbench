@@ -561,12 +561,17 @@ def test_sigint_during_handoff_keeps_asyncio_browser_usable(
 
 
 def test_install_arguments_never_offer_the_machine_key() -> None:
+    # A RemoteCommand in the alias's config would make SSH refuse the command.
     assert ssh.install_arguments(FICTIONAL, None, "fixed command") == [
+        "-o",
+        "RemoteCommand=none",
         "--",
         "fictional-host",
         "fixed command",
     ]
     assert ssh.install_arguments(DIRECT, "192.168.1.40", "fixed command") == [
+        "-o",
+        "RemoteCommand=none",
         "-o",
         "HostKeyAlias=agent-box",
         "-l",
@@ -586,6 +591,11 @@ KEY_ONLY = [
     "PasswordAuthentication=no",
     "-o",
     "KbdInteractiveAuthentication=no",
+    # A shared connection from the install would skip authentication.
+    "-o",
+    "ControlPath=none",
+    "-o",
+    "RemoteCommand=none",
 ]
 
 
@@ -676,3 +686,23 @@ def test_find_ssh_keygen(
     assert str(caught.value) == (
         "ssh-keygen not found. Install OpenSSH and add it to PATH."
     )
+
+
+@pytest.mark.parametrize(
+    ("find", "label"), [(ssh.find_ssh, "SSH"), (ssh.find_ssh_keygen, "ssh-keygen")]
+)
+def test_lookup_errors_become_launch_errors(
+    monkeypatch: pytest.MonkeyPatch, find, label: str
+) -> None:
+    # Key setup looks the tools up inside the terminal handoff, where only
+    # launch errors are handled.
+    which = Mock(side_effect=PermissionError("fictional-private-path"))
+    monkeypatch.setattr(ssh.shutil, "which", which)
+
+    with pytest.raises(ssh.SSHLaunchError) as caught:
+        find()
+
+    assert str(caught.value) == (
+        f"Could not start {label}. Check its installation and executable permissions."
+    )
+    assert caught.value.__suppress_context__

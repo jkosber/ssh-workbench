@@ -36,6 +36,7 @@ pytestmark = [
 
 SSH = "/fictional/ssh"
 KEYGEN = "/fictional/ssh-keygen"
+NO_REMOTE_COMMAND = ["-o", "RemoteCommand=none"]
 KEY_ONLY = [
     "-o",
     "PreferredAuthentications=publickey",
@@ -43,6 +44,9 @@ KEY_ONLY = [
     "PasswordAuthentication=no",
     "-o",
     "KbdInteractiveAuthentication=no",
+    "-o",
+    "ControlPath=none",
+    *NO_REMOTE_COMMAND,
 ]
 BOX = Machine("box", "Box", user="dev", addresses=("192.0.2.60",))
 GARDEN = Machine("garden", "Garden", alias="garden-host")
@@ -208,6 +212,7 @@ async def test_a_new_key_is_created_installed_tested_and_saved(
         [KEYGEN, "-t", "ed25519", "-f", str(new), "-C", "ssh-workbench-box"],
         [
             SSH,
+            *NO_REMOTE_COMMAND,
             "-o",
             "HostKeyAlias=box",
             "-l",
@@ -267,6 +272,7 @@ async def test_a_machine_with_a_key_uses_only_that_key(
         assert connection_status(app) == "Key login works. Machine 1: keyed"
     assert native.calls[0] == [
         SSH,
+        *NO_REMOTE_COMMAND,
         "-o",
         "HostKeyAlias=keyed",
         "--",
@@ -405,7 +411,13 @@ async def test_an_alias_offers_its_own_keys_first_and_explains_others(
             "Machine 1: garden"
         )
     assert native.calls == [
-        [SSH, "--", "garden-host", posix_install_command(public_key(1, "a"))],
+        [
+            SSH,
+            *NO_REMOTE_COMMAND,
+            "--",
+            "garden-host",
+            posix_install_command(public_key(1, "a")),
+        ],
         [SSH, *KEY_ONLY, "--", "garden-host", "exit"],
     ]
     assert path.read_text(encoding="utf-8") == text
@@ -447,6 +459,29 @@ async def test_without_a_terminal_handoff_nothing_runs(
             "Cannot hand off this terminal. Run SSH Workbench in a local terminal. "
             "Machine 1: box"
         )
+    assert native.calls == []
+
+
+async def test_a_key_in_a_missing_home_folder_is_reported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key="~/.ssh/id_keyed")
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+
+    def no_home(cls: type[Path]) -> Path:
+        raise RuntimeError("no home folder")
+
+    monkeypatch.setattr(Path, "home", classmethod(no_home))
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await pilot.press("k")
+        await wait_for(pilot, lambda: "Machine 1:" in connection_status(app))
+        assert connection_status(app) == (
+            "Could not find your home folder for this machine's key. Machine 1: keyed"
+        )
+        assert not isinstance(app.screen, KeySetup)
+        assert app.is_running
     assert native.calls == []
 
 
