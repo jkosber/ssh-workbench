@@ -2,7 +2,8 @@
 
 ## 0.2.0 follow-up checks, 2026-10-21
 
-After the release, Jadon approved two more real targets for the same checks.
+After the release, Jadon approved two more real targets for live status, K and
+C with the 0.2.0 tool.
 
 | Target | Details |
 | --- | --- |
@@ -22,17 +23,18 @@ copied aside first, with their hashes, modes and ACL recorded.
 | K on the direct machine: new key, POSIX | "key installed.", then "Key login works. The key is saved as this machine's key." The linked file gained exactly one line, with the earlier bytes unchanged. With no matching `Host` entry, the login test offered only the new key: `ssh -G` with the test's options lists one `IdentityFile`. A login with no config file and only the new key also succeeded |
 | C on the direct machine again | Connected with only the saved key; status 0 |
 | K on the Windows alias with its configured key, Windows | "the key was already installed.", then "Key login works." `administrators_authorized_keys` stayed byte-identical. Its ACL was already SYSTEM and Administrators only, and stayed unchanged |
-| K on the Windows alias: new key, Windows | The picker showed the `IdentityFile` note. The administrator branch printed "key installed."; the file gained exactly one line ending in CRLF and kept its ACL. "Key login works." would also pass with the configured key, because `ssh -G` lists both keys; a login with no config file and only the new key proved the new one |
+| K on the Windows alias: new key, Windows | The picker showed the `IdentityFile` note. The administrator branch printed "key installed."; the file gained exactly one line ending in CRLF and kept its ACL. The login test printed "Key login works.", which the configured key passed: the alias's config doesn't name the new key. A login with no config file and only the new key proved the new one |
 | C on the Windows alias, then `exit` at the cmd prompt | Returned with status 0 |
 | Q | Exited with status 0 |
 
 Both Windows installs wrote the CLIXML progress record again after
 Workbench's own line, and the alias's login test again passed with the
-configured key. Both are existing 0.2.x candidates; there is no new finding.
+configured key. Both match existing 0.2.x candidates: Task 14's CLIXML record
+and Task 12's alias login test. There is no new finding.
 
 Not tested:
 
-- the Windows branch for a user who is not an administrator;
+- the Windows branch for a user who is not an administrator, on a real target;
 - macOS;
 - O on a Linux desktop.
 
@@ -41,13 +43,13 @@ confirming it held exactly those bytes plus the one test line. The link, modes
 and ACL were unchanged. The copies, both test keys and the direct machine's
 `known_hosts` line were deleted.
 
-Earlier the same day, Jadon approved deleting Task 14's leftovers:
+Earlier the same day, with Jadon's approval, Task 14's leftovers were deleted:
 
 - the three pre-check copies;
 - the test machine's host-key record;
 - uv, its Python and the 0.2.0 tool on the Linux target.
 
-Each copy matched its live file before deletion.
+Each copy was confirmed identical to its live file first.
 
 ## Task 14: 0.2.0 release, 2026-10-21
 

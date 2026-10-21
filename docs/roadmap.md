@@ -549,7 +549,7 @@ Acceptance:
 
 **Merged in [PR #16](https://github.com/jkosber/ssh-workbench/pull/16)** as
 `155808e`, containing tested head `b6e22db`; the merge tree matches that head,
-and the annotated `v0.2.0` tag is on it. See the
+and the annotated `v0.2.0` tag points at `155808e`. See the
 [Task 14 evidence](validation.md#task-14-020-release-2026-10-21) and the
 [follow-up checks](validation.md#020-follow-up-checks-2026-10-21).
 
