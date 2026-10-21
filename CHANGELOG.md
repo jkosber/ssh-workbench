@@ -28,6 +28,10 @@ Changes by release, newest first. Version numbers follow the policy in
   shows Alias not found and can't connect. When exactly one new `Host` name
   points at the same host, user and port, U updates the machine. Aliases that
   are not literal `Host` names are marked "not in your SSH config".
+- K sets up key login: pick a key from the SSH folder or create one with
+  `ssh-keygen`, install its public half on a POSIX or Windows OpenSSH target
+  with one fixed command, and confirm key-only login. A direct machine saves
+  the key; for an alias Workbench shows the `IdentityFile` line to add.
 
 ### Changed
 
@@ -44,6 +48,7 @@ Changes by release, newest first. Version numbers follow the policy in
 - Workbench now writes its machine file when you add, edit or delete a machine.
   Saving keeps the previous file as `machines.toml.bak`, replaces the file in
   one step, and drops comments and hand formatting after asking once.
+- R is labelled Check in the footer, so eight keys fit 60 columns.
 - Workbench keeps a state file per computer next to the machine file,
   `machines.state.<computer>.json`, with the `Host` names it saw and where
   each alias pointed. Deleting it is safe.
@@ -65,6 +70,10 @@ Changes by release, newest first. Version numbers follow the policy in
   without sending anything. `ssh -G` resolves aliases at startup and on R
   only, never on the timer; it evaluates your whole SSH config, including
   `Match exec` lines.
+- Key setup runs two fixed remote commands in the handed-off terminal, the
+  install and `exit`; their only variable part is a public key line checked
+  for type, base64 and a safe comment. Workbench reads only `.pub` files and
+  never opens a private key.
 - To suggest aliases, only `Host` and `Include` lines of your SSH config are
   read; Workbench never
   opens an included file named like a key, `known_hosts` or `authorized_keys`,

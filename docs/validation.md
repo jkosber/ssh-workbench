@@ -1,5 +1,40 @@
 # Validation
 
+## Task 12: key login setup, 2026-10-21
+
+Branch `feat/task12-key-setup`. Environment as in Task 8. No real key was
+created, no real `ssh-keygen` ran and no key was installed anywhere real.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_keys.py` and `tests/test_keysetup_ui.py` failed at collection for the missing module and screen; the new `tests/test_ssh.py` and `tests/test_status.py` tests failed for the missing builders, runner and alias keys |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 939 passed (868 before Task 12) |
+| POSIX install command | Run by a local `sh` with `HOME` in a temporary folder: installed once, reported "already installed" on a second run, kept an existing last line without a newline whole, and found the key behind `from=` options |
+| Windows install command | The decoded script parsed with no errors in PowerShell's own parser; a 4096-bit RSA key kept the command under 8191 characters. It was not run: its administrator branch would change real ACLs |
+| `ssh -G` keys | `ssh -F <fictional file> -G` printed `identityfile` with `~/` unexpanded and listed the defaults when none is configured |
+| Microsoft documentation | Read 2026-10-21: the administrator key file and its ACL, SIDs for localized names, cmd.exe as the default shell, ssh-agent disabled by default |
+
+Windows Terminal check in an owned window with `scripts/check_keys.py`, whose
+local children stand in for `ssh-keygen` and SSH, on fictional machines in
+ignored `.local/task12-session/` folders:
+
+| Run | Result |
+| --- | --- |
+| 1, Box (direct, no key): create a new key | The picker listed `id_a.pub`, `id_lab.pub` and `Create a new key: id_ed25519_box`. The keygen, install (POSIX, 519 characters) and test children each owned the terminal after a printed `SSH Workbench:` line. Back in the app: `Key login works. The key is saved as this machine's key. Machine 1: box`, and the machine file gained the key's path |
+| 1, Garden (alias): second choice | `id_lab.pub (your SSH config offers this)` first; on `id_a.pub` the note showed the `IdentityFile` line with the whole path |
+| 2, Garden, `id_a.pub`, Windows chosen with Tab and Space, test exits 255 | Windows install command of 5038 characters; result: key-only login failed, with the IdentitiesOnly explanation and the `IdentityFile` line |
+| 3, 60x20, same folder as run 1 | Box offered only its saved key; footer `c Connect o Link a Add e Edit x Delete k Key r Check q Quit` fit; the picker showed every part |
+
+The first run of this check showed the picker cutting off its note, so the
+`IdentityFile` path was hidden at 80x24 and the note and keys at 60x20.
+`test_the_picker_shows_its_note_and_keys_whole` failed at both sizes, then
+passed once the note moved under the title and the lists lost their borders;
+the check above is the repeat.
+
+Open for Jadon: installing and testing a real key against a Windows target
+(jadongpc3 from `mpc`) and a Linux target.
+
 ## Task 11: alias rename detection, 2026-10-21
 
 Branch `feat/task11-alias-renames`. Environment as in Task 8.

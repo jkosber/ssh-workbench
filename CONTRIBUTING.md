@@ -118,6 +118,13 @@ It replaces browser/OS boundaries, uses fictional machines and guards against
 other external actions. A real O action in the normal application opens a
 browser and requires an explicitly approved URL for development verification.
 
+For key setup, run `uv run --locked python scripts/check_keys.py` in a real
+terminal and press K. It works in a temporary folder with fictional keys,
+and local children stand in for `ssh-keygen` and SSH; `--keygen-status`,
+`--install-status` and `--test-status` choose their exit statuses, and
+`--folder` reuses a folder so a second run shows a saved key. A real key
+install needs approval for the specific target.
+
 ## Recover without losing work
 
 If something looks wrong, pause and inspect `git status` and `git diff` first.

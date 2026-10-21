@@ -9,11 +9,12 @@
 | `src/ssh_workbench/store.py` | The only file writing: outside-change check, `.bak` copy and atomic replace of the machine file; `replace_atomically` also writes the alias state file |
 | `src/ssh_workbench/aliases.py` | The alias state file and the rename review: which aliases vanished and the one new name each probably became |
 | `src/ssh_workbench/sshconfig.py` | The SSH folder and the literal `Host` names from its `config` and `Include` files; nothing else is interpreted |
-| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/U/O/A/E/X/R/Q actions |
+| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/U/O/A/E/X/K/R/Q actions |
 | `src/ssh_workbench/forms.py` | The machine form and the delete confirmation |
 | `src/ssh_workbench/display.py` | Literal display of configuration text, with nonprinting characters escaped |
 | `src/ssh_workbench/status.py` | The only network code: TCP port checks, the `ssh -G` alias resolver and the per-machine status rules |
 | `src/ssh_workbench/ssh.py` | Native SSH boundary: machine recheck, argument list, executable lookup, child process and SIGINT guard |
+| `src/ssh_workbench/keys.py` | Key setup: public-key validation, the `.pub` listing, new key names, `ssh-keygen` arguments and the two fixed install commands |
 | `src/ssh_workbench/links.py` | Browser boundary: URL recheck and operating-system dispatch |
 | `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
 | `tests/` | Loader, CLI, boundary and headless UI tests with fictional data |
@@ -78,7 +79,8 @@ machines read `From your SSH config`. Tab/Shift+Tab switch panes; details use
 Textual's standard scrolling keys. List rows shorten long names while details
 wrap the full value. Selection uses the list's highlight and focus uses an
 accent border. The compact footer shows C / Connect, O / Link, A / Add,
-E / Edit, X / Delete, R / Refresh and Q / Quit, with Ctrl+Q as an additional
+E / Edit, X / Delete, K / Key, R / Check and Q / Quit, with Ctrl+Q as an
+additional
 exit key. It ends before the last column, because Textual leaves the
 bottom-right cell empty on Windows. `check_action` dims every action except
 quitting while connecting, while a modal screen is open and while the panes
@@ -232,6 +234,26 @@ is still reviewing or resolving, so they never drop its answers.
 | Form save | Saving a machine from the form (A or E) with a missing alias forgets that alias's record and baseline: the user kept it on purpose, for example after moving it into a pattern. Its status then waits for R |
 | Keys | `check_action` hides C for a missing alias and hides U unless the selected machine has an offer, so the footer keeps at most seven keys. U saves only the selected machine, through `_save` with the forms' rewrite warning (a second U) and outside-change reload |
 | Marker | After a review, an alias that is neither listed nor missing reads "(not in your SSH config)" in the details; it still connects |
+
+## Implemented key setup
+
+K opens `forms.KeySetup` with `KeyChoice` entries and returns a `KeyPlan`. For
+an alias the app first runs `ssh -G` in a daemon thread, the one moment besides
+startup and R that it may, to learn the alias's `identityfile` and
+`identitiesonly`. The three steps then run in one `ssh_handoff` and `suspend`,
+each through `ssh.run_native` with the terminal's own input and output, and a
+printed `SSH Workbench:` line before each. A nonzero status stops the steps.
+
+| Item | Rule |
+| --- | --- |
+| Choices | A direct machine's own `key`; otherwise the alias's configured keys that have a valid `.pub` (with `~` as the SSH folder's parent), the folder's valid `.pub` files by name, and `id_ed25519_<id>` unless that name exists. `keys.public_key_files` reads `.pub` files only |
+| Public key | `keys.parse_public_key`: one line of at most 16 KiB with no control characters; a known type; strict base64 whose length-prefixed strings use every byte and start with the same type. A comment outside `[A-Za-z0-9._@+-]` words, or longer than 100 characters, is dropped |
+| Create | `ssh-keygen -t ed25519 -f <path> -C ssh-workbench-<id>`, found like `ssh` on absolute PATH entries |
+| POSIX install | `exec sh -c '<script>'`, so any login shell runs it: `umask 077`, create `~/.ssh` and `authorized_keys`, `chmod 700`/`600`, and append the key line unless `grep -qF` finds its base64, adding a newline first when the file lacks one. The script holds no single quote and no `!`; the key line sits in double quotes |
+| Windows install | `powershell -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64>`, so cmd.exe and PowerShell default shells run the same script. An identity whose claims include `S-1-5-32-544` (deny-only included) uses `%ProgramData%\ssh\administrators_authorized_keys`, then gets an ACL with only FullControl for `S-1-5-32-544` and `S-1-5-18`, inheritance removed, checked by reading it back; others use `%USERPROFILE%\.ssh\authorized_keys`. A 4096-bit RSA key keeps the command under cmd.exe's 8191 characters |
+| Install arguments | `ssh.install_arguments`: the connect arguments without `-i`, since the new key is not installed yet, then the command after the destination |
+| Login test | `ssh.login_test_arguments`: `PreferredAuthentications=publickey`, `PasswordAuthentication=no`, `KbdInteractiveAuthentication=no`, the connect arguments (a direct machine with the chosen key and `IdentitiesOnly=yes`), then `exit`. No `BatchMode`, so a passphrase key works |
+| Afterwards | A direct machine's chosen key is saved through `_save` once installed, as `~/.ssh/<name>` in the real SSH folder or an absolute path. For an alias, a key its config does not name carries the `IdentityFile` line in the picker and in a failed test's message |
 
 ## Implemented native SSH boundary
 
@@ -423,13 +445,14 @@ keys, or disable host-key verification. Bootstrap and automated tests must never
 read real SSH files or access real hosts; the test suite points
 `SSH_WORKBENCH_SSH_DIR`, `APPDATA` and `XDG_CONFIG_HOME` at an empty folder.
 
-0.2.0 deliberately changes three 0.1.0 rules:
+0.2.0 deliberately changes four 0.1.0 rules:
 
 | 0.1.0 rule | Now |
 | --- | --- |
 | Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E, X or U, with the change check and atomic replace above, and its alias state file next to them |
 | No network I/O of its own | TCP port checks for status only: a DNS lookup for a host name, then one connection per checked address to its SSH port, closed without sending data; no ICMP. Tests substitute `socket.create_connection` and the `ssh -G` process |
-| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines, and for new `Host` names that could replace a missing alias, at startup and on R, which evaluates the whole config including `Match exec`; only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
+| No remote commands | Exactly two built-in remote actions, both in the handed-off terminal: the key-install command and `exit` for the public-key-only login test. Their only variable part is a validated public key line; no command text comes from the machine file |
+| Never reads SSH configuration | Lists and reads `.pub` files in the SSH folder for key setup, never a private key. Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines, and for new `Host` names that could replace a missing alias, at startup, on R and at key setup, which evaluates the whole config including `Match exec`; only `hostname`, `user`, `port`, `identityfile`, `identitiesonly`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
 
 For subprocess code, validate aliases, users, addresses, ports and key paths as
 data and use an argument list with a resolved executable and `shell=False`.
@@ -485,6 +508,17 @@ handling. Source inspection of the Linux driver is not a Linux terminal test.
 Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
+
+## References checked for task 12
+
+- [Key-based authentication in OpenSSH for Windows](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_keymanagement) (updated 2026-04-21) and [OpenSSH Server configuration for Windows](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh-server-configuration): `administrators_authorized_keys`, its ACL, SIDs for localized group names, cmd.exe as the default shell, ssh-agent disabled by default
+- [ssh_config(5)](https://man.openbsd.org/ssh_config) `PreferredAuthentications`, `IdentitiesOnly`, `IdentityFile`
+- [PowerShell `-EncodedCommand`](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe)
+
+`ssh -F <fictional file> -G` printed `identityfile` with `~/` unexpanded and
+the default list when none is configured. Installed Textual 8.2.8 sources
+were checked for `RadioSet` (Space and Enter toggle) and `App.suspend`
+(standard output goes to the real terminal while suspended).
 
 ## References checked for task 11
 

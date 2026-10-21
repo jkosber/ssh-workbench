@@ -468,23 +468,23 @@ its public half, and confirm key-only login, all in the handed-off terminal.
 
 Acceptance:
 
-- [ ] K offers keys for the selected machine: a direct machine's own key;
+- [x] K offers keys for the selected machine: a direct machine's own key;
   otherwise the valid `.pub` files in the SSH folder and a new Ed25519 key
   named for the machine; for an alias, the keys its SSH config names (from
   `ssh -G`) first. Creating a key hands the terminal to `ssh-keygen`, which
   asks for the passphrase itself. Workbench reads only `.pub` files and saves a
   direct machine's chosen key as its `key`. For an alias it shows the
   `IdentityFile` line the config would need and never edits the config.
-- [ ] The public key is checked before use: one line, a known key type, base64
+- [x] The public key is checked before use: one line, a known key type, base64
   whose embedded type matches, and a comment of safe characters; an unsafe
   comment is dropped.
-- [ ] Installing runs one fixed command in the handed-off terminal, chosen by
+- [x] Installing runs one fixed command in the handed-off terminal, chosen by
   the target system. POSIX targets get the key in `~/.ssh/authorized_keys`
   once, with `700` and `600` permissions. Windows OpenSSH targets run
   PowerShell explicitly; administrators get `administrators_authorized_keys`
   with exactly SYSTEM and Administrators access, others
   `%USERPROFILE%\.ssh\authorized_keys`.
-- [ ] The login test allows only public-key authentication, runs `exit`, and
+- [x] The login test allows only public-key authentication, runs `exit`, and
   reports that key login works or what failed, including when an alias's
   config pins other keys. A passphrase key works because SSH asks for it.
   Every SSH call keeps `--`, `HostKeyAlias` for direct machines and host-key
