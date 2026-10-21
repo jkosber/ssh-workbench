@@ -148,6 +148,25 @@ def test_resolve_alias_without_a_user_line_has_an_empty_user(
     )
 
 
+def test_resolve_alias_reports_the_keys_the_alias_offers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    output = G_OUTPUT.replace("identitiesonly no", "identitiesonly yes") + (
+        "identityfile ~/.ssh/id_ed25519_lab\nidentityfile C:/Fictional Keys/id_lab\n"
+    )
+    substitute_ssh(
+        monkeypatch, tmp_path, subprocess.CompletedProcess([], 0, output, "")
+    )
+    assert resolve_alias("lab-host") == AliasTarget(
+        "192.0.2.40",
+        2222,
+        proxied=False,
+        user="dev",
+        identity_files=("~/.ssh/id_ed25519_lab", "C:/Fictional Keys/id_lab"),
+        identities_only=True,
+    )
+
+
 @pytest.mark.parametrize(
     "outcome",
     [
