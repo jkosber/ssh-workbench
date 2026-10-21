@@ -48,6 +48,10 @@ def save_machines(path: Path, machines: Sequence[Machine], expected: str | None)
     if text == current:
         # Nothing to change; keep the file's bytes and the previous backup.
         return text
+    # POSIX would replace a read-only file without complaint; refuse it as
+    # Windows does, before anything is written.
+    if current is not None and not os.access(path, os.W_OK):
+        raise SaveError("Could not save the machine file: permission denied.")
     # On Windows a copied mode is only the read-only flag, which would make the
     # new file, and through it every later backup, impossible to replace.
     keep_mode = path if current is not None and os.name == "posix" else None

@@ -31,6 +31,8 @@ class MachineForm(ModalScreen[None]):
     BINDINGS = [
         Binding("ctrl+s", "save", "Save", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
+        # A modal screen hides the app's own Ctrl+Q.
+        Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
     DEFAULT_CSS = """
     MachineForm {
@@ -286,6 +288,7 @@ class ConfirmDelete(ModalScreen[bool]):
         Binding("y", "answer(True)", "Delete", priority=True),
         Binding("n", "answer(False)", "Keep", priority=True),
         Binding("escape", "answer(False)", "Keep", priority=True),
+        Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
     DEFAULT_CSS = """
     ConfirmDelete {
