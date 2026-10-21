@@ -1,6 +1,7 @@
 # SSH Workbench
 
-This is an unreleased Python/Textual scaffold. Read [the roadmap](docs/roadmap.md)
+SSH Workbench is a Python/Textual terminal interface; 0.1.0 is its first
+release, tagged privately. Read [the roadmap](docs/roadmap.md)
 for the single backlog and [the architecture](docs/architecture.md) for boundaries.
 Implement only the requested task; keep the `src/` layout and runtime dependencies small.
 
@@ -11,7 +12,7 @@ Use the project Python in `.python-version` and uv; do not modify global Python.
 
 ```text
 uv sync --locked
-uv run --locked ssh-workbench
+uv run --locked ssh-workbench --config examples/projects.example.toml
 uv run --locked ssh-workbench --help
 uv run --locked ssh-workbench --version
 uv run --locked ruff check .
@@ -28,11 +29,14 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Tasks 1–4 support explicit configuration, project browsing, native SSH launch
-  and return, and explicit repository/documentation links. Do not add controls
-  for deferred roadmap features.
-- Never read real SSH configuration, keys, host inventories or remote hosts as
-  part of development tests. Use temporary files and fictional fixtures.
+- Tasks 1–6 support explicit or per-user default configuration, project
+  browsing, native SSH launch and return, and explicit repository/documentation
+  links. Do not add controls for deferred roadmap features.
+- Never read real SSH configuration, keys, host inventories, remote hosts or the
+  real per-user projects file as part of development tests. Use temporary files
+  and fictional fixtures; the test suite points `APPDATA` and `XDG_CONFIG_HOME`
+  at an empty folder. Without `--config`, `uv run --locked ssh-workbench` loads
+  the developer's real projects file if one exists.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate
   aliases and pass argument lists without a shell. Never disable
   host-key verification or store passwords/private keys.
@@ -56,8 +60,9 @@ Keep detailed acceptance criteria in the roadmap; Obsidian holds personal contex
 and links, not a second backlog.
 
 Keep the application version authoritative in `pyproject.toml`; the CLI reads
-installed metadata. Do not bump versions per edit or session. No license is
-selected; resolve that before a public release.
+installed metadata. Do not bump versions per edit or session. The project uses
+the MIT license in `LICENSE`; publication still needs the
+[publishing checklist](docs/publishing.md) and the user's approval.
 
 Commits, pushes, tags, releases, publication, visibility changes and
 infrastructure changes require the user's applicable authorization. Follow the

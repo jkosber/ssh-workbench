@@ -1,5 +1,25 @@
 # Architecture
 
+## Module map
+
+| Path | Responsibility |
+| --- | --- |
+| `src/ssh_workbench/cli.py` | Entry point: help and version, default-file location, loading, starting the app |
+| `src/ssh_workbench/config.py` | TOML loading, schema validation, `Project` records and the shared alias and URL rules. No Textual, subprocesses or filesystem search |
+| `src/ssh_workbench/app.py` | Textual app: project list, details, status lines and the C/R/D/Q actions |
+| `src/ssh_workbench/ssh.py` | Native SSH boundary: alias recheck, executable lookup, child process and SIGINT guard |
+| `src/ssh_workbench/links.py` | Browser boundary: URL recheck and operating-system dispatch |
+| `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
+| `tests/` | Loader, CLI, boundary and headless UI tests with fictional data |
+| `scripts/check_package.py` | Installs the wheel from `uv build` in a temporary environment and checks it |
+| `scripts/check_terminal.py` | Interactive terminal handoff check with harmless local children instead of SSH |
+| `scripts/check_links.py` | Interactive link check with substituted openers; never opens a real browser |
+| `examples/` | Fictional configuration |
+| `.github/` | CI and the pull-request template |
+
+`cli` imports `config` and, after argument parsing, `app`. `app` uses `ssh` and
+`links`, which both reuse validation from `config`. Only `__main__` imports `cli`.
+
 ## Implemented CLI and project browser
 
 The installed `ssh-workbench` entry point calls `ssh_workbench.cli.main`.
@@ -7,14 +27,29 @@ Standard-library `argparse` handles help, version and invalid options before
 reading configuration or loading the TUI. Version output uses
 `importlib.metadata.version`; the source of that metadata is `pyproject.toml`.
 
-An explicit `--config PATH` calls the existing `load_projects(Path)` once. A
-`ProjectConfigError` becomes an argparse error on stderr with exit status 2, before
-terminal startup. There is no default configuration, discovery, or file writing.
+An explicit `--config PATH` calls `load_projects(Path)` once and skips the
+default file entirely. Without it, `default_config_path()` names the per-user
+file: `%APPDATA%\ssh-workbench\projects.toml` on Windows, otherwise
+`$XDG_CONFIG_HOME/ssh-workbench/projects.toml` when that variable is absolute,
+or `~/.config/ssh-workbench/projects.toml`. The XDG specification says to ignore
+relative values; an unset or relative `APPDATA`, or an unresolvable home folder,
+means no default location. Resolution reads only environment variables and the
+home folder. The file is loaded only when `Path.is_file()` is true; a missing
+file or a folder at that path leaves the app in its no-configuration state,
+which shows the path. Nothing searches other folders, and nothing creates or
+writes configuration.
 
-`SSHWorkbenchApp(projects)` receives validated records in file order. It retains
-them in a tuple; `None` means no configuration was supplied and an empty sequence
-means a loaded configuration contains no projects. Those states have different
-informative screens. The app reads no files and makes no network calls. Its
+A `ProjectConfigError` becomes an argparse error on stderr with exit status 2,
+before terminal startup. Default-file errors read `default configuration file:`
+followed by the loader's message without its own `configuration:` prefix, so a
+user can tell which file failed without the path being printed. `--help` shows
+the resolved path with `%` doubled, because argparse formats help strings.
+
+`SSHWorkbenchApp(projects, default_config)` receives validated records in file
+order. It retains them in a tuple; `None` means no configuration was loaded and
+an empty sequence means a loaded configuration contains no projects. Those states
+have different informative screens; the first names `default_config`, escaped for
+display, when one exists. The app reads no files and makes no network calls. Its
 explicit Connect action delegates process I/O to the small native SSH boundary;
 R/D delegate URL dispatch to a separate browser boundary.
 
@@ -165,10 +200,10 @@ explicit UTF-8 file and drops a leading byte-order mark, which Windows PowerShel
 passes the resulting data to a separate schema validator. The frozen `Project`
 dataclass stores the five documented fields; the list preserves file order.
 Neither loading nor validation depends on Textual, subprocesses or network I/O.
-There is no file discovery or default path. Task 2 integrates this unchanged
-loader at the CLI boundary.
+The loader has no default path or discovery of its own; the CLI chooses which
+file to pass.
 
-The [README schema](../README.md#load-project-metadata) and
+The [README schema](../README.md#schema) and
 [fictional example](../examples/projects.example.toml) describe the supported
 format. Small policy choices for version 1 are:
 
@@ -190,6 +225,30 @@ a later, explicitly requested action uses it. No private file is created or
 overwritten, and underlying parser/file exception text is suppressed.
 
 No database, telemetry, service account, cloud service or AI API is required.
+
+### Python API
+
+`load_projects(path)` reads UTF-8 TOML, with or without a byte-order mark, and
+returns a `list[Project]` in file order. Each frozen record contains `id`,
+`name`, `ssh_alias`, `repository` and `documentation`; absent optional
+references are `None`. `parse_projects(text)` performs the same parsing and
+validation on an existing string. Both report problems through
+`ProjectConfigError`. Neither uses the metadata to connect, run commands or open
+links. From the repository:
+
+```text
+uv run --locked python -c "from pathlib import Path; from ssh_workbench.config import load_projects; print(load_projects(Path('examples/projects.example.toml')))"
+```
+
+Parsing checks TOML syntax; validation then checks the values against the
+schema. `ssh_alias = "--help"` parses as TOML but fails validation at
+`projects[1].ssh_alias`, because an alias cannot start with a dash. A missing
+closing quote is a parsing error instead, reported with a line and column.
+
+Errors identify a field and a one-based project position where possible. They
+omit file paths, supplied values and unknown key names; unknown-field errors list
+the allowed fields. The loader stops at the first error and never returns
+partial results.
 
 ## Security and privacy boundaries
 

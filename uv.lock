@@ -171,7 +171,7 @@ wheels = [
 
 [[package]]
 name = "ssh-workbench"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "textual" },
@@ -185,7 +185,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "textual", specifier = ">=8.2.8" }]
+requires-dist = [{ name = "textual", specifier = ">=8.2.8,<9" }]
 
 [package.metadata.requires-dev]
 dev = [

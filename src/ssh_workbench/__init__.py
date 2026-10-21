@@ -1,1 +1,1 @@
-"""SSH Workbench: a project-aware SSH manager under development."""
+"""SSH Workbench: a keyboard-driven terminal interface for project SSH aliases."""

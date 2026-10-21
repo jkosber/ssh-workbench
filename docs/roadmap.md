@@ -14,7 +14,7 @@ for evidence and remaining verification limits.
 
 **Merged in PR #1** at `84d392f`; final Task 1 head `c08259a`. The standalone
 loader and its tests are complete. No SSH, discovery, network requests, URL opening or project-selection
-UI was added. See [schema and usage](../README.md#load-project-metadata) and
+UI was added. See the [schema](../README.md#schema), [Python API](architecture.md#python-api) and
 [task 1 evidence](validation.md#task-1-local-project-metadata-2026-10-09).
 
 Acceptance criteria:
@@ -214,10 +214,10 @@ and release work remain outside Task 4.
 
 ## 5. Validate usability and review 0.1.0 readiness
 
-**In progress: testing and fixes complete; release scope and license open.**
-`test/task5-validation` starts at Task 4 merge `9b28e86`. The
+**Merged in [PR #5](https://github.com/jkosber/ssh-workbench/pull/5)** as
+`ac4f6e8`, based on Task 4 merge `9b28e86`. The
 [Task 5 status table](validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
-links each record. Version remains 0.0.1, unreleased.
+links each record. The 0.1.0 review on 2026-10-20 closed the last box below.
 
 Acceptance:
 
@@ -238,10 +238,65 @@ Acceptance:
   failed to load.
 - [x] Update documentation: accuracy pass on 2026-10-20.
 - [x] Review privacy: no private data in history, PRs or the built package.
-- [ ] Review release scope and decide the license (Jadon, in the 0.1.0 review).
+- [x] Review release scope and decide the license. On 2026-10-20 Jadon chose a
+  private `v0.1.0` tag, the MIT license and the Task 6 scope below.
 
 A passing test or completed task does not authorize a release. Follow
 [the manual release checklist](../CONTRIBUTING.md) only when requested.
+
+## 6. Prepare the 0.1.0 release
+
+**In progress** on `feat/task6-0.1.0-readiness`, from Task 5 merge `ac4f6e8`.
+Implementation and [verification](validation.md#task-6-010-readiness-2026-10-20)
+are complete; integration waits for approval.
+The 0.1.0 review found the features sufficient but daily use and user
+documentation lacking. This task closes those gaps and tags 0.1.0 privately.
+
+Acceptance:
+
+- [x] Without `--config`, read a per-user default file if it exists:
+  `%APPDATA%\ssh-workbench\projects.toml` on Windows, otherwise
+  `$XDG_CONFIG_HOME/ssh-workbench/projects.toml` when that variable is absolute,
+  else `~/.config/ssh-workbench/projects.toml`. `--config` always wins and the
+  default is then not checked. Never create or write the file or its folder.
+  Default-file errors exit 2 before the TUI, prefixed `default configuration file:`,
+  without paths or values. Existing `--config` errors are unchanged.
+- [x] Show the resolved default path in `--help` and on the no-config screen,
+  escaped for display. Drop the hint to the checkout-only example file.
+- [x] Cap Textual below 9: the suspension handling was verified only on 8.2.8.
+- [x] Rewrite the README for users: install as a uv tool, quick start, alias
+  rules, keys, platform support and troubleshooting. Move internals and the
+  Python API to the architecture document, which gains a module map.
+- [x] Add the MIT license, set version 0.1.0, write a dated user-facing
+  changelog entry and remove "unreleased" and "scaffold" status wording.
+- [x] Run the full checks, then smoke-test the installed tool in Windows
+  Terminal with one approved SSH target loaded from the default file.
+- [ ] With Jadon's approval for each step: PR, merge, annotated `v0.1.0` tag on
+  the merge commit and the updated GitHub description. No GitHub Release.
+
+## 0.1.x candidates
+
+Findings from the 0.1.0 review, deferred as non-blocking. Each needs its own
+explicit task.
+
+- Split current test procedures from `validation.md` into a short testing guide
+  and keep the dated log.
+- Deduplicate the external-action guard lists in tests; move the Python held in
+  strings in `scripts/check_package.py` into files.
+- With no projects loaded, disable R/D instead of reporting "select a project
+  first" (changes an existing test).
+- The help line wraps at 60x20; the SSH status line does not name its project.
+- `--config` pointing at a folder reports "permission denied" on Windows.
+- URLs containing U+202E or U+200B pass validation; display already escapes them.
+- Update the `uv_build` range and the uv version pinned in CI together.
+- An empty default file says to restart with `--config PATH`; a folder at the
+  default path still says to create a file there.
+- `--help` wraps a long default path at hyphens; print it on its own line.
+- Test that `--help` and `--version` ignore an invalid default file.
+- README: escaping also covers format characters and non-ASCII spaces; add an
+  upgrade step for installs from a Git tag.
+
+Re-planning 0.2.0 from the deferred ideas below is the next task after 0.1.0.
 
 ## Deferred ideas
 

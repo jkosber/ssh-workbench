@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 import sysconfig
@@ -247,3 +248,207 @@ def test_help_and_version_ignore_explicit_config(
         else f"ssh-workbench {version('ssh-workbench')}"
     )
     assert expected in result.stdout
+
+
+VALID_DEFAULT = (
+    'schema_version = 1\n[[projects]]\nid = "first"\n'
+    'name = "First named"\nssh_alias = "fictional-first"\n'
+)
+
+
+def use_user_config(monkeypatch: pytest.MonkeyPatch, folder: Path) -> Path:
+    """Point both platforms' per-user configuration roots at one folder."""
+    monkeypatch.setenv("APPDATA", str(folder))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(folder))
+    return folder / "ssh-workbench" / "projects.toml"
+
+
+def test_default_config_loads_when_present(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, started_apps: list[SSHWorkbenchApp]
+) -> None:
+    default = use_user_config(monkeypatch, tmp_path)
+    default.parent.mkdir()
+    default.write_text(VALID_DEFAULT, encoding="utf-8")
+
+    assert cli_module.main([]) == 0
+
+    assert len(started_apps) == 1
+    assert started_apps[0].config_supplied
+    assert started_apps[0].projects == (
+        Project("first", "First named", "fictional-first"),
+    )
+    assert default.read_text(encoding="utf-8") == VALID_DEFAULT
+
+
+def test_missing_default_config_shows_no_config_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, started_apps: list[SSHWorkbenchApp]
+) -> None:
+    default = use_user_config(monkeypatch, tmp_path)
+
+    assert cli_module.main([]) == 0
+
+    assert len(started_apps) == 1
+    assert not started_apps[0].config_supplied
+    assert started_apps[0].default_config == default
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_default_path_folder_shows_no_config_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, started_apps: list[SSHWorkbenchApp]
+) -> None:
+    default = use_user_config(monkeypatch, tmp_path)
+    default.mkdir(parents=True)
+
+    assert cli_module.main([]) == 0
+
+    assert len(started_apps) == 1
+    assert not started_apps[0].config_supplied
+    assert started_apps[0].default_config == default
+
+
+def test_explicit_config_ignores_default_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, started_apps: list[SSHWorkbenchApp]
+) -> None:
+    default = use_user_config(monkeypatch, tmp_path / "user")
+    default.parent.mkdir(parents=True)
+    default.write_text("private-marker = [", encoding="utf-8")
+    explicit = tmp_path / "explicit.toml"
+    explicit.write_text(VALID_DEFAULT, encoding="utf-8")
+
+    assert cli_module.main(["--config", str(explicit)]) == 0
+
+    assert len(started_apps) == 1
+    assert started_apps[0].projects == (
+        Project("first", "First named", "fictional-first"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("contents", "expected_error"),
+    [
+        ("private-marker = [", "default configuration file: TOML: invalid syntax"),
+        (
+            'schema_version = 1\n[[projects]]\nid = "private-marker"\n'
+            'name = "Fictional"\nssh_alias = "--private-marker"\n',
+            "default configuration file: projects[1].ssh_alias:",
+        ),
+        (b"private-marker\xff", "default configuration file: expected UTF-8 text"),
+    ],
+)
+def test_invalid_default_config_exits_with_sanitized_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    started_apps: list[SSHWorkbenchApp],
+    contents: str | bytes,
+    expected_error: str,
+) -> None:
+    default = use_user_config(monkeypatch, tmp_path)
+    default.parent.mkdir()
+    original = contents.encode() if isinstance(contents, str) else contents
+    default.write_bytes(original)
+
+    with pytest.raises(SystemExit) as raised:
+        cli_module.main([])
+
+    assert raised.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert expected_error in output.err
+    assert "private-marker" not in output.err
+    assert str(tmp_path) not in output.err
+    assert "Traceback" not in output.err
+    assert not started_apps
+    assert default.read_bytes() == original
+
+
+def test_default_config_path_windows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("sys.platform", "win32")
+
+    monkeypatch.setenv("APPDATA", str(tmp_path))
+    assert (
+        cli_module.default_config_path() == tmp_path / "ssh-workbench" / "projects.toml"
+    )
+    monkeypatch.setenv("APPDATA", "relative")
+    assert cli_module.default_config_path() is None
+    monkeypatch.delenv("APPDATA")
+    assert cli_module.default_config_path() is None
+
+
+@pytest.mark.parametrize("platform", ["linux", "darwin"])
+def test_default_config_path_posix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, platform: str
+) -> None:
+    monkeypatch.setattr("sys.platform", platform)
+    home = tmp_path / "home"
+    monkeypatch.setattr(Path, "home", lambda: home)
+    fallback = home / ".config" / "ssh-workbench" / "projects.toml"
+
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    assert (
+        cli_module.default_config_path()
+        == tmp_path / "xdg" / "ssh-workbench" / "projects.toml"
+    )
+    monkeypatch.setenv("XDG_CONFIG_HOME", "relative")
+    assert cli_module.default_config_path() == fallback
+    monkeypatch.delenv("XDG_CONFIG_HOME")
+    assert cli_module.default_config_path() == fallback
+
+
+def test_default_config_path_without_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.platform", "linux")
+    monkeypatch.delenv("XDG_CONFIG_HOME")
+
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(Path, "home", no_home)
+
+    assert cli_module.default_config_path() is None
+
+
+def test_help_shows_default_path_with_percent(cli: str, tmp_path: Path) -> None:
+    folder = tmp_path / "100%"
+    environment = os.environ | {
+        "APPDATA": str(folder),
+        "XDG_CONFIG_HOME": str(folder),
+        "COLUMNS": "500",
+    }
+
+    result = subprocess.run(
+        [cli, "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert str(folder / "ssh-workbench" / "projects.toml") in result.stdout
+
+
+def test_help_escapes_unencodable_default_path(cli: str, tmp_path: Path) -> None:
+    folder = tmp_path / "u-Ł中"
+    environment = os.environ | {
+        "APPDATA": str(folder),
+        "XDG_CONFIG_HOME": str(folder),
+        "COLUMNS": "500",
+        "PYTHONIOENCODING": "cp1252",
+    }
+
+    result = subprocess.run(
+        [cli, "--help"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert r"u-\u0141\u4e2d" in result.stdout

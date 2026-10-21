@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 
 import pytest
 from textual.containers import VerticalScroll
@@ -44,6 +46,27 @@ async def test_empty_states(projects, message: str, size: tuple[int, int]) -> No
         await pilot.press("down", "tab", "up", "q")
         assert not app.is_running
         assert app.return_code == 0
+
+
+async def test_no_config_screen_names_default_path() -> None:
+    path = Path("fictional") / "odd\x1bname" / "projects.toml"
+    app = SSHWorkbenchApp(None, default_config=path)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        content = str(app.query_one("#empty-state", Static).content)
+        assert "No configuration selected." in content
+        assert f"fictional{os.sep}odd\\x1bname{os.sep}projects.toml" in content
+        assert "\x1b" not in content
+        assert "--config PATH" in content
+
+
+async def test_no_config_screen_without_default_path() -> None:
+    app = SSHWorkbenchApp(None)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        content = str(app.query_one("#empty-state", Static).content)
+        assert "restart with --config PATH" in content
+        assert "None" not in content
 
 
 async def test_initial_selection_order_and_keyboard_details() -> None:
