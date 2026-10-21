@@ -1,6 +1,7 @@
 """Launch native SSH synchronously on the main thread with inherited terminal I/O."""
 
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -52,7 +53,8 @@ def ssh_handoff() -> Iterator[None]:
 
 
 def _key_argument(key: str) -> str:
-    # OpenSSH expands only "~/", so expand "~\" too and pass an absolute path.
+    # OpenSSH expands only "~/". Expand "~\" too, accepting either separator so
+    # one machine file names the same key on Windows and Linux.
     if not key.startswith(("~/", "~\\")):
         return key
     try:
@@ -61,7 +63,7 @@ def _key_argument(key: str) -> str:
         raise SSHLaunchError(
             "Could not find your home folder for this machine's key."
         ) from None
-    return str(home / key[2:])
+    return str(home.joinpath(*re.split(r"[\\/]+", key[2:])))
 
 
 def ssh_arguments(machine: Machine, address: str | None = None) -> list[str]:
@@ -77,7 +79,10 @@ def ssh_arguments(machine: Machine, address: str | None = None) -> list[str]:
                 "Invalid SSH alias. Use ASCII letters/digits, dots, underscores or "
                 "hyphens, starting with a letter/digit."
             )
-        if address is not None:
+        # An alias's own SSH config decides these; ignoring them would hide that.
+        if address is not None or any(
+            value is not None for value in (machine.user, machine.port, machine.key)
+        ):
             raise SSHLaunchError(
                 "Invalid machine settings. Check its ID, user, addresses, port and key."
             )

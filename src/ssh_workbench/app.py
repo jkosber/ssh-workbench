@@ -45,8 +45,12 @@ class LinkPicker(ModalScreen[Link | None]):
     """Choose one of a machine's links; Escape cancels without opening anything."""
 
     # A modal screen hides the app's bindings, so Q and Ctrl+Q are repeated here.
+    # Enter and Escape are priority bindings, handled in the order they arrive.
+    # Otherwise OptionList delivers Enter's choice as a later message, and a
+    # key typed right after it could overtake the choice.
     BINDINGS = [
-        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "choose", "Open", priority=True),
+        Binding("escape", "cancel", "Cancel", priority=True),
         Binding("q", "app.quit", "Quit"),
         Binding("ctrl+q", "app.quit", "Quit", show=False),
     ]
@@ -72,6 +76,7 @@ class LinkPicker(ModalScreen[Link | None]):
     def __init__(self, machine: Machine) -> None:
         super().__init__()
         self.machine = machine
+        self._answered = False
 
     def compose(self) -> ComposeResult:
         with Vertical(id="link-picker") as picker:
@@ -96,10 +101,22 @@ class LinkPicker(ModalScreen[Link | None]):
         options.focus()
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        self.dismiss(self.machine.links[event.option_index])
+        self._close(self.machine.links[event.option_index])
+
+    def action_choose(self) -> None:
+        index = self.query_one(OptionList).highlighted
+        if index is not None:
+            self._close(self.machine.links[index])
 
     def action_cancel(self) -> None:
-        self.dismiss(None)
+        self._close(None)
+
+    def _close(self, link: Link | None) -> None:
+        # One console read can deliver several keys before the pop happens; a
+        # second dismissal would pop the browser screen itself.
+        if not self._answered:
+            self._answered = True
+            self.dismiss(link)
 
 
 class SSHWorkbenchApp(App[None]):

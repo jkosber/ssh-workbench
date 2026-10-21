@@ -152,7 +152,9 @@ def is_valid_key_path(value: object) -> bool:
     ):
         return False
     if value.startswith(("~/", "~\\")):
-        return len(value) > 2
+        # The rest stays inside the home folder: no second root and no drive.
+        rest = value[2:]
+        return bool(rest) and rest[0] not in "/\\" and not PureWindowsPath(rest).drive
     return PureWindowsPath(value).is_absolute() or PurePosixPath(value).is_absolute()
 
 
