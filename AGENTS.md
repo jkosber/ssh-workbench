@@ -29,10 +29,13 @@ checks above after relevant changes; package validation is described in
 
 ## Scope and safety
 
-- Tasks 1–9 support explicit or per-user default machine files (schema 1 still
-  loads), machine browsing, adding, editing and deleting machines, alias and
-  direct SSH launch and return, and named links opened with O. Do not add
+- Tasks 1–10 support explicit or per-user default machine files (schema 1
+  still loads), machine browsing, adding, editing and deleting machines, live
+  status, alias and direct SSH launch and return, and named links opened
+  with O. Do not add
   controls for deferred roadmap features.
+- `status.py` is the only network code: TCP port checks, never a login. Tests
+  inject a fake checker; `ssh -G` never runs on the status timer.
 - Workbench writes only its machine file and `machines.toml.bak`, through
   `store.save_machines` (outside-change check, backup, atomic replace). It reads
   only `Host` and `Include` lines of the SSH config and never changes it.

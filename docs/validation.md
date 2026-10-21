@@ -1,5 +1,36 @@
 # Validation
 
+## Task 10: live status, 2026-10-21
+
+Branch `feat/task10-live-status`. Environment as in Task 8.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_status.py` and `tests/test_status_ui.py` failed at collection for the missing module and widgets; the CLI checker test failed on the missing attribute |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 798 passed (759 before Task 10) |
+| `uv build`, `scripts/check_package.py` | Passed. The installed app ran its real checker inside the package check's guards; the guarded network and process calls ended as Can't check, with no traceback in the output |
+
+Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
+and `SSH_WORKBENCH_SSH_DIR` pointed at ignored `.local/task10-session/`
+folders, a local listener on 127.0.0.1 that accepted and closed connections,
+and four fictional machines:
+
+| Machine | Result |
+| --- | --- |
+| Direct, addresses `192.0.2.1` then `127.0.0.1` on the listener's port | Turning `◐` at start, then `● Online: 127.0.0.1` once the first address timed out |
+| Direct, `192.0.2.2` | `○ Offline` |
+| Alias whose fictional `Host` entry points at the listener | `● Online via alias`, resolved with `ssh -F` on the fictional folder |
+| Alias with `ProxyJump` | `◇ Can't check: the alias uses ProxyJump or ProxyCommand` |
+
+R set every machine back to Checking. Q right after R, with checks still
+waiting on the documentation-range address, returned to the prompt in 275 ms.
+With `TEXTUAL_ANIMATIONS=none` the screen stayed identical across 0.9 s. At
+60x20 the footer showed `q Qui`: Textual leaves the bottom-right cell empty on
+Windows, and the seven keys needed all 60 columns. The first footer test read
+the key regions before layout and passed wrongly; it now waits for the layout,
+failed as expected, and passes since O is labelled Link in the footer.
+
 ## Task 9: add, edit and delete machines, 2026-10-21
 
 Branch `feat/task9-edit-machines`. Environment as in Task 8.
@@ -49,6 +80,12 @@ failing test:
 After the fixes: 759 tests passed and the native check above was repeated with
 the same results. Remaining minor findings are in the roadmap's 0.2.x
 candidates.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #10](https://github.com/jkosber/ssh-workbench/pull/10) CI on head `3d2ad36` | [Push run 39544208450](https://github.com/jkosber/ssh-workbench/actions/runs/39544208450) and [PR run 39544212338](https://github.com/jkosber/ssh-workbench/actions/runs/39544212338) passed on Windows and Ubuntu, 759 tests each |
+| Merge | Merged as **`96338e1`**, guarded on head `3d2ad36`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39544559783](https://github.com/jkosber/ssh-workbench/actions/runs/39544559783) passed on Windows and Ubuntu |
 
 ## Task 8: machines replace projects, 2026-10-20
 

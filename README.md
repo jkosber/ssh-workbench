@@ -155,7 +155,7 @@ The file is UTF-8 TOML; a byte-order mark is fine. Schema version 2:
 | `id` | Required and unique. Lowercase ASCII letters and digits, with single hyphens between groups, such as `lab-box` |
 | `name` | Required. Any text with at least one non-space character |
 | `alias` | A `Host` name from your SSH config. See [Connecting](#connecting) |
-| `addresses` | Instead of `alias`: one or more hostnames or IP addresses. Workbench connects to the first one, so list the address you use most first |
+| `addresses` | Instead of `alias`: one or more hostnames or IP addresses. Workbench connects to the first one the latest status check found online, else the first listed, so list the address you use most first |
 | `user` | Optional, with `addresses` only. The login name, such as `admin` |
 | `port` | Optional, with `addresses` only. An integer from 1 to 65535; SSH's default otherwise |
 | `key` | Optional, with `addresses` only. The path of this machine's private key |
@@ -197,7 +197,7 @@ shows the exit status below the panes. Only one connection runs at a time.
 | Machine | Workbench runs |
 | --- | --- |
 | With `alias` | `ssh -- <alias>`. Your SSH config decides the host, user, port and key |
-| With `addresses` | `ssh -o HostKeyAlias=<id> [-l <user>] [-p <port>] [-i <key> -o IdentitiesOnly=yes] -- <first address>` |
+| With `addresses` | `ssh -o HostKeyAlias=<id> [-l <user>] [-p <port>] [-i <key> -o IdentitiesOnly=yes] -- <address>`, with the first address the latest status check found online, else the first listed |
 
 The `--` ends SSH's options, so the destination can never be read as one. An
 alias can also be a plain hostname, or a name that a pattern such as
@@ -213,6 +213,31 @@ unless your SSH agent already holds the key.
 Run Workbench in a local terminal. Environments that can't hand the terminal
 over, such as Textual Web, show a message instead of starting SSH.
 
+## Status
+
+Each machine shows its status as a symbol in the list and as a word in the
+details pane, with color on top:
+
+| Symbol | Status | Meaning |
+| --- | --- | --- |
+| `◐` (turning) | Checking | A check is running |
+| `●` (pulsing) | Online | The SSH port answered. Details show the address that answered, or "via alias" |
+| `○` | Offline | Nothing answered within 3 seconds |
+| `◇` | Can't check | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, or a newly added alias waits for **R** |
+
+Workbench checks at startup, when you press **R**, and every 30 seconds. A
+check opens a TCP connection to the machine's SSH port and closes it at once:
+it sends nothing, logs in nowhere and uses no ping. Checks run in the
+background, so the screen and quitting never wait for them.
+
+For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
+startup and on **R** only: `ssh -G` reads your whole SSH config, including
+any `Match exec` lines that run commands, so the 30-second timer reuses the
+last answer. The details pane shows "via alias" rather than the host.
+
+The symbols turn and pulse only while animations are on; set
+`TEXTUAL_ANIMATIONS=none` to keep them still.
+
 ## Keys
 
 | Key | Action |
@@ -221,6 +246,7 @@ over, such as Textual Web, show a message instead of starting SSH.
 | Tab / Shift+Tab | Move between the machine list and the details pane |
 | Page Up / Page Down, Home / End | Scroll the details pane |
 | C | Connect to the selected machine |
+| R | Check every machine's status again, resolving aliases too |
 | O | Open the selected machine's link, or choose one when it has several |
 | Enter / Escape | In the link list: open the highlighted link / cancel |
 | A / E / X | Add a machine / edit the selected one / delete it after asking |
@@ -228,10 +254,11 @@ over, such as Textual Web, show a message instead of starting SSH.
 | Y / N | When deleting: delete / keep |
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
-C, O, A, E, X and Q also appear in the footer and can be clicked. C, O, E and X
-are dimmed when nothing is selected, O when the machine has no links, and A, E
-and X when Workbench has no file location. Startup, selection and Enter in the
-machine list never connect, open or change anything.
+C, O, A, E, X, R and Q also appear in the footer and can be clicked; O is
+labelled Link there. C, O, E and X are dimmed when nothing is selected, O when
+the machine has no links, and A, E and X when Workbench has no file location.
+Startup, selection and Enter in the machine list never connect, open or change
+anything; the status checks are the only thing that starts on its own.
 
 ## Opening links
 
@@ -272,8 +299,10 @@ status 2.
 Workbench reads and writes its machine file and its `.bak` copy. From your SSH
 config it reads only `Host` and `Include` lines, to suggest aliases. It doesn't
 change your SSH config, read keys or `known_hosts`, store credentials, change
-host-key settings, collect telemetry or need an AI service. Network traffic
-comes only from the SSH sessions and browser requests you start.
+host-key settings, collect telemetry or need an AI service. Its own network
+traffic is the status checks: one TCP connection to each checked address's
+SSH port, closed at once without sending anything. Everything else comes from
+the SSH sessions and browser requests you start.
 
 ## Development
 
