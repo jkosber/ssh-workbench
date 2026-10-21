@@ -1,13 +1,15 @@
 """Remember SSH aliases between runs and spot renamed ones.
 
-The state file sits next to the machine file and holds only what Workbench saw:
-the literal `Host` names at the last refresh and, for each alias that was one of
-them, the host, user and port `ssh -G` resolved. It is a cache: any problem
-reading it means no state, which only loses rename suggestions until the next
-refresh. Nothing here changes a machine; the app asks first.
+The state file sits next to the machine file, one per computer, and holds only
+what Workbench saw: the literal `Host` names at the last refresh and, for each
+alias that was one of them, the host, user and port `ssh -G` resolved. It is a
+cache: any problem reading it means no state, which only loses rename
+suggestions until the next refresh. Nothing here changes a machine; the app
+asks first.
 """
 
 import json
+import re
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
@@ -19,7 +21,7 @@ from ssh_workbench.store import replace_atomically
 
 STATE_VERSION = 1
 _MAX_BYTES = 1_000_000
-_KEYS = {"aliases", "computer", "host_names", "renames", "version"}
+_KEYS = {"aliases", "baselines", "computer", "host_names", "version"}
 _RECORD_KEYS = {"host", "port", "user"}
 
 
@@ -37,13 +39,19 @@ class AliasMemory:
     host_names: tuple[str, ...] = ()
     # Kept while an alias is missing, so Alias not found survives restarts.
     records: dict[str, AliasRecord] = field(default_factory=dict)
-    # A vanished alias and the one new name it probably became.
-    renames: dict[str, str] = field(default_factory=dict)
+    # For each missing alias, the Host names when it was last listed; any other
+    # name may have replaced it.
+    baselines: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def remember(self, alias: str, target: AliasTarget) -> None:
         """Record what `ssh -G` said for an alias that is a literal `Host` name."""
         if alias in self.host_names:
             self.records[alias] = AliasRecord(target.host, target.user, target.port)
+
+    def forget(self, alias: str) -> None:
+        """Stop treating an alias as missing; the user kept it on purpose."""
+        self.records.pop(alias, None)
+        self.baselines.pop(alias, None)
 
 
 @dataclass(frozen=True)
@@ -55,8 +63,11 @@ class Review:
     resolved: dict[str, AliasTarget | None]
 
 
-def state_path(machine_file: Path) -> Path:
-    return machine_file.with_name(f"{machine_file.stem}.state.json")
+def state_path(machine_file: Path, computer: str) -> Path:
+    """One file per computer: computers sharing a synced machine file have
+    different SSH configs and must not overwrite each other's state."""
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", computer) or "computer"
+    return machine_file.with_name(f"{machine_file.stem}.state.{name}.json")
 
 
 def format_state(memory: AliasMemory, computer: str) -> str:
@@ -65,9 +76,9 @@ def format_state(memory: AliasMemory, computer: str) -> str:
             alias: {"host": record.host, "port": record.port, "user": record.user}
             for alias, record in memory.records.items()
         },
+        "baselines": {alias: list(names) for alias, names in memory.baselines.items()},
         "computer": computer,
         "host_names": list(memory.host_names),
-        "renames": memory.renames,
         "version": STATE_VERSION,
     }
     return json.dumps(data, indent=2, sort_keys=True) + "\n"
@@ -86,18 +97,17 @@ def parse_state(text: str, computer: str) -> AliasMemory | None:
     if not isinstance(data, dict) or set(data) != _KEYS:
         return None
     version, names = data["version"], data["host_names"]
-    records, renames = data["aliases"], data["renames"]
+    records, baselines = data["aliases"], data["baselines"]
     if (
         type(version) is not int
         or version != STATE_VERSION
         or data["computer"] != computer
-        or not isinstance(names, list)
-        or not all(is_valid_ssh_alias(name) for name in names)
+        or not _is_name_list(names)
         or not isinstance(records, dict)
-        or not isinstance(renames, dict)
+        or not isinstance(baselines, dict)
         or not all(
-            is_valid_ssh_alias(old) and is_valid_ssh_alias(new)
-            for old, new in renames.items()
+            is_valid_ssh_alias(alias) and _is_name_list(before)
+            for alias, before in baselines.items()
         )
     ):
         return None
@@ -119,7 +129,15 @@ def parse_state(text: str, computer: str) -> AliasMemory | None:
         ):
             return None
         parsed[alias] = AliasRecord(host, user, port)
-    return AliasMemory(tuple(names), parsed, dict(renames))
+    return AliasMemory(
+        tuple(names),
+        parsed,
+        {alias: tuple(before) for alias, before in baselines.items()},
+    )
+
+
+def _is_name_list(value: object) -> bool:
+    return isinstance(value, list) and all(is_valid_ssh_alias(name) for name in value)
 
 
 def load_state(path: Path, computer: str) -> AliasMemory | None:
@@ -148,25 +166,23 @@ def review(
     """Compare the machines' aliases with the `Host` names read now.
 
     An alias recorded while it was a literal `Host` name and missing now is
-    missing. Its suggestion is a kept one that still resolves to the record, or
-    else the single name that appeared since the last review and resolves to
-    the record, and only if no other missing alias gets the same name.
-    `resolve` runs only for those names.
+    missing. Its suggestion is the single name, absent when the alias was last
+    listed, that resolves to the record, and only if no other missing alias
+    gets the same name. `resolve` runs only for those names, on every review,
+    so a match that was ambiguous or unresolved earlier can still be offered.
     """
     used = dict.fromkeys(aliases)
     listed = set(names)
-    previous = set(memory.host_names) if memory is not None else None
     records = {
         alias: record
         for alias, record in (memory.records if memory else {}).items()
         if alias in used
     }
-    renames = {
-        alias: name
-        for alias, name in (memory.renames if memory else {}).items()
+    baselines = {
+        alias: before
+        for alias, before in (memory.baselines if memory else {}).items()
         if alias in used
     }
-    appeared = [name for name in names if previous is not None and name not in previous]
     resolved: dict[str, AliasTarget | None] = {}
 
     def resolves_to(name: str, record: AliasRecord) -> bool:
@@ -181,23 +197,20 @@ def review(
     missing: dict[str, str | None] = {}
     for alias in used:
         if alias in listed:
-            renames.pop(alias, None)
+            baselines.pop(alias, None)
             continue
         record = records.get(alias)
-        if record is None:
+        if record is None or memory is None:
             continue
-        kept = renames.get(alias)
-        if kept is not None and kept in listed and resolves_to(kept, record):
-            missing[alias] = kept
-            continue
-        found = [name for name in appeared if resolves_to(name, record)]
+        # The first review that misses the alias saw it listed last time.
+        before = set(baselines.setdefault(alias, memory.host_names))
+        found = [
+            name for name in names if name not in before and resolves_to(name, record)
+        ]
         missing[alias] = found[0] if len(found) == 1 else None
     # A name that fits two vanished aliases can't say which one it replaced.
     offered = Counter(name for name in missing.values() if name is not None)
     for alias, name in missing.items():
-        if name is not None and offered[name] == 1:
-            renames[alias] = name
-        else:
+        if name is not None and offered[name] > 1:
             missing[alias] = None
-            renames.pop(alias, None)
-    return Review(AliasMemory(tuple(names), records, renames), missing, resolved)
+    return Review(AliasMemory(tuple(names), records, baselines), missing, resolved)
