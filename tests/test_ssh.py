@@ -112,7 +112,19 @@ def test_key_in_home_folder_is_expanded(
 ) -> None:
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     machine = Machine("box", "Box", addresses=("host",), key=key)
-    assert ssh.ssh_arguments(machine)[3] == str(tmp_path / key[2:])
+    # Either separator style names the same file on every platform.
+    assert ssh.ssh_arguments(machine)[3] == str(tmp_path / ".ssh" / "id_box")
+
+
+@pytest.mark.parametrize(
+    "changes", [{"user": "dev"}, {"port": 22}, {"key": "~/.ssh/id_box"}]
+)
+def test_alias_machine_with_direct_fields_is_rejected(
+    changes: dict[str, object],
+) -> None:
+    with pytest.raises(ssh.SSHLaunchError) as caught:
+        ssh.ssh_arguments(replace(FICTIONAL, **changes))
+    assert str(caught.value) == INVALID_MACHINE
 
 
 def test_key_without_home_folder_is_a_launch_error(

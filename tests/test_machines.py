@@ -387,6 +387,11 @@ def test_valid_keys_load_on_every_platform(key: str) -> None:
         "~/${HOME}/id",
         "~/.ssh/100%key",
         "C:relative\\id",
+        "~//etc/key",
+        "~/\\server\\share\\id",
+        "~\\/x",
+        "~/C:\\other\\id",
+        "~\\D:\\other\\id",
     ],
 )
 def test_invalid_keys(key: str) -> None:

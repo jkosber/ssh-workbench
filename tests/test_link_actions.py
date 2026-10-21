@@ -4,6 +4,7 @@ import threading
 from unittest.mock import Mock
 
 import pytest
+from textual import events
 from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, ListView, OptionList, Static
@@ -486,10 +487,25 @@ async def test_picker_blocks_connect_and_second_request_but_quits(
     opener = Mock(side_effect=AssertionError("Unexpected browser action"))
     monkeypatch.setattr(app_module, "launch_ssh", launch)
     monkeypatch.setattr(app_module, "open_link", opener)
+    # A real handoff must be possible, or an unguarded Connect would stop at
+    # SuspendNotSupported before reaching launch_ssh and the test would pass.
+    lifecycle = []
+    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: lifecycle.append("suspend"),
+    )
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "resume_application_mode",
+        lambda self: lifecycle.append("resume"),
+    )
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test() as pilot:
         await pilot.press("down", "o")
         await picker_open(app, pilot)
+        connection = str(app.query_one("#connection-status", Static).content)
         assert app.check_action("connect", ()) is None
         assert app.check_action("open_link", ()) is None
         await pilot.press("c", "o")
@@ -497,8 +513,42 @@ async def test_picker_blocks_connect_and_second_request_but_quits(
         app.action_open_link()
         await pilot.pause()
         assert len(app.screen_stack) == 2
+        assert lifecycle == []
+        assert str(app.query_one("#connection-status", Static).content) == connection
         launch.assert_not_called()
         opener.assert_not_called()
+        await pilot.press("q")
+        assert not app.is_running
+        assert app.return_code == 0
+
+
+@pytest.mark.parametrize(
+    "keys",
+    [
+        ("enter", "enter"),
+        ("enter", "escape"),
+        ("escape", "enter"),
+        ("escape", "escape"),
+    ],
+)
+async def test_picker_ignores_a_second_key_in_the_same_batch(monkeypatch, keys) -> None:
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "o")
+        await picker_open(app, pilot)
+        # Windows delivers one console read as back-to-back key events.
+        for key in keys:
+            app.post_message(events.Key(key, "\r" if key == "enter" else None))
+        await pilot.pause()
+        await completed(app, pilot)
+        assert app.is_running
+        assert len(app.screen_stack) == 1
+        if keys[0] == "enter":
+            opener.assert_called_once_with(MACHINES[1].links[0].url)
+        else:
+            opener.assert_not_called()
         await pilot.press("q")
         assert not app.is_running
         assert app.return_code == 0
