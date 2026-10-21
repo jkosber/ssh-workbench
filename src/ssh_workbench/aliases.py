@@ -8,6 +8,7 @@ refresh. Nothing here changes a machine; the app asks first.
 """
 
 import json
+from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -149,7 +150,8 @@ def review(
     An alias recorded while it was a literal `Host` name and missing now is
     missing. Its suggestion is a kept one that still resolves to the record, or
     else the single name that appeared since the last review and resolves to
-    the record. `resolve` runs only for those names.
+    the record, and only if no other missing alias gets the same name.
+    `resolve` runs only for those names.
     """
     used = dict.fromkeys(aliases)
     listed = set(names)
@@ -189,10 +191,13 @@ def review(
             missing[alias] = kept
             continue
         found = [name for name in appeared if resolves_to(name, record)]
-        suggestion = found[0] if len(found) == 1 else None
-        missing[alias] = suggestion
-        if suggestion is None:
-            renames.pop(alias, None)
+        missing[alias] = found[0] if len(found) == 1 else None
+    # A name that fits two vanished aliases can't say which one it replaced.
+    offered = Counter(name for name in missing.values() if name is not None)
+    for alias, name in missing.items():
+        if name is not None and offered[name] == 1:
+            renames[alias] = name
         else:
-            renames[alias] = suggestion
+            missing[alias] = None
+            renames.pop(alias, None)
     return Review(AliasMemory(tuple(names), records, renames), missing, resolved)
