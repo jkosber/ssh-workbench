@@ -87,6 +87,10 @@ class MachineForm(ModalScreen[None]):
     #form-kind {
         height: auto;
     }
+    /* A Vertical defaults to 1fr, which a scrolling form squeezes to one row. */
+    #alias-fields, #direct-fields {
+        height: auto;
+    }
     #form-links {
         height: 5;
     }
@@ -166,11 +170,12 @@ class MachineForm(ModalScreen[None]):
                         yield from _field(
                             field, label, Input(values[field], id=f"form-{field}")
                         )
+                    # A checkbox label does not wrap; the field label does.
                     yield from _field(
                         "export_alias",
-                        "Export (optional)",
+                        "Export as an SSH alias (optional)",
                         Checkbox(
-                            "Export as an SSH alias: ssh <ID> works in any terminal",
+                            "ssh <ID> works in any terminal",
                             values["export_alias"] == "true",
                             id="form-export_alias",
                         ),
