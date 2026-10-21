@@ -162,9 +162,14 @@ async def wait_for(pilot, predicate) -> None:
             await pilot.pause()
 
 
+# push_screen makes a screen current before it has composed its widgets.
+def showing(app, kind) -> bool:
+    return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
 async def picker(app: SSHWorkbenchApp, pilot) -> KeySetup:
     await pilot.press("k")
-    await wait_for(pilot, lambda: isinstance(app.screen, KeySetup))
+    await wait_for(pilot, lambda: showing(app, KeySetup))
     return app.screen
 
 

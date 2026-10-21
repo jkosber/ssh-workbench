@@ -69,6 +69,11 @@ async def wait_for(pilot, predicate) -> None:
             await pilot.pause()
 
 
+# push_screen makes a screen current before it has composed its widgets.
+def showing(app, kind) -> bool:
+    return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
 async def checked(app, pilot) -> None:
     await wait_for(pilot, lambda: State.CHECKING not in symbols(app))
 
@@ -338,7 +343,7 @@ async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
     async with app.run_test() as pilot:
         await checked(app, pilot)
         await pilot.press("a")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         for field, value in (("id", "new"), ("name", "New"), ("alias", "new-host")):
             app.screen.query_one(f"#form-{field}", Input).value = value
         await pilot.press("ctrl+s")

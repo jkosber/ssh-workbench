@@ -43,9 +43,14 @@ async def wait_for(pilot, predicate) -> None:
             await pilot.pause()
 
 
+# push_screen makes a screen current before it has composed its widgets.
+def showing(app, kind) -> bool:
+    return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
 async def open_form(app, pilot, key: str) -> MachineForm:
     await pilot.press(key)
-    await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+    await wait_for(pilot, lambda: showing(app, MachineForm))
     return app.screen
 
 
@@ -348,7 +353,7 @@ async def test_ctrl_q_quits_from_the_form_and_the_delete_question(
             await open_form(app, pilot, "a")
         else:
             await pilot.press("x")
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+            await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         await pilot.press("ctrl+q")
         assert not app.is_running
         assert app.return_code == 0
@@ -372,14 +377,14 @@ async def test_delete_asks_first(tmp_path: Path) -> None:
         await pilot.press("down")
         for answer in ("n", "escape"):
             await pilot.press("x")
-            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+            await wait_for(pilot, lambda: showing(app, ConfirmDelete))
             text = "\n".join(str(widget.content) for widget in app.screen.query(Static))
             assert "Delete Studio (studio)?" in text
             await pilot.press(answer)
             await back_to_browser(app, pilot)
             assert path.read_bytes() == before
         await pilot.press("x")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         await pilot.press("y")
         await back_to_browser(app, pilot)
         assert [m.id for m in parse_machines(path.read_text(encoding="utf-8"))] == [
@@ -412,7 +417,7 @@ async def test_actions_wait_for_the_rebuilt_list(
     app, path = saved_app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.press("down", "down", "x")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         await pilot.press("y")
         await wait_for(pilot, lambda: status(app) == "Deleted machine 3: lab.")
         await wait_for(pilot, lambda: len(app.query_one(ListView).children) == 2)
@@ -433,7 +438,7 @@ async def test_deleting_the_last_machine_shows_the_empty_screen(
     app, path = saved_app(tmp_path, machines=MACHINES[:1])
     async with app.run_test() as pilot:
         await pilot.press("x")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         await pilot.press("y")
         await wait_for(pilot, lambda: len(app.screen_stack) == 1)
         await wait_for(pilot, lambda: bool(app.query("#empty-state")))
@@ -480,7 +485,7 @@ async def test_delete_confirmation_warns_about_comments(tmp_path: Path) -> None:
     app, _ = saved_app(tmp_path, machines=(), text=COMMENTED)
     async with app.run_test() as pilot:
         await pilot.press("x")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         text = "\n".join(str(widget.content) for widget in app.screen.query(Static))
         assert "without its comments or formatting" in text
         await pilot.press("n")
@@ -560,7 +565,7 @@ async def test_refused_delete_says_to_delete_again(tmp_path: Path) -> None:
     app, path = saved_app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.press("x")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         path.write_text(format_machines(MACHINES[1:]), encoding="utf-8")
         await pilot.press("y")
         await back_to_browser(app, pilot)

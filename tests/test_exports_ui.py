@@ -59,9 +59,14 @@ async def wait_for(pilot, predicate) -> None:
             await pilot.pause()
 
 
+# push_screen makes a screen current before it has composed its widgets.
+def showing(app, kind) -> bool:
+    return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
 async def add_exported_box(app: SSHWorkbenchApp, pilot) -> MachineForm:
     await pilot.press("a")
-    await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+    await wait_for(pilot, lambda: showing(app, MachineForm))
     form = app.screen
     form.query_one("#form-id", Input).value = "box"
     form.query_one("#form-name", Input).value = "Box"
@@ -81,7 +86,7 @@ async def test_the_export_checkbox_belongs_to_direct_machines(
     app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await pilot.press("a")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         form = app.screen
         assert form.query_one("#direct-fields").display is False
         form.query_one("#kind-direct", RadioButton).value = True
@@ -101,7 +106,7 @@ async def test_saving_an_export_writes_the_file_and_y_adds_the_include(
     app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await add_exported_box(app, pilot)
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmInclude))
+        await wait_for(pilot, lambda: showing(app, ConfirmInclude))
         assert read_machines(path)[0] == [LAB, BOX]
         assert (folder / EXPORT_NAME).read_text(encoding="utf-8") == format_exports(
             [LAB, BOX], path
@@ -124,12 +129,12 @@ async def test_n_changes_nothing_and_is_not_asked_again(
     app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await add_exported_box(app, pilot)
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmInclude))
+        await wait_for(pilot, lambda: showing(app, ConfirmInclude))
         await pilot.press("n")
         await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmInclude))
         assert connection_status(app) == DECLINED
         await pilot.press("e")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: "Saved machine 2: box." in connection_status(app))
         await pilot.pause()
@@ -161,7 +166,7 @@ async def test_y_creates_a_missing_config(
     app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await add_exported_box(app, pilot)
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmInclude))
+        await wait_for(pilot, lambda: showing(app, ConfirmInclude))
         await pilot.press("y")
         await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmInclude))
         assert connection_status(app) == (
@@ -179,7 +184,7 @@ async def test_deleting_the_exported_machine_removes_its_block(
     app = SSHWorkbenchApp((BOX, LAB), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await pilot.press("x")
-        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
         await pilot.press("y")
         await wait_for(pilot, lambda: "Deleted machine 1" in connection_status(app))
     assert exported.read_text(encoding="utf-8") == format_exports([], path)
@@ -212,7 +217,7 @@ async def test_the_generated_file_never_counts_as_a_conflict(
     app = SSHWorkbenchApp((BOX, LAB), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await pilot.press("e")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: "Saved machine 1: box." in connection_status(app))
 
@@ -239,7 +244,7 @@ async def test_every_connection_field_shows_in_the_form(
     app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
     async with app.run_test(size=size) as pilot:
         await pilot.press("a")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         form = app.screen
         await pilot.pause()
         aliases = form.query_one("#alias-fields")
@@ -285,7 +290,7 @@ async def test_the_generated_file_names_the_machine_file_absolutely(
     app = SSHWorkbenchApp((BOX, LAB), config_path=relative, file_text=text)
     async with app.run_test() as pilot:
         await pilot.press("down", "e")
-        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await wait_for(pilot, lambda: showing(app, MachineForm))
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: "Saved machine 2: lab." in connection_status(app))
     assert (folder / EXPORT_NAME).read_text(encoding="utf-8") == format_exports(
