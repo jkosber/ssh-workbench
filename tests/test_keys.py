@@ -222,7 +222,7 @@ def test_posix_install_command_text() -> None:
         "exec sh -c '"
         'umask 077 && mkdir -p "$HOME/.ssh" && f="$HOME/.ssh/authorized_keys"'
         ' && touch "$f" && chmod 700 "$HOME/.ssh" && chmod 600 "$f"'
-        f' && if grep -qF "{ED_BLOB}" "$f";'
+        f' && if grep -v "^[[:space:]]*#" "$f" | grep -qF "{ED_BLOB}";'
         ' then echo "SSH Workbench: the key was already installed.";'
         ' else { if [ -s "$f" ] && [ -n "$(tail -c 1 "$f")" ]; then echo; fi;'
         f' echo "{ED_LINE}"; }} >> "$f"'
@@ -283,6 +283,40 @@ def test_posix_install_finds_the_key_behind_options(tmp_path: Path) -> None:
     keys_file = tmp_path / ".ssh" / "authorized_keys"
     keys_file.parent.mkdir()
     existing = f'from="192.0.2.0/24" ssh-ed25519 {ED_BLOB} old comment\n'
+    keys_file.write_bytes(existing.encode())
+
+    assert install_with_sh(tmp_path, ED_KEY) == (
+        "SSH Workbench: the key was already installed.\n"
+    )
+    assert keys_file.read_bytes() == existing.encode()
+
+
+COMMENTED = (
+    f"# ssh-ed25519 {ED_BLOB} old",
+    f"  # ssh-ed25519 {ED_BLOB} old",
+    f"\t#ssh-ed25519 {ED_BLOB}",
+)
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r\n"])
+@pytest.mark.parametrize("line", COMMENTED)
+def test_posix_install_ignores_a_commented_out_copy(
+    tmp_path: Path, line: str, ending: str
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    keys_file.write_bytes((line + ending).encode())
+
+    assert install_with_sh(tmp_path, ED_KEY) == "SSH Workbench: key installed.\n"
+    assert keys_file.read_bytes() == f"{line}{ending}{ED_LINE}\n".encode()
+
+
+def test_posix_install_counts_a_key_whose_options_hold_a_hash(
+    tmp_path: Path,
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    existing = f'command="echo #" ssh-ed25519 {ED_BLOB} c\n'
     keys_file.write_bytes(existing.encode())
 
     assert install_with_sh(tmp_path, ED_KEY) == (
@@ -421,3 +455,31 @@ def test_windows_install_keeps_existing_lines_whole(tmp_path: Path) -> None:
     install_with_powershell(tmp_path, ED_KEY)
 
     assert keys_file.read_bytes() == f"other\r\n{ED_LINE}\r\n".encode()
+
+
+@pytest.mark.parametrize("line", COMMENTED)
+def test_windows_install_ignores_a_commented_out_copy(
+    tmp_path: Path, line: str
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    keys_file.write_bytes(f"{line}\r\n".encode())
+
+    assert install_with_powershell(tmp_path, ED_KEY) == (
+        "SSH Workbench: key installed.\n"
+    )
+    assert keys_file.read_bytes() == f"{line}\r\n{ED_LINE}\r\n".encode()
+
+
+def test_windows_install_counts_a_key_whose_options_hold_a_hash(
+    tmp_path: Path,
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    existing = f'command="echo #" ssh-ed25519 {ED_BLOB} c\r\n'
+    keys_file.write_bytes(existing.encode())
+
+    assert install_with_powershell(tmp_path, ED_KEY) == (
+        "SSH Workbench: the key was already installed.\n"
+    )
+    assert keys_file.read_bytes() == existing.encode()
