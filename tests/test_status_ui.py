@@ -227,8 +227,13 @@ async def test_footer_keys_fit_at_60_columns() -> None:
         await wait_for(
             pilot, lambda: expected <= {key.action for key in footer.query("FooterKey")}
         )
+        # Regions are empty until the footer has been laid out.
+        await wait_for(
+            pilot, lambda: all(key.region.width for key in footer.query("FooterKey"))
+        )
         for key in footer.query("FooterKey"):
-            # Windows Terminal cut the last column at 60x20; keep one spare.
+            # Textual leaves the bottom-right cell empty on Windows, so the
+            # footer must end before the last column.
             assert key.region.right <= 59, key.action
 
 
