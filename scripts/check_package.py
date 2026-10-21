@@ -92,10 +92,13 @@ def main() -> None:
             or missing.exists()
         ):
             raise SystemExit("Installed wheel CLI check failed: missing configuration")
-        fixture = temporary / "projects.toml"
+        fixture = temporary / "machines.toml"
         fixture.write_text(
-            'schema_version = 1\n[[projects]]\nid = "package-demo"\n'
-            'name = "Package demo"\nssh_alias = "package-demo-host"\n',
+            'schema_version = 2\n[[machines]]\nid = "package-demo"\n'
+            'name = "Package demo"\nalias = "package-demo-host"\n'
+            '[[machines]]\nid = "package-direct"\nname = "Package direct"\n'
+            'user = "demo"\naddresses = ["192.0.2.10"]\nport = 2222\n'
+            '[[machines.links]]\nname = "Dashboard"\nurl = "https://192.0.2.10:8006"\n',
             encoding="utf-8",
         )
         subprocess.run(
@@ -123,7 +126,7 @@ def main() -> None:
             timeout=30,
         )
         if browser_fixture.read_bytes() != original:
-            raise SystemExit("Installed wheel modified its project configuration")
+            raise SystemExit("Installed wheel modified its machine file")
         for key in ("q", "ctrl+q"):
             result = subprocess.run(
                 [*smoke_command, "quit", key],
@@ -143,7 +146,7 @@ def main() -> None:
                 )
     print(
         "Built wheel: isolated installation, help/version, configuration errors, "
-        "verified installed import paths, project loader, headless selection/quit, "
+        "verified installed import paths, machine loader, headless selection/quit, "
         "substituted SSH/link results and blocked-opener Q/Ctrl+Q exit passed."
     )
 

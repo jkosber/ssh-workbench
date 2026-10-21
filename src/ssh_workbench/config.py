@@ -12,18 +12,6 @@ class ConfigError(ValueError):
     """A configuration cannot be read, parsed or validated."""
 
 
-ProjectConfigError = ConfigError
-
-
-@dataclass(frozen=True)
-class Project:
-    id: str
-    name: str
-    ssh_alias: str
-    repository: str | None = None
-    documentation: str | None = None
-
-
 @dataclass(frozen=True)
 class Link:
     name: str
@@ -84,16 +72,6 @@ def _parse_toml(text: str) -> dict[str, object]:
         ) from None
 
 
-def load_projects(path: Path) -> list[Project]:
-    """Read only the supplied UTF-8 file; never create or modify configuration."""
-    return parse_projects(_read_config(path))
-
-
-def parse_projects(text: str) -> list[Project]:
-    """Parse TOML and validate its schema, preserving project order and values."""
-    return _validate_projects(_parse_toml(text))
-
-
 def load_machines(path: Path) -> list[Machine]:
     """Read only the supplied UTF-8 file; never create or modify it."""
     return parse_machines(_read_config(path))
@@ -108,7 +86,7 @@ def parse_machines(text: str) -> list[Machine]:
     if type(version) is not int or version not in (1, 2):
         raise ConfigError("schema_version: expected integer 1 or 2")
     if version == 1:
-        return [_project_machine(project) for project in _validate_projects(data)]
+        return _projects_as_machines(data)
     return _validate_machines(data)
 
 
@@ -178,31 +156,16 @@ def is_valid_key_path(value: object) -> bool:
     return PureWindowsPath(value).is_absolute() or PurePosixPath(value).is_absolute()
 
 
-def _project_machine(project: Project) -> Machine:
-    links = tuple(
-        Link(name, url)
-        for name, url in (
-            ("Repository", project.repository),
-            ("Documentation", project.documentation),
-        )
-        if url is not None
-    )
-    return Machine(project.id, project.name, alias=project.ssh_alias, links=links)
-
-
-def _validate_projects(data: dict[str, object]) -> list[Project]:
+def _projects_as_machines(data: dict[str, object]) -> list[Machine]:
+    """Schema 1 projects become alias machines with named links."""
     _check_fields(data, {"schema_version", "projects"}, "configuration")
-    if "schema_version" not in data:
-        raise ConfigError("schema_version: required field is missing")
-    if type(data["schema_version"]) is not int or data["schema_version"] != 1:
-        raise ConfigError("schema_version: expected integer 1")
     if "projects" not in data:
         raise ConfigError("projects: required array is missing")
     entries = data["projects"]
     if not isinstance(entries, list):
         raise ConfigError("projects: expected an array of project tables")
 
-    projects = []
+    machines = []
     identifiers: dict[str, int] = {}
     for index, entry in enumerate(entries, start=1):
         location = f"projects[{index}]"
@@ -216,16 +179,13 @@ def _validate_projects(data: dict[str, object]) -> list[Project]:
         alias = _string(entry, "ssh_alias", location)
         if not is_valid_ssh_alias(alias):
             raise ConfigError(f"{location}.ssh_alias: {_ALIAS_RULE}")
-        projects.append(
-            Project(
-                id=identifier,
-                name=name,
-                ssh_alias=alias,
-                repository=_optional_url(entry, "repository", location),
-                documentation=_optional_url(entry, "documentation", location),
-            )
-        )
-    return projects
+        links = []
+        for field in ("repository", "documentation"):
+            url = _optional_url(entry, field, location)
+            if url is not None:
+                links.append(Link(field.title(), url))
+        machines.append(Machine(identifier, name, alias=alias, links=tuple(links)))
+    return machines
 
 
 def _validate_machines(data: dict[str, object]) -> list[Machine]:

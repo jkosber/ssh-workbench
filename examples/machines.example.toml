@@ -1,0 +1,33 @@
+# Example machine file. All names, aliases, addresses and links below are fictional.
+# Copy it to the default location shown by `ssh-workbench --help` and edit it,
+# or try it from a clone: ssh-workbench --config examples/machines.example.toml
+# The README's Configuration section describes every field.
+
+schema_version = 2
+
+# Reached through a Host entry in your SSH config: Workbench runs `ssh garden-demo-host`.
+[[machines]]
+id = "garden-demo"
+name = "Garden demo"
+alias = "garden-demo-host"
+
+[[machines.links]]
+name = "Documentation"
+url = "https://example.com/fictional/garden/docs"
+
+# Reached directly: Workbench passes the user, port, key and first address to SSH.
+[[machines]]
+id = "studio-box"
+name = "Studio box"
+user = "studio"
+addresses = ["studio-box.example.com", "192.0.2.40"]
+port = 2222
+key = "~/.ssh/id_ed25519_studio_box"
+
+[[machines.links]]
+name = "Dashboard"
+url = "https://192.0.2.40:8006"
+
+[[machines.links]]
+name = "Status page"
+url = "https://studio-box.example.com/status"
