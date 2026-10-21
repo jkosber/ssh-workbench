@@ -49,6 +49,12 @@ roadmap's 0.2.x candidates.
 Open for Jadon: installing and testing a real key against a real Windows
 target and a real Linux target.
 
+| Integration step | Result |
+| --- | --- |
+| [PR #14](https://github.com/jkosber/ssh-workbench/pull/14) CI on head `43b6448` | [Push run 39560759058](https://github.com/jkosber/ssh-workbench/actions/runs/39560759058) and [PR run 39560765769](https://github.com/jkosber/ssh-workbench/actions/runs/39560765769) passed on Windows and Ubuntu, 944 tests each |
+| Merge | Merged as **`5dda419`**, guarded on head `43b6448`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39561245538](https://github.com/jkosber/ssh-workbench/actions/runs/39561245538) passed on Windows and Ubuntu, 944 tests each |
+
 ## Task 11: alias rename detection, 2026-10-21
 
 Branch `feat/task11-alias-renames`. Environment as in Task 8.
