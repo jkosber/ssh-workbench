@@ -17,9 +17,11 @@ def empty_user_config(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def isolated_user_config(
     monkeypatch: pytest.MonkeyPatch, empty_user_config: Path
 ) -> None:
-    """Keep every test, and the processes it starts, away from the real user file."""
+    """Keep every test, and the processes it starts, away from the real user file
+    and the real SSH folder."""
     monkeypatch.setenv("APPDATA", str(empty_user_config))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(empty_user_config))
+    monkeypatch.setenv("SSH_WORKBENCH_SSH_DIR", str(empty_user_config / "ssh"))
 
 
 @pytest.fixture
