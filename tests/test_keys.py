@@ -222,7 +222,8 @@ def test_posix_install_command_text() -> None:
         "exec sh -c '"
         'umask 077 && mkdir -p "$HOME/.ssh" && f="$HOME/.ssh/authorized_keys"'
         ' && touch "$f" && chmod 700 "$HOME/.ssh" && chmod 600 "$f"'
-        f' && if grep -v "^[[:space:]]*#" "$f" | grep -qF "{ED_BLOB}";'
+        ' && if LC_ALL=C grep -v "^[[:space:]]*#" "$f"'
+        f' | LC_ALL=C grep -qF "{ED_BLOB}";'
         ' then echo "SSH Workbench: the key was already installed.";'
         ' else { if [ -s "$f" ] && [ -n "$(tail -c 1 "$f")" ]; then echo; fi;'
         f' echo "{ED_LINE}"; }} >> "$f"'
@@ -241,10 +242,10 @@ def posix_shell() -> str:
     return found
 
 
-def install_with_sh(home: Path, key: PublicKey) -> str:
+def install_with_sh(home: Path, key: PublicKey, **env: str) -> str:
     result = subprocess.run(
         [posix_shell(), "-c", posix_install_command(key)],
-        env={**os.environ, "HOME": home.as_posix()},
+        env={**os.environ, "HOME": home.as_posix(), **env},
         capture_output=True,
         text=True,
         timeout=30,
@@ -309,6 +310,19 @@ def test_posix_install_ignores_a_commented_out_copy(
 
     assert install_with_sh(tmp_path, ED_KEY) == "SSH Workbench: key installed.\n"
     assert keys_file.read_bytes() == f"{line}{ending}{ED_LINE}\n".encode()
+
+
+def test_posix_install_finds_a_key_whose_comment_is_not_utf8(tmp_path: Path) -> None:
+    # In a UTF-8 locale, GNU grep drops lines with invalid bytes from its output.
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    existing = f"ssh-ed25519 {ED_BLOB} jos".encode() + b"\xe9@host\n"
+    keys_file.write_bytes(existing)
+
+    assert install_with_sh(tmp_path, ED_KEY, LC_ALL="C.UTF-8") == (
+        "SSH Workbench: the key was already installed.\n"
+    )
+    assert keys_file.read_bytes() == existing
 
 
 def test_posix_install_counts_a_key_whose_options_hold_a_hash(
@@ -400,6 +414,13 @@ def test_windows_install_script_parses(tmp_path: Path) -> None:
 
 def test_windows_command_fits_cmd_with_a_large_rsa_key() -> None:
     rsa = PublicKey("ssh-rsa", blob("ssh-rsa", b"\x01" * 535), "dev@workstation")
+
+    assert len(windows_install_command(rsa)) < 8191
+
+
+def test_windows_command_fits_cmd_with_a_6144_bit_rsa_key_and_a_comment() -> None:
+    # 0.2.0 fit this key with a comment of up to about 100 characters.
+    rsa = PublicKey("ssh-rsa", blob("ssh-rsa", b"\x01" * 780), "c" * 40)
 
     assert len(windows_install_command(rsa)) < 8191
 
