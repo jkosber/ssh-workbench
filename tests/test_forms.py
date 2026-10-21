@@ -337,6 +337,24 @@ async def test_escape_cancels_without_writing(tmp_path: Path, key: str) -> None:
         assert app.focused is details
 
 
+@pytest.mark.parametrize("dialog", ["form", "delete"])
+async def test_ctrl_q_quits_from_the_form_and_the_delete_question(
+    tmp_path: Path, dialog: str
+) -> None:
+    app, path = saved_app(tmp_path)
+    before = path.read_bytes()
+    async with app.run_test() as pilot:
+        if dialog == "form":
+            await open_form(app, pilot, "a")
+        else:
+            await pilot.press("x")
+            await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await pilot.press("ctrl+q")
+        assert not app.is_running
+        assert app.return_code == 0
+    assert path.read_bytes() == before
+
+
 async def test_q_and_keys_type_into_the_form(tmp_path: Path) -> None:
     app, _ = saved_app(tmp_path)
     async with app.run_test() as pilot:
