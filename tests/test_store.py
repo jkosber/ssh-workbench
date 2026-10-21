@@ -57,6 +57,17 @@ def test_save_keeps_the_previous_bytes_as_backup(tmp_path: Path) -> None:
     assert parse_machines(path.read_text(encoding="utf-8")) == []
 
 
+def test_unchanged_text_is_not_rewritten(tmp_path: Path) -> None:
+    path = tmp_path / "machines.toml"
+    original = format_machines(MACHINES).replace("\n", "\r\n").encode("utf-8")
+    path.write_bytes(original)
+    _, loaded = read_machines(path)
+
+    assert save_machines(path, MACHINES, loaded) == format_machines(MACHINES)
+
+    assert snapshot(tmp_path) == {"machines.toml": original}
+
+
 @pytest.mark.parametrize("change", ["edited", "created", "deleted"])
 def test_outside_change_is_never_overwritten(tmp_path: Path, change: str) -> None:
     path = tmp_path / "machines.toml"
