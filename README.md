@@ -15,7 +15,7 @@ agent and host-key checks all stay with OpenSSH.
 | Platform | Status |
 | --- | --- |
 | Windows 11 | Tested in Windows Terminal with real SSH hosts and browser links |
-| Linux | Automated tests in CI only. Opening links needs a desktop session with `gio` and is untested on a real desktop |
+| Linux | Tested on Linux Mint 22.3 with real SSH hosts, in a terminal reached over SSH; CI runs the tests on Ubuntu. Opening links needs a desktop session with `gio` and is untested on a real desktop |
 | macOS | Untested. Links report "browser unavailable" |
 
 ## Requirements
@@ -213,6 +213,17 @@ address don't carry over: the first connection asks once. With a `key`, SSH
 offers only that key (`IdentitiesOnly`); a key with a passphrase asks for it,
 unless your SSH agent already holds the key.
 
+Your SSH config still applies to the address: a `Host` entry that matches it
+adds its options, such as `IdentityFile` or `StrictHostKeyChecking`. With
+`StrictHostKeyChecking yes`, SSH refuses the first connection instead of
+asking (`No ED25519 host key is known for <id>`, status 255). To confirm the
+key once, run this in a terminal and compare the fingerprint before answering
+yes:
+
+```text
+ssh -o HostKeyAlias=<id> -o StrictHostKeyChecking=ask [-l <user>] [-p <port>] -- <address>
+```
+
 Run Workbench in a local terminal. Environments that can't hand the terminal
 over, such as Textual Web, show a message instead of starting SSH.
 
@@ -298,7 +309,9 @@ or passphrase: SSH and `ssh-keygen` ask for them.
      other accounts use `%USERPROFILE%\.ssh\authorized_keys`.
 3. **Test it.** SSH logs in once more allowing only public-key authentication
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
-   with a passphrase works: SSH asks for it.
+   with a passphrase works: SSH asks for it. SSH also offers the keys your
+   SSH config names for the alias, or for a `Host` entry matching a direct
+   machine's address, so the test can pass with one of those.
 
 A direct machine's chosen key is saved as its `key` once it is installed. An
 alias machine's SSH config decides its keys, and Workbench never edits that
