@@ -343,9 +343,9 @@ The form hands a valid machine to the app, which calls
 | --- | --- |
 | Outside change | The current text is read the same way as when loading. If it differs from the text loaded (or the file appeared or vanished), `FileChangedError` stops the save. The app reloads the file and keeps the form open with a message; an invalid file is reported and nothing changes |
 | Unchanged | When the new text equals the current text, nothing is written |
-| Backup | The previous bytes go to `machines.toml.bak`, written like the file itself |
-| Write | `config.format_machines` produces schema 2 TOML in a fixed layout, escaping every control character. The bytes go to a temporary file in the same folder, are flushed and fsynced, take the old file's mode, and `os.replace` puts them in place |
-| Failure | The temporary file is removed and a `SaveError` names only the reason, never the path |
+| Backup | The previous bytes go to `machines.toml.bak`, written like the file itself but with the default mode, so a read-only original never makes the backup read-only |
+| Write | `config.format_machines` produces schema 2 TOML in a fixed layout, escaping every control character. The bytes go to a temporary file in the same folder, are flushed and fsynced, take the old file's mode on POSIX, and `os.replace` puts them in place. On Windows the mode is not copied: it is only the read-only flag, and a read-only file is refused with "permission denied" |
+| Failure | The temporary file is made writable and removed, and a `SaveError` names only the reason, never the path |
 
 A text comparison catches edits that keep the modification time, such as some
 synced folders. Saving drops comments and hand formatting; when the loaded text
@@ -359,7 +359,7 @@ The add form lists literal `Host` names from `sshconfig.host_names`. It reads
 meaning its parent, globs in sorted order, up to OpenSSH's depth of 16, each
 file once and at most 1 MB. Only `Host` and `Include` keywords are interpreted;
 names with `*`, `?` or `!`, or that fail the alias rule, are skipped. Include
-targets named `id_*`, `*.pub`, `known_hosts*` or `authorized_keys*` are never
+targets named `id_*`, `*.pub`, `*.pem`, `*.ppk`, `*.key`, `known_hosts*` or `authorized_keys*` are never
 opened. Unreadable files are skipped silently, because the names are only
 suggestions.
 
@@ -376,7 +376,7 @@ read real SSH files or access real hosts; the test suite points
 | 0.1.0 rule | Now |
 | --- | --- |
 | Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E or X, with the change check and atomic replace above |
-| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases; never opens keys, `known_hosts` or `authorized_keys`, and never changes the SSH config |
+| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
 
 For subprocess code, validate aliases, users, addresses, ports and key paths as
 data and use an argument list with a resolved executable and `shell=False`.

@@ -106,8 +106,9 @@ first problem under its field; **Ctrl+S** saves only a valid machine, and
 
 To list `Host` names, Workbench reads `config` in your SSH folder (`~/.ssh`, or
 `%USERPROFILE%\.ssh` on Windows) and the files its `Include` lines name. It
-interprets only `Host` and `Include` lines, skips names with `*`, `?` or `!`,
-and never opens keys, `known_hosts` or `authorized_keys`. It never changes your
+interprets only `Host` and `Include` lines and skips names with `*`, `?` or `!`.
+It never opens an included file named like a key (`id_*`, `*.pub`, `*.pem`,
+`*.ppk`, `*.key`), `known_hosts` or `authorized_keys`, and it never changes your
 SSH config. Set `SSH_WORKBENCH_SSH_DIR` to an absolute path to read a different
 folder instead; in its `Include` lines, `~` then means that folder's parent.
 
@@ -259,7 +260,7 @@ status 2.
 | `SSH not found. Install OpenSSH and add it to PATH.` | Install the OpenSSH client. On Windows 11: Settings > System > Optional features > OpenSSH Client |
 | `SSH exited with status 255. ...` | SSH couldn't connect or authenticate. Run the same `ssh` command directly to see its message |
 | `Invalid machine settings. ...` | A value failed the rules above; this only happens if records were changed after loading |
-| `Could not save the machine file: permission denied.` | The file or its folder is read-only, or another program holds the file open. Nothing was changed |
+| `Could not save the machine file: permission denied.` | The file or its folder is read-only, or another program holds the file open. The machine file was not changed |
 | `The machine file changed outside Workbench and was reloaded. ...` | Another program changed the file. Check the reloaded list, then save again |
 | `The machine file changed outside Workbench and now has an error: ...` | Fix the file's error, then save again |
 | `Cannot hand off this terminal. ...` | Start Workbench from a local terminal |

@@ -48,7 +48,8 @@ Changes by release, newest first. Version numbers follow the policy in
 - A save never overwrites a machine file that changed on disk since Workbench
   loaded it; it reloads the list and keeps your form open instead.
 - Only `Host` and `Include` lines of your SSH config are read; Workbench never
-  opens keys, `known_hosts` or `authorized_keys` and never changes the config.
+  opens an included file named like a key, `known_hosts` or `authorized_keys`,
+  and never changes the config.
 
 ### Development
 
