@@ -376,33 +376,31 @@ async def test_delete_asks_first(tmp_path: Path) -> None:
 async def test_actions_wait_for_the_rebuilt_list(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    release = asyncio.Event()
+    actions = ("connect", "open_link", "add", "edit", "delete")
     original = MachinePanes.recompose
+    during_rebuild = []
 
-    async def slow_recompose(self: MachinePanes) -> None:
-        await release.wait()
+    async def observed_recompose(self: MachinePanes) -> None:
+        # The old three-item list is still mounted while the app already holds
+        # two machines; the footer asks for its bindings at exactly this point.
+        app = self.app
+        during_rebuild.append(
+            {action: app.check_action(action, ()) for action in actions}
+        )
+        during_rebuild.append(sorted(app.screen_stack[0].active_bindings))
         await original(self)
 
-    monkeypatch.setattr(MachinePanes, "recompose", slow_recompose)
-    # A crash must fail the test, not leave it waiting for the held rebuild.
-    asyncio.get_running_loop().call_later(10, release.set)
+    monkeypatch.setattr(MachinePanes, "recompose", observed_recompose)
     app, path = saved_app(tmp_path)
     async with app.run_test() as pilot:
         await pilot.press("down", "down", "x")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
         await pilot.press("y")
         await wait_for(pilot, lambda: status(app) == "Deleted machine 3: lab.")
-        # The old three-item list is still on screen until the rebuild finishes.
-        app.refresh_bindings()
-        await pilot.pause()
-        for action in ("connect", "open_link", "add", "edit", "delete"):
-            assert app.check_action(action, ()) is None
-        await pilot.press("o", "c", "e", "x", "a")
-        assert app.is_running
-        assert len(app.screen_stack) == 1
-        release.set()
         await wait_for(pilot, lambda: len(app.query_one(ListView).children) == 2)
         await pilot.pause()
+        assert during_rebuild[0] == dict.fromkeys(actions)
+        assert app.is_running
         assert app.check_action("edit", ()) is True
         assert app.query_one(ListView).index == 1
         assert [m.id for m in parse_machines(path.read_text(encoding="utf-8"))] == [
