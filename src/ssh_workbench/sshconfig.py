@@ -38,15 +38,22 @@ def ssh_folder() -> Path | None:
         return None
 
 
-def host_names(folder: Path) -> list[str]:
+def host_names(folder: Path, skip: Path | None = None) -> list[str]:
     """Literal `Host` names from `folder/config` and its includes, first seen first.
 
     Patterns with `*`, `?` or `!` and names that fail the alias rule are skipped.
     In an `Include`, `~` means the folder's parent, so an overridden folder
-    never leads back to the real one.
+    never leads back to the real one. `skip` is never read: Workbench passes its
+    own generated file, so only the user's names count.
     """
     names: list[str] = []
-    _read(folder / "config", folder, 0, set(), names)
+    seen: set[Path] = set()
+    if skip is not None:
+        try:
+            seen.add(skip.resolve())
+        except OSError, RuntimeError:
+            pass
+    _read(folder / "config", folder, 0, seen, names)
     return names
 
 

@@ -19,6 +19,7 @@ from textual.suggester import SuggestFromList
 from textual.widget import Widget
 from textual.widgets import (
     Button,
+    Checkbox,
     Input,
     OptionList,
     RadioButton,
@@ -30,8 +31,19 @@ from textual.widgets.option_list import Option
 
 from ssh_workbench.config import ConfigError, Machine, validate_machine
 from ssh_workbench.display import display_text
+from ssh_workbench.exports import BACKUP_NAME, INCLUDE_LINE
 
-FIELDS = ("id", "name", "alias", "addresses", "user", "port", "key", "links")
+FIELDS = (
+    "id",
+    "name",
+    "alias",
+    "addresses",
+    "user",
+    "port",
+    "key",
+    "export_alias",
+    "links",
+)
 _LOCATION = re.compile(r"machine(?:\.(\w+)(?:\[(\d+)\])?(?:\.(\w+))?)?")
 
 
@@ -73,6 +85,10 @@ class MachineForm(ModalScreen[None]):
         color: $text-muted;
     }
     #form-kind {
+        height: auto;
+    }
+    /* A Vertical defaults to 1fr, which a scrolling form squeezes to one row. */
+    #alias-fields, #direct-fields {
         height: auto;
     }
     #form-links {
@@ -119,6 +135,7 @@ class MachineForm(ModalScreen[None]):
                 "user": machine.user or "",
                 "port": str(machine.port) if machine.port is not None else "",
                 "key": machine.key or "",
+                "export_alias": "true" if machine.export_alias else "",
                 "links": "\n".join(f"{link.name} {link.url}" for link in machine.links),
             }
         self._initial = values
@@ -153,6 +170,16 @@ class MachineForm(ModalScreen[None]):
                         yield from _field(
                             field, label, Input(values[field], id=f"form-{field}")
                         )
+                    # A checkbox label does not wrap; the field label does.
+                    yield from _field(
+                        "export_alias",
+                        "Export as an SSH alias (optional)",
+                        Checkbox(
+                            "ssh <ID> works in any terminal",
+                            values["export_alias"] == "true",
+                            id="form-export_alias",
+                        ),
+                    )
                 yield from _field(
                     "links",
                     "Links: one per line, the name and then the URL",
@@ -191,6 +218,9 @@ class MachineForm(ModalScreen[None]):
     def on_text_area_changed(self, event: TextArea.Changed) -> None:
         self._changed("links", event.text_area.text)
 
+    def on_checkbox_changed(self, event: Checkbox.Changed) -> None:
+        self._changed("export_alias", "true" if event.value else "")
+
     def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
         self._show_kind()
         self._validate()
@@ -219,6 +249,14 @@ class MachineForm(ModalScreen[None]):
             return None, *_place(str(error), line_numbers)
         if machine.id in self.ids_in_use():
             return None, "id", "already used by another machine"
+        # The Include line comes first, so SSH would pick the exported entry.
+        if machine.export_alias and machine.id in self.host_names:
+            return (
+                None,
+                "export_alias",
+                f"your SSH config already has Host {machine.id}; SSH would use the "
+                "exported entry instead",
+            )
         return machine, None, ""
 
     def _table(self) -> tuple[dict[str, object], list[int]]:
@@ -238,6 +276,8 @@ class MachineForm(ModalScreen[None]):
             port = value("port").strip()
             if port:
                 table["port"] = int(port) if re.fullmatch(r"[0-9]{1,5}", port) else port
+            if self.query_one("#form-export_alias", Checkbox).value:
+                table["export_alias"] = True
         else:
             table["alias"] = value("alias").strip()
         links: list[dict[str, str]] = []
@@ -333,6 +373,64 @@ class ConfirmDelete(ModalScreen[bool]):
             if self.rewrite_warning:
                 yield Static(self.rewrite_warning, markup=False)
             yield Static("Y: delete   N or Escape: keep", markup=False)
+
+    def action_answer(self, confirmed: bool) -> None:
+        if not self._answered:
+            self._answered = True
+            self.dismiss(confirmed)
+
+
+class ConfirmInclude(ModalScreen[bool]):
+    """Ask before adding the one Include line; Y adds it, N or Escape does not."""
+
+    BINDINGS = [
+        Binding("y", "answer(True)", "Add", priority=True),
+        Binding("n", "answer(False)", "Not now", priority=True),
+        Binding("escape", "answer(False)", "Not now", priority=True),
+        Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
+    ]
+    DEFAULT_CSS = """
+    ConfirmInclude {
+        align: center middle;
+    }
+    #confirm-include {
+        width: 90%;
+        max-width: 80;
+        height: auto;
+        border: solid $accent;
+        background: $surface;
+        padding: 0 1;
+    }
+    #include-line {
+        text-style: bold;
+        margin: 1 0;
+    }
+    """
+
+    def __init__(self, config: Path, exists: bool) -> None:
+        super().__init__()
+        self.config = config
+        self.exists = exists
+        self._answered = False
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-include") as box:
+            box.border_title = "Exported aliases"
+            yield Static(
+                "SSH sees exported aliases once your SSH config includes "
+                "Workbench's file. Add this line at the top of "
+                f"{display_text(str(self.config))}?",
+                markup=False,
+            )
+            yield Static(INCLUDE_LINE, id="include-line", markup=False)
+            yield Static(
+                f"Workbench first keeps a copy as {BACKUP_NAME} and changes no "
+                "other line."
+                if self.exists
+                else "The file doesn't exist yet; Workbench creates it with this line.",
+                markup=False,
+            )
+            yield Static("Y: add the line   N or Escape: not now", markup=False)
 
     def action_answer(self, confirmed: bool) -> None:
         if not self._answered:

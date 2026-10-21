@@ -193,7 +193,7 @@ def test_unknown_machine_field_is_not_echoed() -> None:
     error = config_error(machine_file(table(ALIAS, private_marker_key='"value"')))
     assert str(error) == (
         "machines[1]: unknown field; allowed fields: "
-        "addresses, alias, id, key, links, name, port, user"
+        "addresses, alias, export_alias, id, key, links, name, port, user"
     )
     assert_private(error, "private_marker_key")
 
@@ -228,7 +228,13 @@ def test_machine_without_alias_or_addresses_is_rejected() -> None:
 
 
 @pytest.mark.parametrize(
-    ("field", "value"), [("user", '"dev"'), ("port", "22"), ("key", '"~/.ssh/id"')]
+    ("field", "value"),
+    [
+        ("user", '"dev"'),
+        ("port", "22"),
+        ("key", '"~/.ssh/id"'),
+        ("export_alias", "true"),
+    ],
 )
 def test_direct_fields_on_alias_machine_are_rejected(field: str, value: str) -> None:
     error = config_error(machine_file(table(ALIAS, **{field: value})))
@@ -523,6 +529,29 @@ def test_format_layout() -> None:
         'key = "~/.ssh/id_box"\n'
     )
     assert format_machines([]) == "schema_version = 2\nmachines = []\n"
+
+
+def test_export_alias_loads_formats_and_round_trips() -> None:
+    text = machine_file(table(DIRECT, export_alias="true"))
+    exported = Machine(
+        "agent-box", "Agent mini PC", addresses=("100.64.0.12",), export_alias=True
+    )
+
+    assert parse_machines(text) == [exported]
+    assert parse_machines(machine_file(table(DIRECT, export_alias="false"))) == [
+        Machine("agent-box", "Agent mini PC", addresses=("100.64.0.12",))
+    ]
+    assert format_machines([exported]) == (
+        'schema_version = 2\n\n[[machines]]\nid = "agent-box"\n'
+        'name = "Agent mini PC"\naddresses = ["100.64.0.12"]\nexport_alias = true\n'
+    )
+    assert parse_machines(format_machines([exported])) == [exported]
+
+
+@pytest.mark.parametrize("value", ['"yes"', "1", "[]", '"true"'])
+def test_export_alias_must_be_a_boolean(value: str) -> None:
+    error = config_error(machine_file(table(DIRECT, export_alias=value)))
+    assert str(error) == "machines[1].export_alias: expected true or false"
 
 
 def test_format_escapes_strings_for_toml() -> None:

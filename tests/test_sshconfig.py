@@ -43,6 +43,15 @@ def test_literal_host_names_in_first_seen_order(tmp_path: Path) -> None:
     ]
 
 
+def test_a_skipped_file_is_not_read(tmp_path: Path) -> None:
+    folder = tmp_path / ".ssh"
+    write(folder, "config", "Include ssh-workbench.config\nHost mine\n")
+    write(folder, "ssh-workbench.config", "Host box\n")
+
+    assert host_names(folder) == ["box", "mine"]
+    assert host_names(folder, skip=folder / "ssh-workbench.config") == ["mine"]
+
+
 def test_includes_are_followed_in_order(tmp_path: Path) -> None:
     folder = tmp_path / ".ssh"
     absolute = write(tmp_path, "absolute.conf", "Host absolute\n")

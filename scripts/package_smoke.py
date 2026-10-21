@@ -33,6 +33,7 @@ PACKAGE_MODULES = (
     "ssh_workbench.cli",
     "ssh_workbench.config",
     "ssh_workbench.display",
+    "ssh_workbench.exports",
     "ssh_workbench.forms",
     "ssh_workbench.keys",
     "ssh_workbench.links",

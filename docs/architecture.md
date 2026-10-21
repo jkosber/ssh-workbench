@@ -14,6 +14,7 @@
 | `src/ssh_workbench/display.py` | Literal display of configuration text, with nonprinting characters escaped |
 | `src/ssh_workbench/status.py` | The only network code: TCP port checks, the `ssh -G` alias resolver and the per-machine status rules |
 | `src/ssh_workbench/ssh.py` | Native SSH boundary: machine recheck, argument list, executable lookup, child process and SIGINT guard |
+| `src/ssh_workbench/exports.py` | Exported aliases: the generated `ssh-workbench.config`, the `Include` check and its one-line insert with a backup |
 | `src/ssh_workbench/keys.py` | Key setup: public-key validation, the `.pub` listing, new key names, `ssh-keygen` arguments and the two fixed install commands |
 | `src/ssh_workbench/links.py` | Browser boundary: URL recheck and operating-system dispatch |
 | `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
@@ -235,6 +236,26 @@ is still reviewing or resolving, so they never drop its answers.
 | Keys | `check_action` hides C for a missing alias and hides U unless the selected machine has an offer, so the footer keeps at most seven keys. U saves only the selected machine, through `_save` with the forms' rewrite warning (a second U) and outside-change reload |
 | Marker | After a review, an alias that is neither listed nor missing reads "(not in your SSH config)" in the details; it still connects |
 
+## Implemented exported aliases
+
+`Machine.export_alias` (a TOML boolean, direct machines only, written only when
+true) marks a machine for Workbench's own SSH config file. `_save` calls
+`exports.write_exports` after every successful save of the machine file, and
+`_rebuild` shows any `ExportError` after the save's own message.
+
+| Item | Rule |
+| --- | --- |
+| Generated file | `ssh-workbench.config` in `ssh_folder()`: a header naming the machine file it comes from, then per exported machine `Host <id>`, `HostName <first address>`, `User` and `Port` when set, `HostKeyAlias <id>`, and `IdentityFile "<key>"` with `IdentitiesOnly yes` when it has a key. The key uses `/` for `\`, and `%` is doubled, though the loader already refuses `%`; a quote or control character raises `ExportError`. When the file names another machine file, `write_exports` leaves it alone and raises `ExportError` if this machine file has exports, so one SSH folder serves several machine files without either erasing the other's exports. Created only once something is exported, then rewritten at every save, atomically, `600` on POSIX |
+| Include check | `exports.include_present`: after a leading byte-order mark, an `Include` keyword, any case, before the first `Host` or `Match`, naming `ssh-workbench.config` or a path ending in it. A commented line or one inside a block does not count |
+| Insert | `exports.add_include`: back up the config to `config.ssh-workbench.bak`, then write `Include ssh-workbench.config` plus the file's own newline (`\r\n` when it has any) before everything, after a UTF-8 BOM if present, keeping every other byte and the POSIX mode. A missing config is created with the line, `600` on POSIX. A config that is a link or read-only is refused with the line to add by hand |
+| Prompt | After a form save of an exported machine whose generated file was written, once the browser is the active screen, `ConfirmInclude` shows the line unless it is present or N was answered this session. Y inserts it; N is remembered until the app restarts |
+| Conflicts | The form and the rename review read `sshconfig.host_names(folder, skip=<generated file>)`, so only the user's own `Host` names count; the form refuses an exported ID among them |
+
+Exported machines still connect directly. `ssh -F <generated file> -G <id>`
+with OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 read the generated block,
+including a quoted key path with a space; a relative `Include` in a `-F` file
+would resolve against the real `~/.ssh`, so checks never pass one.
+
 ## Implemented key setup
 
 K opens `forms.KeySetup` with `KeyChoice` entries and returns a `KeyPlan`. For
@@ -449,7 +470,7 @@ read real SSH files or access real hosts; the test suite points
 
 | 0.1.0 rule | Now |
 | --- | --- |
-| Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E, X or U, with the change check and atomic replace above, and its alias state file next to them |
+| Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E, X, U or K, with the change check and atomic replace above, and its alias state file next to them. For exported machines it writes its own `ssh-workbench.config` in the SSH folder, and adds one `Include` line at the top of the user's SSH config only after Y, with a backup first; it never changes any other line of that config |
 | No network I/O of its own | TCP port checks for status only: a DNS lookup for a host name, then one connection per checked address to its SSH port, closed without sending data; no ICMP. Tests substitute `socket.create_connection` and the `ssh -G` process |
 | No remote commands | Exactly two built-in remote actions, both in the handed-off terminal: the key-install command and `exit` for the public-key-only login test. Their only variable part is a validated public key line; no command text comes from the machine file |
 | Never reads SSH configuration | Lists and reads `.pub` files in the SSH folder for key setup, never a private key. Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines, and for new `Host` names that could replace a missing alias, at startup, on R and at key setup, which evaluates the whole config including `Match exec`; only `hostname`, `user`, `port`, `identityfile`, `identitiesonly`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
@@ -508,6 +529,12 @@ handling. Source inspection of the Linux driver is not a Linux terminal test.
 Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
+
+## References checked for task 13
+
+- [ssh_config(5)](https://man.openbsd.org/ssh_config): `Include` (relative files are in `~/.ssh`; inside a `Host` or `Match` block it applies only to that block), first obtained value wins, `%` tokens in `IdentityFile`, `HostKeyAlias`
+
+Installed Textual 8.2.8 sources were checked for `Checkbox` (`Changed`, a one-line label) and for `Vertical`'s default `height: 1fr`, which squeezed the form's connection fields until they got `height: auto`.
 
 ## References checked for task 12
 

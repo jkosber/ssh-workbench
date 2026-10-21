@@ -35,8 +35,18 @@ from ssh_workbench.config import (
 )
 from ssh_workbench.display import display_lines as _display_lines
 from ssh_workbench.display import display_text as _display_text
+from ssh_workbench.exports import (
+    BACKUP_NAME,
+    EXPORT_NAME,
+    INCLUDE_LINE,
+    ExportError,
+    add_include,
+    include_present,
+    write_exports,
+)
 from ssh_workbench.forms import (
     ConfirmDelete,
+    ConfirmInclude,
     KeyChoice,
     KeyPlan,
     KeySetup,
@@ -378,6 +388,11 @@ class SSHWorkbenchApp(App[None]):
         self._update_armed: tuple[str, str] | None = None
         # The machine whose alias K is resolving, if any.
         self._key_resolving: str | None = None
+        # Exported aliases: a problem writing Workbench's SSH config file, shown
+        # after the rebuild, and whether to offer the Include line then.
+        self._export_problem: str | None = None
+        self._include_offer = False
+        self._include_declined = False
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -495,7 +510,16 @@ class SSHWorkbenchApp(App[None]):
             ("id", _display_text(machine.id)),
             ("name", _display_text(machine.name)),
             ("status", self._status_text(machine)),
-            ("connection", "Direct" if direct else "SSH alias"),
+            (
+                "connection",
+                (
+                    f"Direct, exported as ssh {machine.id}"
+                    if machine.export_alias
+                    else "Direct"
+                )
+                if direct
+                else "SSH alias",
+            ),
             ("target", self._target_text(machine)),
             ("user", _display_text(machine.user) if machine.user else unset),
             ("port", str(machine.port) if machine.port is not None else unset),
@@ -637,7 +661,12 @@ class SSHWorkbenchApp(App[None]):
                 path = state_path(machine_file, self._computer)
                 memory = load_state(path, self._computer)
             folder = ssh_folder()
-            names = tuple(host_names(folder)) if folder is not None else ()
+            # Workbench's exported entries are not the user's Host names.
+            names = (
+                tuple(host_names(folder, skip=folder / EXPORT_NAME))
+                if folder is not None
+                else ()
+            )
             result = review(memory, aliases, names, self.checker.resolve_alias)
         except Exception:
             # Without a review the round still checks the aliases not missing.
@@ -863,7 +892,12 @@ class SSHWorkbenchApp(App[None]):
         return MachineForm(
             machine,
             ids_in_use=ids_in_use,
-            host_names=host_names(folder) if folder is not None else (),
+            # Workbench's own exported entries are not the user's Host names.
+            host_names=(
+                host_names(folder, skip=folder / EXPORT_NAME)
+                if folder is not None
+                else ()
+            ),
             save=save,
             rewrite_warning=rewrite_warning,
         )
@@ -948,6 +982,8 @@ class SSHWorkbenchApp(App[None]):
             # Saving from the form confirms the alias, even one no longer listed.
             if machines[position].alias in self._missing:
                 self._forget_alias(machines[position].alias)
+            # Offered after the rebuild, once the form has closed.
+            self._include_offer = machines[position].export_alias
             self.query_one("#connection-status", Static).update(
                 f"Saved machine {position + 1}: {_display_text(machines[position].id)}."
             )
@@ -966,6 +1002,8 @@ class SSHWorkbenchApp(App[None]):
         self.machines = tuple(machines)
         self.file_text = text
         self.config_supplied = True
+        # Rewritten from the machine file on every save.
+        self._export_problem = self._write_exports()
         self._rebuilding = True
         self.call_later(self._rebuild, select)
         return None
@@ -1019,6 +1057,69 @@ class SSHWorkbenchApp(App[None]):
         self.refresh_bindings()
         if self.checker is not None:
             self._start_round(resolve=False)
+        if self._export_problem is not None:
+            status = self.query_one("#connection-status", Static)
+            status.update(f"{status.content} {self._export_problem}")
+            self._export_problem = None
+            # The Include line would only point at a file that wasn't written,
+            # and answering the question would hide this message.
+            self._include_offer = False
+        if self._include_offer and self._browsing():
+            self._include_offer = False
+            self._offer_include()
+
+    def _write_exports(self) -> str | None:
+        """Rewrite Workbench's own SSH config file; return a problem to show."""
+        folder = ssh_folder()
+        if folder is None:
+            if any(machine.export_alias for machine in self.machines):
+                return "Could not find your SSH folder for exported aliases."
+            return None
+        try:
+            # A relative --config path would name a different file elsewhere.
+            write_exports(folder, self.machines, self.config_path.absolute())
+        except ExportError as error:
+            return str(error)
+        return None
+
+    def _offer_include(self) -> None:
+        """Ask for the Include line unless the SSH config has it or N was said."""
+        folder = ssh_folder()
+        if folder is None or self._include_declined:
+            return
+        config = folder / "config"
+        try:
+            exists = config.is_file()
+            text = config.read_bytes().decode("utf-8", "replace") if exists else ""
+        except OSError:
+            return
+        if include_present(text):
+            return
+        self.push_screen(
+            ConfirmInclude(config, exists),
+            lambda add: self._include_answered(config, exists, bool(add)),
+        )
+
+    def _include_answered(self, config: Path, exists: bool, add: bool) -> None:
+        status = self.query_one("#connection-status", Static)
+        if not add:
+            self._include_declined = True
+            status.update(
+                "Exported aliases work once your SSH config starts with: "
+                f"{INCLUDE_LINE}"
+            )
+            return
+        try:
+            add_include(config)
+        except ExportError as error:
+            status.update(str(error))
+            return
+        path = _display_text(str(config))
+        status.update(
+            f'Added "{INCLUDE_LINE}" to {path}; a copy is in {BACKUP_NAME}.'
+            if exists
+            else f'Created {path} with "{INCLUDE_LINE}".'
+        )
 
     def action_open_link(self) -> None:
         if self._links_closed.is_set():

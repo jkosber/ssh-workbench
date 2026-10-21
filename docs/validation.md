@@ -1,5 +1,66 @@
 # Validation
 
+## Task 13: exported aliases, 2026-10-21
+
+Branch `feat/task13-exported-aliases`. Environment as in Task 8. The real
+`~/.ssh/config` was not read or changed.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_exports.py` and `tests/test_exports_ui.py` failed at collection for the missing module and prompt; the `export_alias` schema tests and the `host_names` skip test failed. One existing assertion changed: the exact list of allowed machine fields gains `export_alias` |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 984 passed (944 before Task 13) |
+| `uv build`, `scripts/check_package.py` | Passed |
+
+Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
+and `SSH_WORKBENCH_SSH_DIR` pointed at ignored `.local/task13-session/`
+folders; the fictional SSH config had CRLF line endings:
+
+| Step | Result |
+| --- | --- |
+| Add `box` by keyboard: direct, `192.0.2.60`, user, port, a key path with a space, export ticked with Space | Saved; the Include question showed the exact line and the config path |
+| Y | `Added "Include ssh-workbench.config" to <path>; a copy is in config.ssh-workbench.bak.` The config bytes were the new line plus CRLF, then the original bytes unchanged; the backup was byte-identical to the original. Details: `Direct, exported as ssh box` |
+| Generated file | The header, then `Host box` with `HostName 192.0.2.60`, `User dev`, `Port 2222`, `HostKeyAlias box`, `IdentityFile "C:/Fictional Keys/id_box"` and `IdentitiesOnly yes` |
+| `ssh -F <generated file> -G box` | OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 both printed that host, user, port, host-key alias and the key path as one value. Only the generated file was given, since a relative `Include` in a `-F` file would resolve against the real `~/.ssh` |
+| E on `box` at 60x20, export unticked | Saved without a question; the generated file kept only its header |
+
+The first run of this check showed the add form squeezing the alias and direct
+fields to one row, so typed addresses, users, ports and keys were invisible; it
+had been so since Task 9, because a `Vertical` defaults to `height: 1fr`.
+`test_every_connection_field_shows_in_the_form` failed at 80x24 and 60x20, then
+passed once both containers got `height: auto`. At 60x20 the export checkbox's
+long label overflowed, so its explanation moved into the field label. The check
+above is the repeat.
+
+Two fresh reviews, one for spec compliance and one for code and docs quality,
+found these issues to fix; each was fixed after a failing test:
+
+| Finding | Fix | Test |
+| --- | --- | --- |
+| A config that starts with a byte-order mark hid the added line from the check, so a second Y would add it again and overwrite the backup | The check ignores a leading mark | `test_include_present` (two new cases), `test_the_line_added_after_a_byte_order_mark_is_found` |
+| A linked config (dotfile managers) would become an unlinked file, and a read-only one was replaced anyway | Both are refused with the line to add by hand | `test_a_linked_or_read_only_config_is_refused`; the link case fakes `Path.is_symlink`, because this Windows account cannot create links |
+| Saving another machine file, opened with `--config`, rewrote the generated file and dropped the first file's exports | The header names its machine file; another machine file's exports are refused with a message | `test_another_machine_files_exports_are_left_alone` |
+| The Include question opened after the generated file failed to write, and answering it hid the failure | No question then | `test_a_failed_export_is_shown_instead_of_the_question` |
+| The rename review counted exported names as the user's `Host` names | It skips the generated file, like the form | `test_exported_names_are_not_the_users_host_names` |
+| Docs still said Workbench never changes the SSH config, and described `%%` for key paths the loader already refuses | Reworded | Reviewed diff |
+
+Two fakes of `host_names` in `tests/test_renames_ui.py` took the new `skip`
+argument in their own commit; they passed against the code before the fix.
+
+The repeated native check then showed the header naming the machine file by
+the relative path typed after `--config`, which would compare differently from
+another folder; `test_the_generated_file_names_the_machine_file_absolutely`
+failed, then passed, and a further repeat showed the absolute path. One full
+run also showed `test_shutdown_skips_a_pending_rebuild` (from PR #12) failing
+once: a rebuild queued with `call_later` during teardown did not always run.
+The test now creates and awaits that task; it passed eight times in a row and
+fails when the `_rebuild` guard is removed.
+
+After the fixes: 993 tests passed. Remaining minor findings are in the
+roadmap's 0.2.x candidates.
+
+Open for Jadon: inserting the `Include` line into a real `~/.ssh/config`.
+
 ## Task 12: key login setup, 2026-10-21
 
 Branch `feat/task12-key-setup`. Environment as in Task 8. No real key was
@@ -48,6 +109,12 @@ roadmap's 0.2.x candidates.
 
 Open for Jadon: installing and testing a real key against a real Windows
 target and a real Linux target.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #14](https://github.com/jkosber/ssh-workbench/pull/14) CI on head `43b6448` | [Push run 39560759058](https://github.com/jkosber/ssh-workbench/actions/runs/39560759058) and [PR run 39560765769](https://github.com/jkosber/ssh-workbench/actions/runs/39560765769) passed on Windows and Ubuntu, 944 tests each |
+| Merge | Merged as **`5dda419`**, guarded on head `43b6448`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39561245538](https://github.com/jkosber/ssh-workbench/actions/runs/39561245538) passed on Windows and Ubuntu, 944 tests each |
 
 ## Task 11: alias rename detection, 2026-10-21
 

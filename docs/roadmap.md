@@ -489,11 +489,44 @@ Acceptance:
   config pins other keys. A passphrase key works because SSH asks for it.
   Every SSH call keeps `--`, `HostKeyAlias` for direct machines and host-key
   checking.
-- [ ] Tests substitute every process. Docs explain key setup, ssh-agent and
+- [x] Tests substitute every process. Docs explain key setup, ssh-agent and
   Windows administrators. Full checks, CI and a native Windows Terminal check
   with substituted children pass.
 - [ ] Install and login test against a real Windows target and a real Linux
   target, with Jadon's approval.
+
+## 13. Exported aliases
+
+A direct machine can be exported, so `ssh <id>` works in any terminal and for
+agents, through Workbench's own SSH config file and one confirmed `Include`
+line.
+
+Acceptance:
+
+- [x] A direct machine can be exported: `export_alias = true`, a checkbox in
+  the form, off by default. Saving writes Workbench's own `ssh-workbench.config`
+  in the SSH folder: a header saying it is generated and overwritten, then one
+  `Host <id>` block per exported machine with `HostName` (the first address),
+  `User`, `Port`, `HostKeyAlias`, and `IdentityFile` with `IdentitiesOnly yes`
+  when it has a key. The file is rewritten from the machine file on every save,
+  is readable and writable only by the user on POSIX, and is not created while
+  no machine is exported.
+- [x] Values are escaped for SSH config syntax: `IdentityFile` is quoted, with
+  `/` for `\`; key paths with `%`, quotes or line breaks never reach the
+  file.
+- [x] After a form save of an exported machine, if the SSH config has no
+  `Include ssh-workbench.config` before its first `Host` or `Match`, Workbench
+  shows that exact line and asks. Y keeps a backup, inserts only that line at
+  the top and leaves every other byte; a missing config is created with the
+  line. N leaves the config alone and is not asked again in that session.
+- [x] An exported ID that matches a `Host` name in the user's own SSH config is
+  refused in the form, because SSH would use the exported entry first.
+- [ ] Tests use temporary SSH folders. Docs explain exported aliases. Full
+  checks, CI and a native Windows Terminal check against a fictional SSH folder
+  pass, including `ssh -F` resolving an exported machine from the generated
+  file.
+- [ ] Inserting the `Include` line into a real `~/.ssh/config`, with Jadon's
+  approval.
 
 ## 0.1.x candidates
 
@@ -580,6 +613,20 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   screen sketch mentions; zsh, fish and tcsh login shells are untested.
 - Task 12: a direct machine's key is saved after a failed login test, so
   Connect then offers only that key.
+- Task 13: an exported ID may equal another machine's alias, or a `Host` the
+  user adds later; the form checks only the user's literal `Host` names at save.
+- Task 13: the Include check does not follow the user's own `Include` files,
+  compares names case-sensitively, and counts an `Include` of a same-named file
+  in another folder.
+- Task 13: every `\` in a key path becomes `/`, also on Linux, where `\` is a
+  legal file-name character.
+- Task 13: the generated file is not rewritten at startup or after an outside
+  reload; a hand-set `export_alias` waits for the next save.
+- Task 13: `exports.py` copies `sshconfig.py`'s line parser and `store.py`'s
+  error wording; the extra `chmod 600` calls repeat what the atomic write does.
+- Task 13: the first creation of `ssh-workbench.config` isn't named in the
+  status line; failure paths of `write_exports` and `add_include` have few
+  tests.
 
 ## Deferred ideas
 
