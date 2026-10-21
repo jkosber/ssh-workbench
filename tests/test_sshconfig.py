@@ -111,6 +111,27 @@ def test_key_and_known_hosts_files_are_never_read(
     assert read == ["config", "other.conf"]
 
 
+def test_other_key_file_names_are_never_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / ".ssh"
+    write(folder, "config", "Include *\n")
+    for name in ("work.pem", "putty.PPK", "server.key", "github_ed25519.pub"):
+        write(folder, name, "Host leaked\n")
+    write(folder, "other.conf", "Host fine\n")
+    read = []
+    original = Path.read_bytes
+
+    def spy(path: Path) -> bytes:
+        read.append(path.name)
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", spy)
+
+    assert host_names(folder) == ["fine"]
+    assert sorted(read) == ["config", "other.conf"]
+
+
 def test_unreadable_and_oversized_files_are_skipped(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -500,6 +500,70 @@ async def test_outside_change_keeps_the_form_and_reloads_the_list(
         assert app.query_one(ListView).index == 4
 
 
+async def test_outside_comment_is_warned_about_before_saving(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    async with app.run_test() as pilot:
+        form = await open_form(app, pilot, "a")
+        fill(form, id="web", name="Web", alias="web-host")
+        commented = "# a note added elsewhere\n" + format_machines(MACHINES)
+        path.write_text(commented, encoding="utf-8")
+        before = path.read_bytes()
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert message(form).startswith("The machine file changed outside Workbench")
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        assert message(form).startswith("Saving rewrites the file without its comments")
+        assert path.read_bytes() == before
+        await pilot.press("ctrl+s")
+        await back_to_browser(app, pilot)
+        assert (tmp_path / "machines.toml.bak").read_bytes() == before
+        assert parse_machines(path.read_text(encoding="utf-8"))[-1].id == "web"
+
+
+async def test_reload_keeps_the_selected_machine(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    inserted = (Machine("first", "First", alias="first-host"),) + MACHINES
+    async with app.run_test() as pilot:
+        await pilot.press("down")
+        form = await open_form(app, pilot, "a")
+        fill(form, id="web", name="Web", alias="web-host")
+        path.write_text(format_machines(inserted), encoding="utf-8")
+        await pilot.press("ctrl+s")
+        await pilot.pause()
+        await pilot.press("escape")
+        await back_to_browser(app, pilot)
+        await pilot.pause()
+        assert str(app.query_one("#machine-id", Static).content) == "studio"
+        assert app.query_one(ListView).index == 2
+
+
+async def test_refused_delete_says_to_delete_again(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.press("x")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        path.write_text(format_machines(MACHINES[1:]), encoding="utf-8")
+        await pilot.press("y")
+        await back_to_browser(app, pilot)
+        assert status(app) == (
+            "The machine file changed outside Workbench and was reloaded. "
+            "Check the list, then delete again."
+        )
+
+
+async def test_huge_port_is_an_error_not_a_crash(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    async with app.run_test() as pilot:
+        form = await open_form(app, pilot, "a")
+        form.query_one("#kind-direct", RadioButton).value = True
+        await pilot.pause()
+        fill(form, id="big", name="Big", addresses="big.example", port="9" * 5000)
+        await pilot.pause()
+        assert app.is_running
+        assert error(form, "port") == "expected an integer from 1 to 65535"
+
+
 async def test_outside_change_to_an_invalid_file_writes_nothing(
     tmp_path: Path,
 ) -> None:

@@ -150,6 +150,37 @@ def test_folder_at_the_path_is_a_save_error(tmp_path: Path) -> None:
     assert list(path.iterdir()) == []
 
 
+def test_read_only_file_leaves_no_temporary_file_and_saves_once_writable(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "machines.toml"
+    path.write_bytes(ORIGINAL)
+    _, loaded = read_machines(path)
+    path.chmod(stat.S_IREAD)
+    try:
+        if os.name == "nt":
+            # Windows refuses to replace a read-only file.
+            with pytest.raises(SaveError) as caught:
+                save_machines(path, MACHINES, loaded)
+            assert str(caught.value) == (
+                "Could not save the machine file: permission denied."
+            )
+            assert path.read_bytes() == ORIGINAL
+        else:
+            # POSIX replaces the directory entry and keeps the file's mode.
+            save_machines(path, MACHINES, loaded)
+            assert stat.S_IMODE(path.stat().st_mode) == stat.S_IREAD
+        assert [p.name for p in tmp_path.iterdir() if p.suffix == ".tmp"] == []
+        assert os.access(backup_path(path), os.W_OK)
+    finally:
+        path.chmod(stat.S_IREAD | stat.S_IWRITE)
+    _, loaded = read_machines(path)
+
+    save_machines(path, [], loaded)
+
+    assert parse_machines(path.read_text(encoding="utf-8")) == []
+
+
 def test_file_mode_is_kept(tmp_path: Path) -> None:
     path = tmp_path / "machines.toml"
     path.write_bytes(ORIGINAL)
