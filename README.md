@@ -224,6 +224,7 @@ details pane, with color on top:
 | `●` (pulsing) | Online | The SSH port answered. Details show the address that answered, or "via alias" |
 | `○` | Offline | No address answered. Each connection attempt waits up to 3 seconds; a refused connection or a name that doesn't resolve also counts as offline |
 | `◇` | Can't check | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, an added or edited alias waits for **R**, or the check itself failed |
+| `×` | Alias not found | The alias was in your SSH config at an earlier check and is gone now; see [Renamed aliases](#renamed-aliases) |
 
 Workbench checks at startup, when you press **R**, and every 30 seconds. A
 check looks up the machine's host name if it has one, then opens a TCP
@@ -239,6 +240,32 @@ last answer. The details pane shows "via alias" rather than the host.
 The symbols turn and pulse only while animations are on; set
 `TEXTUAL_ANIMATIONS=none` to keep them still.
 
+## Renamed aliases
+
+Workbench remembers the `Host` names it saw at each startup and **R**, and
+where each alias machine's alias pointed. When an alias that was in your SSH
+config is gone, the machine shows **Alias not found** and C is hidden for it,
+so a connect never goes somewhere you didn't choose. Workbench runs neither
+`ssh -G` nor a status check for it.
+
+If exactly one `Host` name that appeared since then points at the same host,
+user and port, and no other missing alias matches it, the details pane says
+"Looks like old became new. Press U to update." **U** saves the selected
+machine with the new alias; if the file has comments or hand formatting,
+Workbench first says they will be dropped and the second **U** saves.
+Otherwise edit the machine with **E**, or fix your SSH config and press **R**.
+
+An alias that is not a literal `Host` name, for example one matched by a
+pattern such as `Host *.example`, still connects; the details mark it "not
+in your SSH config".
+
+This memory is a state file next to the machine file: `machines.state.json`
+for `machines.toml`. It holds the `Host` names and, for each alias, the host,
+user and port `ssh -G` resolved; no passwords or keys. Workbench writes it
+only when the machine file exists. Deleting it is safe: Workbench then forgets
+which aliases existed until the next startup or **R**. A state file written on
+another computer, for example through a synced folder, is ignored.
+
 ## Keys
 
 | Key | Action |
@@ -248,6 +275,7 @@ The symbols turn and pulse only while animations are on; set
 | Page Up / Page Down, Home / End | Scroll the details pane |
 | C | Connect to the selected machine |
 | R | Check every machine's status again, resolving aliases too |
+| U | Update the selected machine's alias when Workbench offers a renamed one |
 | O | Open the selected machine's link, or choose one when it has several |
 | Enter / Escape | In the link list: open the highlighted link / cancel |
 | A / E / X | Add a machine / edit the selected one / delete it after asking |
@@ -256,7 +284,8 @@ The symbols turn and pulse only while animations are on; set
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
 C, O, A, E, X, R and Q also appear in the footer and can be clicked; O is
-labelled Link there. C, O, E and X are dimmed when nothing is selected, O when
+labelled Link there. For a machine whose alias is not found, C is hidden, and
+U appears in its place when Workbench offers a rename. C, O, E and X are dimmed when nothing is selected, O when
 the machine has no links, and A, E and X when Workbench has no file location.
 Startup, selection and Enter in the machine list never connect, open or change
 anything; the status checks are the only thing that starts on its own.
@@ -297,11 +326,12 @@ status 2.
 
 ## Privacy
 
-Workbench reads and writes its machine file and its `.bak` copy. To suggest
-aliases it reads only the `Host` and `Include` lines of your SSH config. At
-startup and on **R** it also runs `ssh -G` for each alias: SSH then evaluates
-your whole SSH config, including any `Match exec` commands, and Workbench
-reads only the host, port and proxy settings it prints. Workbench doesn't
+Workbench reads and writes its machine file, its `.bak` copy and its
+`machines.state.json` state file. To suggest aliases it reads only the `Host`
+and `Include` lines of your SSH config. At startup and on **R** it also runs
+`ssh -G` for each alias: SSH then evaluates your whole SSH config, including
+any `Match exec` commands, and Workbench reads only the host, user, port and
+proxy settings it prints. Workbench doesn't
 change your SSH config, read keys or `known_hosts`, store credentials, change
 host-key settings, collect telemetry or need an AI service. Its own network
 traffic is the status checks: DNS lookups for host names, and one TCP

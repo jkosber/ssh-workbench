@@ -17,8 +17,8 @@ package in editable mode, so source changes are available on the next run.
 `--locked` fails if those files disagree instead of silently changing the lock.
 
 Without `--config`, the development command loads your real per-user machine
-file if it exists, and A, E and X change it; `ssh-workbench --help` shows its
-path. The add form also reads `Host` lines from your real SSH config, and at
+file if it exists, A, E, X and U change it, and Workbench keeps
+`machines.state.json` next to it; `ssh-workbench --help` shows its path. The add form also reads `Host` lines from your real SSH config, and at
 startup and on R Workbench runs `ssh -G` on it for each alias machine and
 checks every machine's SSH port. The test suite never touches either: it points `APPDATA`, `XDG_CONFIG_HOME` and
 `SSH_WORKBENCH_SSH_DIR` at an empty folder. For a manual run, use `--config`

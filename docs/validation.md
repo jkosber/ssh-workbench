@@ -1,5 +1,35 @@
 # Validation
 
+## Task 11: alias rename detection, 2026-10-21
+
+Branch `feat/task11-alias-renames`. Environment as in Task 8.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_aliases.py` and `tests/test_renames_ui.py` failed at collection for the missing module and message; in `tests/test_status.py` six tests failed for the missing `user` field and state. Three existing assertions there were extended: `resolve_alias` results gain `user="dev"`, which their fixture prints, and the exact list of state words gains "Alias not found" |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 861 passed (802 before Task 11) |
+| `uv build`, `scripts/check_package.py` | Passed; the installed-import check now also covers `aliases` and `status` |
+| `Host` matching | `ssh -F <fictional file> -G` with OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 applied `Host lab-box` to `lab-box` but not to `LAB-BOX`, so an alias is listed only by exact name |
+
+Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
+and `SSH_WORKBENCH_SSH_DIR` pointed at ignored `.local/task11-session/`
+folders, a local listener on 127.0.0.1, and three fictional alias machines:
+Garden (`old-garden`), Shed (`old-shed`, another fictional user) and Pattern
+(`pattern-only`, no `Host` entry):
+
+| Run | Result |
+| --- | --- |
+| 1, both aliases listed | Garden and Shed `● Online via alias`; Pattern `○ Offline` and `pattern-only (not in your SSH config)`. The state file listed both `Host` names, both targets, no renames and version 1 |
+| 2, `old-garden` renamed to `new-garden` and `old-shed` removed | Both `×`. Garden: `× Alias not found. Looks like old-garden became new-garden. Press U to update.`, footer `u Update` without `c Connect`. Shed: `× Alias not found. Edit the machine, or fix your SSH config and press R.`, neither C nor U in the footer, and C changed nothing. U on Garden: `Updated machine 1: garden now uses alias new-garden.`, `● Online via alias`, and the file's other machines unchanged |
+| 3, restarted at 60x20 | Shed still Alias not found; the footer fit |
+
+The first run of this check gave both machines the same host, user and port,
+and Shed was also offered `new-garden`. An offer now has to fit only one
+vanished alias: `test_a_new_name_matching_two_vanished_aliases_is_offered_to_neither`
+failed, then passed, and the native check was repeated with distinct targets
+as above.
+
 ## Status timer during shutdown, 2026-10-21
 
 After [PR #11](https://github.com/jkosber/ssh-workbench/pull/11) merged as

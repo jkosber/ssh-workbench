@@ -438,24 +438,24 @@ caught before a connect fails.
 
 Acceptance:
 
-- [ ] After each startup or R, Workbench keeps a state file next to the machine
+- [x] After each startup or R, Workbench keeps a state file next to the machine
   file (`machines.state.json` for `machines.toml`): the literal `Host` names it
   read and, for each alias machine whose alias is one of them, the host, user
   and port `ssh -G` resolved. It holds no secrets, is never written into the
   machine file and is written only when the machine file exists. A missing,
   unreadable or invalid state file, or one written on another computer, counts
   as no state.
-- [ ] At startup and on R, an alias machine whose alias was a literal `Host`
+- [x] At startup and on R, an alias machine whose alias was a literal `Host`
   name at an earlier check and is gone now shows Alias not found, with its own
   symbol, and cannot connect: C is hidden for it. Neither `ssh -G` nor a port
   check runs for it, and timer rounds keep the state.
-- [ ] If exactly one `Host` name that appeared since that check resolves to the
+- [x] If exactly one `Host` name that appeared since that check resolves to the
   recorded host, user and port, the details pane says "Looks like old became
   new. Press U to update." U saves the selected machine with the new alias,
   asking for a second U when saving would drop the file's comments or
   formatting. Nothing changes without U. The offer stays across restarts while
   the new name still resolves the same way.
-- [ ] An alias that is not a literal `Host` name still connects; the details
+- [x] An alias that is not a literal `Host` name still connects; the details
   mark it "not in your SSH config" as information.
 - [ ] Tests use temporary SSH folders, machine files and state files and a fake
   checker. Docs describe the state file and U. Full checks, CI and a native

@@ -6,9 +6,10 @@
 | --- | --- |
 | `src/ssh_workbench/cli.py` | Entry point: help and version, default-file location, loading, starting the app |
 | `src/ssh_workbench/config.py` | TOML loading and formatting, schema 1 and 2 validation, `Machine` and `Link` records and the shared field rules. No Textual, subprocesses or filesystem search |
-| `src/ssh_workbench/store.py` | The only file writing: outside-change check, `.bak` copy and atomic replace of the machine file |
+| `src/ssh_workbench/store.py` | The only file writing: outside-change check, `.bak` copy and atomic replace of the machine file; `replace_atomically` also writes the alias state file |
+| `src/ssh_workbench/aliases.py` | The alias state file and the rename review: which aliases vanished and the one new name each probably became |
 | `src/ssh_workbench/sshconfig.py` | The SSH folder and the literal `Host` names from its `config` and `Include` files; nothing else is interpreted |
-| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/O/A/E/X/Q actions |
+| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/U/O/A/E/X/R/Q actions |
 | `src/ssh_workbench/forms.py` | The machine form and the delete confirmation |
 | `src/ssh_workbench/display.py` | Literal display of configuration text, with nonprinting characters escaped |
 | `src/ssh_workbench/status.py` | The only network code: TCP port checks, the `ssh -G` alias resolver and the per-machine status rules |
@@ -25,7 +26,8 @@
 | `.github/` | CI and the pull-request template |
 
 `cli` imports `config` and, after argument parsing, `app`. `app` uses `forms`,
-`store`, `sshconfig`, `ssh` and `links`, which reuse validation from `config`.
+`store`, `sshconfig`, `status`, `aliases`, `ssh` and `links`, which reuse
+validation from `config`; `aliases` writes through `store`.
 Only `__main__` imports `cli`.
 
 ## Implemented CLI and machine browser
@@ -196,7 +198,7 @@ resolving every `STATUS_INTERVAL` (30 s) and after each save:
 
 | Step | Detail |
 | --- | --- |
-| Round | Each machine becomes Checking and gets one daemon thread, as the link worker does, so quitting never waits for a check stuck on DNS or a dropped connection. Results come back through `post_message` as `StatusFinished`; a result from an older round, or for a machine no longer listed, is dropped |
+| Round | Each machine becomes Checking and gets one daemon thread, as the link worker does (in a resolving round, alias machines only after the rename review below), so quitting never waits for a check stuck on DNS or a dropped connection. Results come back through `post_message` as `StatusFinished`; a result from an older round, or for a machine no longer listed, is dropped |
 | Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
 | Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, output captured and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `port`, `proxyjump` and `proxycommand` are read, and the host is never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
 | Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
@@ -208,6 +210,26 @@ row stays the first one. Each state has its own shape (`◐`, `●`, `○`, `◇
 `·`) and a word in the details pane; color classes come on top. A 0.2 s timer
 turns the Checking symbol and dims Online every other 0.8 s, and does nothing
 when `App.animation_level` is `none` (`TEXTUAL_ANIMATIONS=none`).
+
+## Implemented rename detection
+
+A resolving round (startup and R) with alias machines first starts one daemon
+thread, before any alias is resolved. It loads the state file on the first
+review, reads `sshconfig.host_names` and runs `aliases.review`, which needs
+`ssh -G` only for names that could replace a missing alias. The app receives
+`AliasesReviewed` and starts a resolving check for every alias that is not
+missing. Missing ones become `State.NOT_FOUND` (`×`) with no `ssh -G` or port
+check, and timer rounds keep them so. A failed review lets the round check
+every alias.
+
+| Item | Rule |
+| --- | --- |
+| State file | `aliases.state_path`: `<stem>.state.json` next to the machine file. JSON with `version` 1, the writing computer's `platform.node()`, `host_names`, `renames` and per alias `host`, `user` and `port`. Written through `store.replace_atomically` once the round's aliases have reported, only when its text changed and the machine file exists; an `OSError` is ignored, because the file is a cache |
+| Reading | More than 1 MB, undecodable or invalid JSON, another version or computer, an invalid alias name, an empty host, a port outside 1-65535 or a bool, or any missing or extra key means no state. A machine file in a synced folder is shared by computers with different SSH configs, so one computer's names must not mark another's aliases missing |
+| Missing | An alias recorded while it was a literal `Host` name and not listed now. Matching is exact: OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 apply `Host lab-box` to `lab-box` but not to `LAB-BOX`. The record stays while the alias is missing, so Alias not found survives restarts |
+| Offer | A kept offer that is still listed and still resolves to the record, else the one name that appeared since the last review and resolves to the same host, user and port. A name offered to two missing aliases is offered to neither |
+| Keys | `check_action` hides C for a missing alias and hides U unless the selected machine has an offer, so the footer keeps at most seven keys. U saves only the selected machine, through `_save` with the forms' rewrite warning (a second U) and outside-change reload |
+| Marker | After a review, an alias that is neither listed nor missing reads "(not in your SSH config)" in the details; it still connects |
 
 ## Implemented native SSH boundary
 
@@ -403,7 +425,7 @@ read real SSH files or access real hosts; the test suite points
 
 | 0.1.0 rule | Now |
 | --- | --- |
-| Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E or X, with the change check and atomic replace above |
+| Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E, X or U, with the change check and atomic replace above, and its alias state file next to them |
 | No network I/O of its own | TCP port checks for status only: a DNS lookup for a host name, then one connection per checked address to its SSH port, closed without sending data; no ICMP. Tests substitute `socket.create_connection` and the `ssh -G` process |
 | Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines at startup and on R, which evaluates the whole config including `Match exec`; only `hostname`, `port`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
 
@@ -461,6 +483,15 @@ handling. Source inspection of the Linux driver is not a Linux terminal test.
 Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
+
+## References checked for task 11
+
+- [Python json](https://docs.python.org/3.14/library/json.html) and [platform.node](https://docs.python.org/3.14/library/platform.html#platform.node)
+- [ssh_config(5) `Host` patterns](https://man.openbsd.org/ssh_config); exact matching was confirmed with `ssh -F <fictional file> -G` on both OpenSSH builds
+
+Installed Textual 8.2.8 sources were checked for `check_action` returning
+False (the binding is hidden and does not run), and every new private name
+on the app was checked against Textual's.
 
 ## References checked for task 10
 
