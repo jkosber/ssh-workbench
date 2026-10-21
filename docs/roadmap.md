@@ -522,6 +522,15 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   pulse, and the O label test checks only that "Link" appears in the label.
 - Task 10: a thread starts only to post "press R to resolve this alias", and the
   animation timer also updates symbols that never move.
+- Task 11: when the review itself fails at startup, every alias is resolved and
+  checked, a vanished one included.
+- Task 11: a save during the startup or R review still drops that review until
+  the next R.
+- Task 11: a machine file deleted outside Workbench during a session still gets
+  a state file written next to it.
+- Task 11: no test presses R, saves or reloads while an alias is missing and
+  then asserts it was never resolved; no test moves the selection between two
+  U presses; one test waits 0.2 s of real time for a negative result.
 
 ## Deferred ideas
 

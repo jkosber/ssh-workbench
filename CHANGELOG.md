@@ -44,9 +44,9 @@ Changes by release, newest first. Version numbers follow the policy in
 - Workbench now writes its machine file when you add, edit or delete a machine.
   Saving keeps the previous file as `machines.toml.bak`, replaces the file in
   one step, and drops comments and hand formatting after asking once.
-- Workbench keeps a state file next to the machine file,
-  `machines.state.json`, with the `Host` names it saw and where each alias
-  pointed. Deleting it is safe.
+- Workbench keeps a state file per computer next to the machine file,
+  `machines.state.<computer>.json`, with the `Host` names it saw and where
+  each alias pointed. Deleting it is safe.
 
 ### Security
 

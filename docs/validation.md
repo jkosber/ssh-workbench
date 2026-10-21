@@ -20,15 +20,29 @@ Garden (`old-garden`), Shed (`old-shed`, another fictional user) and Pattern
 
 | Run | Result |
 | --- | --- |
-| 1, both aliases listed | Garden and Shed `● Online via alias`; Pattern `○ Offline` and `pattern-only (not in your SSH config)`. The state file listed both `Host` names, both targets, no renames and version 1 |
-| 2, `old-garden` renamed to `new-garden` and `old-shed` removed | Both `×`. Garden: `× Alias not found. Looks like old-garden became new-garden. Press U to update.`, footer `u Update` without `c Connect`. Shed: `× Alias not found. Edit the machine, or fix your SSH config and press R.`, neither C nor U in the footer, and C changed nothing. U on Garden: `Updated machine 1: garden now uses alias new-garden.`, `● Online via alias`, and the file's other machines unchanged |
-| 3, restarted at 60x20 | Shed still Alias not found; the footer fit |
+| 1, both aliases listed | Garden and Shed `● Online via alias`; Pattern `○ Offline` and `pattern-only (not in your SSH config)`. One state file, `machines.state.<computer>.json`, listed both `Host` names, both targets, no baselines and version 1; `git check-ignore` matched it |
+| 2, `old-garden` renamed to `new-garden` and `old-shed` removed | Both `×`. Garden: `× Alias not found. Looks like old-garden became new-garden. Press U to update.`, footer `u Update` without `c Connect`. Shed: `× Alias not found. Fix your SSH config and press R, or press E and save to keep or change the alias.`, neither C nor U in the footer, and C changed nothing. U on Garden: `Updated machine 1: garden now uses alias new-garden.`, `● Online via alias`, and the file's other machines unchanged |
+| 3, restarted at 60x20 | Shed still Alias not found; the footer fit. E then Ctrl+S on Shed without changes: `Saved machine 2: shed.`, `◇ Can't check: press R to resolve this alias`, and `c Connect` back in the footer |
 
 The first run of this check gave both machines the same host, user and port,
 and Shed was also offered `new-garden`. An offer now has to fit only one
 vanished alias: `test_a_new_name_matching_two_vanished_aliases_is_offered_to_neither`
 failed, then passed, and the native check was repeated with distinct targets
 as above.
+
+Two fresh reviews, one for spec compliance and one for code and docs quality,
+found these Important issues, each fixed after a failing test:
+
+| Finding | Fix | Evidence |
+| --- | --- | --- |
+| A name seen once without a unique match (unresolved, or two candidates) was never offered later | Each missing alias keeps the `Host` names from when it was last listed as its baseline; every review resolves the names added since | `test_a_name_that_did_not_resolve_at_first_is_offered_once_it_matches`, `test_an_ambiguous_match_is_offered_once_only_one_name_is_left` |
+| Computers sharing a synced machine file overwrote each other's state | One state file per computer, `<stem>.state.<computer>.json` | `test_state_path_is_per_computer_next_to_the_machine_file` |
+| The documented example run wrote an untracked, unignored state file with the developer's `Host` names into `examples/` | `.gitignore` covers `*.state.*.json`; AGENTS and CONTRIBUTING say so | `git check-ignore` matched `examples/machines.example.state.WORKSTATION.json` and the native check's file |
+| An alias moved into a pattern on purpose stayed blocked, and "Edit the machine" did not clear it | Saving the machine from the form forgets that alias's record | `test_saving_the_machine_from_the_form_keeps_its_alias`, `test_forget_drops_an_alias_record_and_baseline`; native run 3 |
+| A timer tick during the startup or R review dropped it; the two 50 ms timer tests failed with an 80 ms review | Timer rounds wait while a startup or R round still reviews or resolves | `test_a_timer_round_waits_for_the_review`; both timer tests passed with the reviewer's 80 ms delay |
+
+After the fixes: 868 tests passed, and the native check above was repeated.
+Remaining minor findings are in the roadmap's 0.2.x candidates.
 
 ## Status timer during shutdown, 2026-10-21
 

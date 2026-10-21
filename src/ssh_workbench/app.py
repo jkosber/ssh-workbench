@@ -74,7 +74,8 @@ class AliasesReviewed(Message):
     round: int
     # The literal Host names read for this review.
     names: tuple[str, ...]
-    # None when the review failed; the round then checks the aliases anyway.
+    # None when the review failed; the round then checks every alias that is
+    # not already missing.
     review: Review | None
 
 
@@ -601,7 +602,7 @@ class SSHWorkbenchApp(App[None]):
             names = tuple(host_names(folder)) if folder is not None else ()
             result = review(memory, aliases, names, self.checker.resolve_alias)
         except Exception:
-            # Without a review the round still checks every alias.
+            # Without a review the round still checks the aliases not missing.
             names, result = (), None
         if not self._status_closed.is_set():
             try:

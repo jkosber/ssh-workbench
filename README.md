@@ -248,23 +248,29 @@ config is gone, the machine shows **Alias not found** and C is hidden for it,
 so a connect never goes somewhere you didn't choose. Workbench runs neither
 `ssh -G` nor a status check for it.
 
-If exactly one `Host` name that appeared since then points at the same host,
-user and port, and no other missing alias matches it, the details pane says
-"Looks like old became new. Press U to update." **U** saves the selected
-machine with the new alias; if the file has comments or hand formatting,
-Workbench first says they will be dropped and the second **U** saves.
-Otherwise edit the machine with **E**, or fix your SSH config and press **R**.
+If exactly one `Host` name added since the alias was last listed points at
+the same host, user and port, and no other missing alias matches it, the
+details pane says "Looks like old became new. Press U to update." **U** saves
+the selected machine with the new alias; if the file has comments or hand
+formatting, Workbench first says they will be dropped and the second **U**
+saves. Workbench checks again at each startup and **R**, so an offer can
+appear later, for example once a second matching name is gone.
+
+Otherwise fix your SSH config and press **R**, or press **E** and save the
+machine: saving it from the form keeps or changes its alias and clears Alias
+not found, for example after you moved the alias into a pattern on purpose.
 
 An alias that is not a literal `Host` name, for example one matched by a
 pattern such as `Host *.example`, still connects; the details mark it "not
 in your SSH config".
 
-This memory is a state file next to the machine file: `machines.state.json`
-for `machines.toml`. It holds the `Host` names and, for each alias, the host,
+This memory is a state file next to the machine file, one per computer:
+`machines.state.<computer>.json` for `machines.toml`. A machine file in a
+synced folder therefore gets one state file per computer, and each computer
+keeps its own. The file holds the `Host` names and, for each alias, the host,
 user and port `ssh -G` resolved; no passwords or keys. Workbench writes it
 only when the machine file exists. Deleting it is safe: Workbench then forgets
-which aliases existed until the next startup or **R**. A state file written on
-another computer, for example through a synced folder, is ignored.
+which aliases existed until the next startup or **R**.
 
 ## Keys
 
@@ -285,8 +291,9 @@ another computer, for example through a synced folder, is ignored.
 
 C, O, A, E, X, R and Q also appear in the footer and can be clicked; O is
 labelled Link there. For a machine whose alias is not found, C is hidden, and
-U appears in its place when Workbench offers a rename. C, O, E and X are dimmed when nothing is selected, O when
-the machine has no links, and A, E and X when Workbench has no file location.
+U appears in its place when Workbench offers a rename. C, O, E and X are
+dimmed when nothing is selected, O when the machine has no links, and A, E
+and X when Workbench has no file location.
 Startup, selection and Enter in the machine list never connect, open or change
 anything; the status checks are the only thing that starts on its own.
 
@@ -327,11 +334,12 @@ status 2.
 ## Privacy
 
 Workbench reads and writes its machine file, its `.bak` copy and its
-`machines.state.json` state file. To suggest aliases it reads only the `Host`
-and `Include` lines of your SSH config. At startup and on **R** it also runs
-`ssh -G` for each alias: SSH then evaluates your whole SSH config, including
-any `Match exec` commands, and Workbench reads only the host, user, port and
-proxy settings it prints. Workbench doesn't
+`machines.state.<computer>.json` state file. To suggest aliases it reads only
+the `Host` and `Include` lines of your SSH config. At startup and on **R** it
+also runs `ssh -G` for each alias, and for new `Host` names that could replace
+a missing alias: SSH then evaluates your whole SSH config, including any
+`Match exec` commands, and Workbench reads only the host, user, port and proxy
+settings it prints. Workbench doesn't
 change your SSH config, read keys or `known_hosts`, store credentials, change
 host-key settings, collect telemetry or need an AI service. Its own network
 traffic is the status checks: DNS lookups for host names, and one TCP

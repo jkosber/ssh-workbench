@@ -200,7 +200,7 @@ resolving every `STATUS_INTERVAL` (30 s) and after each save:
 | --- | --- |
 | Round | Each machine becomes Checking and gets one daemon thread, as the link worker does (in a resolving round, alias machines only after the rename review below), so quitting never waits for a check stuck on DNS or a dropped connection. Results come back through `post_message` as `StatusFinished`; a result from an older round, or for a machine no longer listed, is dropped |
 | Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
-| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, output captured and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `port`, `proxyjump` and `proxycommand` are read, and the host is never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
+| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, standard output captured, standard error discarded and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read; the host and user are never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
 | Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
 | Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R. Timer rounds, animation ticks, status and link results and a pending rebuild do nothing once `App.is_running` is False: when Pilot's `run_test` tears the app down, Textual removes the screens while app timers and messages still run. A normal exit stops both first |
 | Connect | A direct machine connects to the address its latest status found online, else the first listed |
@@ -220,14 +220,16 @@ review, reads `sshconfig.host_names` and runs `aliases.review`, which needs
 `AliasesReviewed` and starts a resolving check for every alias that is not
 missing. Missing ones become `State.NOT_FOUND` (`×`) with no `ssh -G` or port
 check, and timer rounds keep them so. A failed review lets the round check
-every alias.
+every alias not already missing. Timer rounds wait while a startup or R round
+is still reviewing or resolving, so they never drop its answers.
 
 | Item | Rule |
 | --- | --- |
-| State file | `aliases.state_path`: `<stem>.state.json` next to the machine file. JSON with `version` 1, the writing computer's `platform.node()`, `host_names`, `renames` and per alias `host`, `user` and `port`. Written through `store.replace_atomically` once the round's aliases have reported, only when its text changed and the machine file exists; an `OSError` is ignored, because the file is a cache |
+| State file | `aliases.state_path`: `<stem>.state.<computer>.json` next to the machine file, with characters other than letters, digits, `.`, `_` and `-` in `platform.node()` replaced by `_`, so computers sharing a synced machine file keep separate states. JSON with `version` 1, the computer, `host_names`, per alias `host`, `user` and `port`, and `baselines`. Written through `store.replace_atomically` once the round's aliases have reported, only when its text changed and the machine file exists; an `OSError` is ignored, because the file is a cache |
 | Reading | More than 1 MB, undecodable or invalid JSON, another version or computer, an invalid alias name, an empty host, a port outside 1-65535 or a bool, or any missing or extra key means no state. A machine file in a synced folder is shared by computers with different SSH configs, so one computer's names must not mark another's aliases missing |
 | Missing | An alias recorded while it was a literal `Host` name and not listed now. Matching is exact: OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 apply `Host lab-box` to `lab-box` but not to `LAB-BOX`. The record stays while the alias is missing, so Alias not found survives restarts |
-| Offer | A kept offer that is still listed and still resolves to the record, else the one name that appeared since the last review and resolves to the same host, user and port. A name offered to two missing aliases is offered to neither |
+| Offer | The first review that misses an alias stores the `Host` names of the review before it, when the alias was still listed, as its baseline. Each review then resolves the names not in the baseline, and the one that resolves to the same host, user and port is offered, so an offer can appear after an ambiguous or unresolved review. A name offered to two missing aliases is offered to neither |
+| Form save | Saving a machine from the form (A or E) with a missing alias forgets that alias's record and baseline: the user kept it on purpose, for example after moving it into a pattern. Its status then waits for R |
 | Keys | `check_action` hides C for a missing alias and hides U unless the selected machine has an offer, so the footer keeps at most seven keys. U saves only the selected machine, through `_save` with the forms' rewrite warning (a second U) and outside-change reload |
 | Marker | After a review, an alias that is neither listed nor missing reads "(not in your SSH config)" in the details; it still connects |
 
@@ -427,7 +429,7 @@ read real SSH files or access real hosts; the test suite points
 | --- | --- |
 | Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E, X or U, with the change check and atomic replace above, and its alias state file next to them |
 | No network I/O of its own | TCP port checks for status only: a DNS lookup for a host name, then one connection per checked address to its SSH port, closed without sending data; no ICMP. Tests substitute `socket.create_connection` and the `ssh -G` process |
-| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines at startup and on R, which evaluates the whole config including `Match exec`; only `hostname`, `port`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
+| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases, and runs `ssh -G` for alias machines, and for new `Host` names that could replace a missing alias, at startup and on R, which evaluates the whole config including `Match exec`; only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read from its output; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
 
 For subprocess code, validate aliases, users, addresses, ports and key paths as
 data and use an argument list with a resolved executable and `shell=False`.
