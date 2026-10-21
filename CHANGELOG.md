@@ -5,6 +5,11 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-21
+
+Machines you can add and edit in Workbench, with live status, key login
+setup and exported aliases. Tagged privately.
+
 ### Added
 
 - Machines replace projects. Each machine connects through an SSH `alias`, or
@@ -94,6 +99,18 @@ Changes by release, newest first. Version numbers follow the policy in
 - Tests, fixtures and the package check share one list of guarded process,
   network and browser entry points. The installed-wheel checks moved from
   strings in `scripts/check_package.py` into `scripts/package_smoke.py`.
+
+### Known limitations
+
+- Tested on Windows 11 in Windows Terminal and on Linux Mint 22.3 in a
+  terminal reached over SSH; CI runs the tests on Ubuntu. macOS is untested
+  and cannot open links, and links on a Linux desktop are untested.
+- Your SSH config still applies to a direct machine's address. A matching
+  `Host` entry with `StrictHostKeyChecking yes` makes the first connection
+  fail instead of asking; the README shows the one-time fix.
+- The key login test also accepts keys your SSH config names for the alias or
+  for the address, so it can pass with one of those.
+- Requires Python 3.14 or later, which uv installs when needed.
 
 ## 0.1.0 - 2026-10-20
 

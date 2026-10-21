@@ -1,5 +1,70 @@
 # Validation
 
+## Task 14: 0.2.0 release, 2026-10-21
+
+Branch `feat/task14-release-0.2.0`. Windows 11 Home Insider Preview build
+26340, PowerShell 7.6.7, Microsoft Windows Terminal 1.25.2733.0, Windows
+OpenSSH 9.5p2, Python 3.14.7, Textual 8.2.8, uv 0.13.4, Ruff 0.16.10 and
+pytest 9.1.1. Jadon approved each real target and change below on 2026-10-21.
+
+| Check | Agent-observed result |
+| --- | --- |
+| `uv lock`, `uv sync --locked` | The lockfile changed only in Workbench's own version, 0.1.0 to 0.2.0 |
+| Ruff check and format | Passed; 53 files already formatted |
+| `uv run --locked pytest` | 993 passed |
+| `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.0; the package check passed |
+| Installed tool | `uv tool install` of the wheel into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`), leaving the installed 0.1.0 alone; `--version` printed `ssh-workbench 0.2.0` |
+
+Real-target checks used that installed tool in an owned 80x24 Windows Terminal
+window, a machine file in ignored `.local/task14-session/` and the real SSH
+folder. Before any change, the SSH config, the Linux target's
+`authorized_keys` and the Windows `administrators_authorized_keys` were copied
+aside, with their hashes, permissions and ACL recorded.
+
+| Step | Result |
+| --- | --- |
+| Live status | An alias machine showed Online via alias; direct machines showed Online with their address |
+| First Connect of a direct machine for this workstation's own SSH server | SSH asked to trust the host key under the machine's ID and listed the names that key is already known by. Answered no: nothing was trusted and no login ran. Workbench returned with status 255 |
+| First Connect of a direct machine for the Linux target | Status 255 without a question. The user's SSH config has a `Host` entry matching that address with `StrictHostKeyChecking yes`, and no key was recorded under the machine's ID, so OpenSSH refused as configured. The README now explains this and the one-time `StrictHostKeyChecking=ask` command |
+| That command, then C | The fingerprint matched the key already recorded for the address before yes was typed. C then reached the remote prompt; `exit` returned with status 0 and the same machine selected |
+| K on that direct machine: new key, POSIX | `ssh-keygen` asked for the passphrase, left empty for this test key. Install and test needed no password: "Key login works. The key is saved as this machine's key." `authorized_keys` gained one line, the first unchanged, modes 700 and 600. A login with no config file and only the new key succeeded |
+| E, export ticked, Ctrl+S, Y | The question named the config path and the exact line. The real config gained `Include ssh-workbench.config` and CRLF at the top; every other byte matched the original, and so did `config.ssh-workbench.bak`. Details: `Direct, exported as ssh <id>` |
+| `ssh <id>` in a plain terminal | Reached the remote prompt with no question; `ssh -G` showed the generated `HostName`, `User`, `HostKeyAlias` and only the new key |
+| K on an alias whose key was already set up | "the key was already installed.", then "Key login works."; no line was added |
+
+Linux natively: uv 0.13.3 and the same wheel (identical SHA-256) were installed
+on the Linux target, Linux Mint 22.3 with OpenSSH 9.6p1; uv supplied Python
+3.14.8 and Textual 8.2.8. Workbench ran there in a terminal opened with
+`ssh -t` from the same Windows Terminal window, with an alias machine for the
+Windows workstation:
+
+| Step | Result |
+| --- | --- |
+| Start | List and details drew at 80x24; Online via alias |
+| C, then `exit` at the PowerShell prompt | Returned with status 0 and the same machine selected |
+| K: new key, Windows | The picker listed the alias's key first and showed the `IdentityFile` note for the new key. After `ssh-keygen`, the install printed "SSH Workbench: key installed." from the administrator branch, then "Key login works." |
+| Windows result | `administrators_authorized_keys` gained exactly one line ending in CRLF, earlier lines unchanged; its ACL stayed SYSTEM and Administrators only, protected. A login from the Linux target with no config file and only the new key succeeded |
+| Q | Exited with status 0 |
+
+Not tested: macOS, and O on a Linux desktop.
+
+New minor findings, added to the roadmap's 0.2.x candidates:
+
+| Finding | Evidence |
+| --- | --- |
+| Windows PowerShell wrote a CLIXML progress record ("Preparing modules for first use.") into the handoff terminal after "key installed." | Seen once in the Windows install above |
+| The login test also accepts keys from a `Host` entry matching a direct machine's address | The Linux target's matching entry names another authorized key; the separate new-key-only login above is what proved the new key. Documented in the README |
+| A login test interrupted with Ctrl+C on Windows reported "SSH exited with status 4294967295" instead of an interruption | The check's own prompt detector matched an earlier passphrase line and sent Ctrl+C; the step was repeated and passed |
+
+Afterwards both test keys were deleted and their lines removed: each key file
+was truncated back to its original length after confirming it held the
+original bytes plus that one line, and compared identical to its copy, with the
+ACL and modes unchanged. The generated `ssh-workbench.config` was deleted,
+because it named the session's machine file. The `Include` line stays, as
+approved; SSH ignores it while that file is missing, and the alias still logged
+in. The test machine's host-key record, uv and the 0.2.0 tool on the Linux
+target, and the pre-check copies remain.
+
 ## Task 13: exported aliases, 2026-10-21
 
 Branch `feat/task13-exported-aliases`. Environment as in Task 8. The real
