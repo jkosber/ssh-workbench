@@ -10,7 +10,7 @@
 | `src/ssh_workbench/aliases.py` | The alias state file and the rename review: which aliases vanished and the one new name each probably became |
 | `src/ssh_workbench/sshconfig.py` | The SSH folder and the literal `Host` names from its `config` and `Include` files; nothing else is interpreted |
 | `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/U/O/A/E/X/K/R/Q actions |
-| `src/ssh_workbench/forms.py` | The machine form and the delete confirmation |
+| `src/ssh_workbench/forms.py` | The machine form, the delete confirmation and the key-setup picker |
 | `src/ssh_workbench/display.py` | Literal display of configuration text, with nonprinting characters escaped |
 | `src/ssh_workbench/status.py` | The only network code: TCP port checks, the `ssh -G` alias resolver and the per-machine status rules |
 | `src/ssh_workbench/ssh.py` | Native SSH boundary: machine recheck, argument list, executable lookup, child process and SIGINT guard |
@@ -248,11 +248,11 @@ printed `SSH Workbench:` line before each. A nonzero status stops the steps.
 | --- | --- |
 | Choices | A direct machine's own `key`; otherwise the alias's configured keys that have a valid `.pub` (with `~` as the SSH folder's parent), the folder's valid `.pub` files by name, and `id_ed25519_<id>` unless that name exists. `keys.public_key_files` reads `.pub` files only |
 | Public key | `keys.parse_public_key`: one line of at most 16 KiB with no control characters; a known type; strict base64 whose length-prefixed strings use every byte and start with the same type. A comment outside `[A-Za-z0-9._@+-]` words, or longer than 100 characters, is dropped |
-| Create | `ssh-keygen -t ed25519 -f <path> -C ssh-workbench-<id>`, found like `ssh` on absolute PATH entries |
+| Create | `ssh-keygen -t ed25519 -f <path> -C ssh-workbench-<id>`, where the file is `id_ed25519_<id>` with dashes turned into underscores; `ssh-keygen` is found like `ssh` on absolute PATH entries, and a lookup error becomes a launch error inside the handoff |
 | POSIX install | `exec sh -c '<script>'`, so any login shell runs it: `umask 077`, create `~/.ssh` and `authorized_keys`, `chmod 700`/`600`, and append the key line unless `grep -qF` finds its base64, adding a newline first when the file lacks one. The script holds no single quote and no `!`; the key line sits in double quotes |
 | Windows install | `powershell -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64>`, so cmd.exe and PowerShell default shells run the same script. An identity whose claims include `S-1-5-32-544` (deny-only included) uses `%ProgramData%\ssh\administrators_authorized_keys`, then gets an ACL with only FullControl for `S-1-5-32-544` and `S-1-5-18`, inheritance removed, checked by reading it back; others use `%USERPROFILE%\.ssh\authorized_keys`. A 4096-bit RSA key keeps the command under cmd.exe's 8191 characters |
-| Install arguments | `ssh.install_arguments`: the connect arguments without `-i`, since the new key is not installed yet, then the command after the destination |
-| Login test | `ssh.login_test_arguments`: `PreferredAuthentications=publickey`, `PasswordAuthentication=no`, `KbdInteractiveAuthentication=no`, the connect arguments (a direct machine with the chosen key and `IdentitiesOnly=yes`), then `exit`. No `BatchMode`, so a passphrase key works |
+| Install arguments | `ssh.install_arguments`: `RemoteCommand=none`, since SSH refuses a command next to an alias's own `RemoteCommand`; the connect arguments without `-i`, since the new key is not installed yet; then the command after the destination |
+| Login test | `ssh.login_test_arguments`: `PreferredAuthentications=publickey`, `PasswordAuthentication=no`, `KbdInteractiveAuthentication=no`, `ControlPath=none` so a connection the install left open can't skip authentication, `RemoteCommand=none`, the connect arguments (a direct machine with the chosen key and `IdentitiesOnly=yes`), then `exit`. No `BatchMode`, so a passphrase key works |
 | Afterwards | A direct machine's chosen key is saved through `_save` once installed, as `~/.ssh/<name>` in the real SSH folder or an absolute path. For an alias, a key its config does not name carries the `IdentityFile` line in the picker and in a failed test's message |
 
 ## Implemented native SSH boundary

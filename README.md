@@ -383,7 +383,8 @@ also runs `ssh -G` for each alias, and for new `Host` names that could replace
 a missing alias, and **K** runs it for the alias it sets up: SSH then
 evaluates your whole SSH config, including any `Match exec` commands, and
 Workbench reads only the host, user, port, key and proxy settings it prints.
-**K** reads the `.pub` files in your SSH folder and runs two fixed commands on
+**K** reads the `.pub` files in your SSH folder, and the one next to each key
+an alias's config names, and runs two fixed commands on
 the machine, in the terminal it hands over: the key install, and `exit` for
 the login test. Workbench doesn't change your SSH config, open private keys
 or read `known_hosts`, store credentials, change

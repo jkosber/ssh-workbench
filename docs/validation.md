@@ -32,8 +32,22 @@ The first run of this check showed the picker cutting off its note, so the
 passed once the note moved under the title and the lists lost their borders;
 the check above is the repeat.
 
-Open for Jadon: installing and testing a real key against a Windows target
-(jadongpc3 from `mpc`) and a Linux target.
+Two fresh reviews, one for spec compliance and one for code and docs quality,
+found these issues to fix; each was fixed after a failing test:
+
+| Finding | Fix | Evidence |
+| --- | --- | --- |
+| With `ControlMaster` and `ControlPersist` configured, the login test could reuse the install's connection and report success without the key | The test passes `ControlPath=none` | `test_login_test_arguments_allow_only_public_keys` and the UI argument lists failed, then passed |
+| An alias whose config sets `RemoteCommand` made both the install and the test fail with status 255 | Both pass `RemoteCommand=none`; a fictional `-F` config confirmed both OpenSSH builds drop `remotecommand` and `controlpath` with these options | `test_install_arguments_never_offer_the_machine_key` failed, then passed |
+| An `OSError` while looking up `ssh` or `ssh-keygen` escaped the terminal handoff, and a machine key under `~` without a home folder ended the app | Lookups turn it into a launch error; K reports the missing home folder | `test_lookup_errors_become_launch_errors`, `test_a_key_in_a_missing_home_folder_is_reported` |
+| The Windows script was only parsed | Its standard-user branch now runs under PowerShell with `USERPROFILE` in a temporary folder, with the administrator lines replaced: installed once, "already installed" the second time, an existing last line kept whole | `test_windows_install_adds_the_key_once_for_a_standard_user`, `test_windows_install_keeps_existing_lines_whole` (passed as written) |
+| Real host names in the roadmap and this record; docs left out the picker, the key name's underscores and the `.pub` read next to an alias's `IdentityFile` | Reworded | Reviewed diff |
+
+After the fixes: 944 tests passed. Remaining minor findings are in the
+roadmap's 0.2.x candidates.
+
+Open for Jadon: installing and testing a real key against a real Windows
+target and a real Linux target.
 
 ## Task 11: alias rename detection, 2026-10-21
 

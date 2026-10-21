@@ -51,8 +51,8 @@ checks above after relevant changes; package validation is described in
   on the real SSH config and checks every machine's port, the example file's
   fictional names included; native checks and manual runs set those
   variables to ignored `.local/` folders first.
-- Key setup (`keys.py`) reads only `.pub` files and runs two fixed remote
-  commands. Tests and native checks never create real keys, run real
+- Key setup reads only `.pub` files; `keys.py` builds the two fixed remote
+  commands and the app runs them in the handed-off terminal. Tests and native checks never create real keys, run real
   `ssh-keygen` or install a key anywhere real; `scripts/check_keys.py` uses
   local children and fictional keys.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate

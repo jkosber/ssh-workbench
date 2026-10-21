@@ -492,8 +492,8 @@ Acceptance:
 - [ ] Tests substitute every process. Docs explain key setup, ssh-agent and
   Windows administrators. Full checks, CI and a native Windows Terminal check
   with substituted children pass.
-- [ ] Install and login test against a Windows target (jadongpc3 from `mpc`)
-  and a Linux target, with Jadon's approval.
+- [ ] Install and login test against a real Windows target and a real Linux
+  target, with Jadon's approval.
 
 ## 0.1.x candidates
 
@@ -565,6 +565,21 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
 - Task 11: no test presses R, saves or reloads while an alias is missing and
   then asserts it was never resolved; no test moves the selection between two
   U presses; one test waits 0.2 s of real time for a negative result.
+- Task 12: a late `ssh -G` answer for K opens the picker even after C or an
+  edit in between; a second K while it resolves is ignored without a hint.
+- Task 12: a commented-out copy of the key in `authorized_keys` counts as
+  installed.
+- Task 12: RSA keys of about 7168 bits or more make the Windows command longer
+  than cmd.exe accepts; refuse them before the handoff with a clear message.
+- Task 12: an alias's login test can pass with an agent or default key; the
+  `IdentityFile` hint appears only on failure. The "doesn't name this key" note
+  ignores configured keys whose `.pub` is missing.
+- Task 12: the picker can open with no choices; "Key setup interrupted." names
+  no step and is reachable only by a fake; the handoff block repeats Connect's.
+- Task 12: the details pane does not show key-login state, which the design's
+  screen sketch mentions; zsh, fish and tcsh login shells are untested.
+- Task 12: a direct machine's key is saved after a failed login test, so
+  Connect then offers only that key.
 
 ## Deferred ideas
 
