@@ -44,6 +44,12 @@ found these Important issues, each fixed after a failing test:
 After the fixes: 868 tests passed, and the native check above was repeated.
 Remaining minor findings are in the roadmap's 0.2.x candidates.
 
+| Integration step | Result |
+| --- | --- |
+| [PR #13](https://github.com/jkosber/ssh-workbench/pull/13) CI on head `67bdee7` | [Push run 39554803189](https://github.com/jkosber/ssh-workbench/actions/runs/39554803189) and [PR run 39554808526](https://github.com/jkosber/ssh-workbench/actions/runs/39554808526) passed on Windows and Ubuntu, 868 tests each |
+| Merge | Merged as **`56fab1a`**, guarded on head `67bdee7`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39555239315](https://github.com/jkosber/ssh-workbench/actions/runs/39555239315) passed on Windows and Ubuntu, 868 tests each |
+
 ## Status timer during shutdown, 2026-10-21
 
 After [PR #11](https://github.com/jkosber/ssh-workbench/pull/11) merged as
