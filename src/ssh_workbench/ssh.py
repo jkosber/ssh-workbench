@@ -53,7 +53,7 @@ def ssh_handoff() -> Iterator[None]:
         signal.signal(signal.SIGINT, previous_handler)
 
 
-def _key_argument(key: str) -> str:
+def key_argument(key: str) -> str:
     # OpenSSH expands only "~/". Expand "~\" too, accepting either separator so
     # one machine file names the same key on Windows and Linux.
     if not key.startswith(("~/", "~\\")):
@@ -107,7 +107,7 @@ def ssh_arguments(machine: Machine, address: str | None = None) -> list[str]:
     if machine.port is not None:
         arguments += ["-p", str(machine.port)]
     if machine.key is not None:
-        arguments += ["-i", _key_argument(machine.key), "-o", "IdentitiesOnly=yes"]
+        arguments += ["-i", key_argument(machine.key), "-o", "IdentitiesOnly=yes"]
     return [*arguments, "--", machine.addresses[0] if address is None else address]
 
 
