@@ -18,11 +18,12 @@ from unittest.mock import patch
 
 from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, ListView, Static
+from textual.widgets import Footer, Input, ListView, Static
 
 from ssh_workbench.app import LinkPicker, SSHWorkbenchApp
 from ssh_workbench.cli import main as cli_main
 from ssh_workbench.config import Link, Machine, load_machines
+from ssh_workbench.forms import MachineForm
 from ssh_workbench.links import LinkResult
 
 PACKAGE_MODULES = (
@@ -30,8 +31,12 @@ PACKAGE_MODULES = (
     "ssh_workbench.app",
     "ssh_workbench.cli",
     "ssh_workbench.config",
+    "ssh_workbench.display",
+    "ssh_workbench.forms",
     "ssh_workbench.links",
     "ssh_workbench.ssh",
+    "ssh_workbench.sshconfig",
+    "ssh_workbench.store",
 )
 
 
@@ -297,6 +302,45 @@ def check_quit(key: str) -> None:
     print("Blocked opener: quit completed", flush=True)
 
 
+def check_save() -> None:
+    # The first save creates the folder and the file, as on a new installation.
+    path = Path("saved") / "ssh-workbench" / "machines.toml"
+
+    async def add_machine():
+        app = SSHWorkbenchApp(None, config_path=path)
+        async with app.run_test(size=(80, 24)) as pilot:
+            await pilot.press("a")
+            await wait_until(pilot, lambda: isinstance(app.screen, MachineForm))
+            form = app.screen
+            for field, value in (
+                ("id", "package-saved"),
+                ("name", "Package [b]saved[/b]"),
+                ("alias", "fictional-saved"),
+            ):
+                form.query_one(f"#form-{field}", Input).value = value
+            await pilot.press("ctrl+s")
+            await wait_until(pilot, lambda: len(app.screen_stack) == 1)
+            assert app.query_one("#machine-list", ListView).index == 0
+            await pilot.press("q")
+            assert not app.is_running and app.return_code == 0
+
+    async def add_without_connections():
+        with (
+            patch("socket.socket.connect", side_effect=reject_external_action),
+            patch("socket.socket.connect_ex", side_effect=reject_external_action),
+        ):
+            await add_machine()
+
+    with ExitStack() as guards:
+        reject_external_actions(guards)
+        asyncio.run(add_without_connections())
+    assert load_machines(path) == [
+        Machine("package-saved", "Package [b]saved[/b]", alias="fictional-saved")
+    ]
+    assert sorted(item.name for item in path.parent.iterdir()) == ["machines.toml"]
+    print("Saved machine file: created and loaded back", flush=True)
+
+
 def main() -> None:
     environment, mode, *options = sys.argv[1:]
     verify_isolation(Path(environment).resolve())
@@ -307,6 +351,8 @@ def main() -> None:
     elif mode == "quit":
         (key,) = options
         check_quit(key)
+    elif mode == "save":
+        check_save()
     else:
         raise SystemExit(f"Unknown package check mode: {mode}")
 

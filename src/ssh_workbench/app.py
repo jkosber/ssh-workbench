@@ -351,6 +351,8 @@ class SSHWorkbenchApp(App[None]):
             index = self._selected_index()
             if index is None:
                 return None
+            if action in ("edit", "delete") and self.config_path is None:
+                return None
             if action == "open_link" and not self.machines[index].links:
                 return None
         return True
@@ -394,7 +396,7 @@ class SSHWorkbenchApp(App[None]):
 
     def action_edit(self) -> None:
         index = self._selected_index()
-        if index is None:
+        if index is None or self.check_action("edit", ()) is not True:
             return
         original = self.machines[index]
 
@@ -416,7 +418,7 @@ class SSHWorkbenchApp(App[None]):
 
     def action_delete(self) -> None:
         index = self._selected_index()
-        if index is None:
+        if index is None or self.check_action("delete", ()) is not True:
             return
         machine = self.machines[index]
 
