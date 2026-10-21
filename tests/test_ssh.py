@@ -706,3 +706,19 @@ def test_lookup_errors_become_launch_errors(
         f"Could not start {label}. Check its installation and executable permissions."
     )
     assert caught.value.__suppress_context__
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (-signal.SIGINT, True),
+        (0xC000013A, True),
+        (0xFFFFFFFF, True),
+        (0, False),
+        (1, False),
+        (130, False),
+        (255, False),
+    ],
+)
+def test_interrupted_statuses(status: int, expected: bool) -> None:
+    assert ssh.interrupted(status) is expected

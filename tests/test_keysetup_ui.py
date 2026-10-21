@@ -8,6 +8,7 @@ import asyncio
 import base64
 import dataclasses
 import platform
+import signal
 import struct
 import threading
 from pathlib import Path
@@ -316,6 +317,25 @@ async def test_a_machine_with_a_key_uses_only_that_key(
             Native(interrupt="install"),
             ["install"],
             "Key setup interrupted.",
+        ),
+        (
+            ["down", "down"],
+            Native(statuses={"keygen": -signal.SIGINT}),
+            ["keygen"],
+            "Key setup interrupted.",
+        ),
+        (
+            [],
+            Native(statuses={"install": 0xC000013A}),
+            ["install"],
+            "Key setup interrupted.",
+        ),
+        (
+            [],
+            Native(statuses={"test": 0xFFFFFFFF}),
+            ["install", "test"],
+            "The key was installed, but the login test was interrupted. "
+            "The key was not saved as this machine's key.",
         ),
     ],
 )
