@@ -58,8 +58,8 @@ def save_machines(path: Path, machines: Sequence[Machine], expected: str | None)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         if current is not None:
-            _replace(backup_path(path), path.read_bytes(), mode_from=None)
-        _replace(path, text.encode("utf-8"), mode_from=keep_mode)
+            replace_atomically(backup_path(path), path.read_bytes(), mode_from=None)
+        replace_atomically(path, text.encode("utf-8"), mode_from=keep_mode)
     except OSError as error:
         reason = (
             "permission denied"
@@ -70,7 +70,7 @@ def save_machines(path: Path, machines: Sequence[Machine], expected: str | None)
     return text
 
 
-def _replace(target: Path, data: bytes, mode_from: Path | None) -> None:
+def replace_atomically(target: Path, data: bytes, mode_from: Path | None) -> None:
     # A temporary file in the same folder and os.replace mean a crash leaves
     # either the old file or the new one, never a half-written file.
     descriptor, temporary = tempfile.mkstemp(
