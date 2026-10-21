@@ -324,6 +324,10 @@ Acceptance:
 
 ## 8. Machines replace projects
 
+**Merged in [PR #9](https://github.com/jkosber/ssh-workbench/pull/9)** as
+`47e7cd4`, containing tested head `3462344`; the merge tree matches that head.
+See the [Task 8 evidence](validation.md#task-8-machines-replace-projects-2026-10-20).
+
 Read-only: Workbench still writes nothing. Saving, status checks and SSH config
 reading come in Tasks 9-11.
 
@@ -361,9 +365,41 @@ Acceptance:
   own line; a test shows `--help` and `--version` ignore an invalid default
   file; the help line fits 60 columns; README escaping and Git-tag upgrade
   wording.
-- [ ] Tests, fixtures, the package check and the example file use machines.
+- [x] Tests, fixtures, the package check and the example file use machines.
   Full checks and CI pass; a native Windows Terminal check with fictional
   machines and a real alias connect to an approved target pass.
+
+## 9. Add, edit and delete machines
+
+Workbench now writes its own machine file, and reads `Host` and `Include` lines
+of the user's SSH config to suggest aliases. It still never changes the SSH
+config.
+
+Acceptance:
+
+- [ ] A adds, E edits and X deletes the selected machine, each visible in the
+  footer. A works on the no-file and empty-file screens and creates the file and
+  its folder on the first save. Escape cancels any form without saving.
+- [ ] The form has the machine's ID, name, connection kind, alias or addresses,
+  user, port, key and links. It validates inline with the loader's own rules,
+  shows the first problem next to its field, refuses duplicate IDs and saves
+  only valid machines. X asks for confirmation.
+- [ ] Saving keeps the previous file as `machines.toml.bak` next to it and
+  replaces the file atomically, so an interrupted save never leaves a
+  half-written file. Errors are sanitized like loading errors.
+- [ ] Before saving, Workbench checks that the file has not changed on disk
+  since it was loaded. If it has, nothing is overwritten: Workbench reloads the
+  list and keeps the unsaved change in the open form, which says what happened.
+- [ ] Comments and hand formatting are not kept. Before the first save that
+  would drop them, Workbench says so and asks. The README says so too.
+- [ ] The add form suggests the literal `Host` names from the user's SSH config,
+  following `Include` lines and skipping patterns with `*`, `?` or `!`. Only
+  `Host` and `Include` lines are interpreted; keys and `known_hosts` are never
+  read. Typing a name that is not listed is allowed. Tests and native checks
+  point the SSH folder at fictional files.
+- [ ] Docs replace the "never writes configuration" rule with the new one in
+  the README, architecture and AGENTS. Full checks, CI, a native Windows
+  Terminal check with fictional files pass.
 
 ## 0.1.x candidates
 
