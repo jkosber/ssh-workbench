@@ -17,6 +17,10 @@ passed with 993 tests on each system.
 | Fix (tests only) | Five UI test files get `showing(app, kind)`, which also requires `app.screen.is_mounted`; all 21 of their waits for a screen to appear use it. `picker_open` in `tests/test_link_actions.py` checks the same. Only the thread-driven K wait was reproduced; a screen pushed by a key has a narrower window, which a review pointed out for `picker_open` |
 | After the fix | The reproduction passed three times out of three; the five UI test files passed under it, 104 tests |
 | `uv run --locked pytest`, Ruff check and format | 993 passed; Ruff passed |
+| [PR #18](https://github.com/jkosber/ssh-workbench/pull/18) CI on first head `1672a5c` | [Push run 39632124615](https://github.com/jkosber/ssh-workbench/actions/runs/39632124615) and [PR run 39632133087](https://github.com/jkosber/ssh-workbench/actions/runs/39632133087) passed on Windows and Ubuntu, 993 tests each |
+| CI on head `d31c47d`, after the review's `picker_open` fix | [Push run 39633064673](https://github.com/jkosber/ssh-workbench/actions/runs/39633064673) and [PR run 39633072307](https://github.com/jkosber/ssh-workbench/actions/runs/39633072307) passed on Windows and Ubuntu, 993 tests each |
+| Merge | Merged as **`497c5a8`**, guarded on head `d31c47d`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39633874192](https://github.com/jkosber/ssh-workbench/actions/runs/39633874192) passed on Windows and Ubuntu, 993 tests each |
 
 ## 0.2.0 follow-up checks, 2026-10-21
 
