@@ -204,8 +204,10 @@ def posix_install_command(key: PublicKey) -> str:
 # Windows OpenSSH runs commands through cmd.exe unless its DefaultShell is
 # changed, so the script starts PowerShell explicitly. Administrators use the
 # shared file sshd reads for the Administrators group; sshd ignores that file
-# unless only SYSTEM and Administrators may access it.
+# unless only SYSTEM and Administrators may access it. Without a console,
+# progress records reach the terminal as CLIXML, so they are switched off.
 _WINDOWS_SCRIPT = """$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $key = '@KEY@'
 $blob = $key.Split(' ')[1]
 $me = [Security.Principal.WindowsIdentity]::GetCurrent()
