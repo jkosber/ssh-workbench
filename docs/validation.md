@@ -18,6 +18,12 @@ Python 3.14.7, Textual 8.2.8, uv 0.13.3, Ruff 0.16.10 and pytest 9.1.1.
 
 No native terminal check was needed: no application code changed.
 
+Two fresh reviewers (spec compliance; code and docs quality) found no critical
+or important issues. Both confirmed the moved checks match the old string bodies
+and reproduced the two isolation failures. Three documentation statements were
+corrected; four minor test-strength findings are listed under 0.2.x candidates
+in the roadmap.
+
 ## Task 6: 0.1.0 readiness, 2026-10-20
 
 Branch `feat/task6-0.1.0-readiness`. Environment: Windows 11 Home Insider
