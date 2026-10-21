@@ -275,29 +275,67 @@ Acceptance:
 - [x] With Jadon's approval for each step: PR, merge, annotated `v0.1.0` tag on
   the merge commit and the updated GitHub description. No GitHub Release.
 
+## 0.2.0 milestone
+
+Planned and approved on 2026-10-20. Machines replace projects: each machine
+connects through an existing SSH alias or directly by address, and can be added,
+edited and deleted inside Workbench. Live status, key login setup, named web
+links, renamed-alias detection and optional exported SSH aliases follow. Each
+task is one pull request; its acceptance criteria are added when it starts.
+
+| Task | Delivers |
+| --- | --- |
+| 7. Tooling cleanup | `uv_build` range and CI uv pin updated together, one shared guard list, the package check's Python moved out of strings |
+| 8. Machines replace projects | Read-only machine file (schema 2, schema 1 still loads), alias and direct connections, per-machine keys, named links |
+| 9. Add, edit and delete machines | Forms with shared validation; saving with a backup, atomic replace and an outside-change check |
+| 10. Live status | Background port checks on a timer, an indicator readable without color, Connect using the first online address |
+| 11. Alias rename detection | A small state file and a one-key rename suggestion |
+| 12. Key login setup | Pick or create a per-machine key, install it on POSIX and Windows targets, confirm key-only login |
+| 13. Exported aliases | Workbench's own SSH config file and one confirmed `Include` line |
+| 14. 0.2.0 release | Supervised release work after Tasks 7-13 merge |
+
+## 7. Tooling cleanup
+
+Three development items from the 0.1.x candidates. No user-visible behavior
+changes.
+
+Acceptance:
+
+- [ ] Raise the build backend to `uv_build>=0.13.3,<0.14.0` and the uv version
+  pinned in CI to `0.13.3` in the same change. A test fails when the CI pin and
+  the range's lower bound differ, or the upper bound is not the next minor
+  release. `uv build` no longer warns about the `uv_build` upper bound.
+- [ ] One shared list names the process, network and browser entry points that
+  tests and fixtures must never reach. `tests/conftest.py`,
+  `tests/link_fixture_process.py`, `scripts/check_links.py` and the package check
+  use it instead of their own copies. A test checks that the in-process guard
+  rejects every listed entry point.
+- [ ] `scripts/check_package.py` holds no Python source in strings. The
+  installed-wheel checks live in their own file, still run with `python -I`
+  against the installed wheel, and keep the isolation and import-path
+  assertions. A test fails if Python source returns to strings there.
+- [ ] Full checks, build, package check and CI on Windows and Ubuntu pass.
+  CONTRIBUTING and the architecture module map describe the new files.
+
 ## 0.1.x candidates
 
 Findings from the 0.1.0 review, deferred as non-blocking. Each needs its own
-explicit task.
+explicit task. Task 7 takes the `uv_build`, guard-list and `check_package.py`
+items; Task 8 takes the items in code it rewrites.
 
 - Split current test procedures from `validation.md` into a short testing guide
   and keep the dated log.
-- Deduplicate the external-action guard lists in tests; move the Python held in
-  strings in `scripts/check_package.py` into files.
 - With no projects loaded, disable R/D instead of reporting "select a project
   first" (changes an existing test).
 - The help line wraps at 60x20; the SSH status line does not name its project.
 - `--config` pointing at a folder reports "permission denied" on Windows.
 - URLs containing U+202E or U+200B pass validation; display already escapes them.
-- Update the `uv_build` range and the uv version pinned in CI together.
 - An empty default file says to restart with `--config PATH`; a folder at the
   default path still says to create a file there.
 - `--help` wraps a long default path at hyphens; print it on its own line.
 - Test that `--help` and `--version` ignore an invalid default file.
 - README: escaping also covers format characters and non-ASCII spaces; add an
   upgrade step for installs from a Git tag.
-
-Re-planning 0.2.0 from the deferred ideas below is the next task after 0.1.0.
 
 ## Deferred ideas
 
