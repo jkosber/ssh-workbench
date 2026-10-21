@@ -389,6 +389,14 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   such as `["python", "-I", "-c", "..."]`; also reject a `"-c"` string.
 - Task 7: `package_smoke.guarded_boundaries()` inserts `scripts/` at the front
   of `sys.path`; load the list by path or append it instead.
+- Task 8: the `%(prog)` branch of the `--help` epilog has no test.
+- Task 8: a few schema tests match message prefixes instead of exact strings.
+- Task 8: the 60x20 many-links picker test does not press Escape; the 80x24
+  test covers Escape restoring selection and focus.
+- Task 8: an empty schema 1 file is told to add `[[machines]]` entries, which
+  that schema would reject; the hint should name `schema_version = 2`.
+- Task 8: at 80x24 the details pane needs scrolling to show a machine's key and
+  links; alias machines spend three rows on "From your SSH config".
 
 ## Deferred ideas
 

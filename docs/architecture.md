@@ -182,8 +182,10 @@ addresses. `--` ends option parsing as a second safeguard behind validation;
 Windows OpenSSH 9.5p2 and portable OpenSSH 10.5p1 accept it before hostname,
 IPv4 and IPv6 destinations, and still refuse `-- -oProxyCommand=x` as an
 invalid hostname. `HostKeyAlias` checks one `known_hosts` entry per machine,
-whichever address answers. A key starting with `~/` or `~\` is expanded with
-`Path.home()`, because OpenSSH expands only `~/`; other keys pass unchanged.
+whichever address is used. A key starting with `~/` or `~\` is expanded with
+`Path.home()`, splitting the rest on either separator, because OpenSSH expands
+only `~/`; the rules keep that rest inside the home folder (no second root or
+drive). Other keys pass unchanged.
 OpenSSH checks that the raw `-i` path exists before expanding `%` and `${}`
 codes, so the rules reject those characters rather than escaping them. Workbench
 never opens the key file.
@@ -250,7 +252,8 @@ discovery of its own; the CLI chooses which file to pass.
 Schema 1 files load as alias machines: `ssh_alias` becomes `alias`, and
 `repository` and `documentation` become links named "Repository" and
 "Documentation" in that order. Their errors keep `projects[N]` locations, so a
-0.1.0 file reports the same messages as before.
+0.1.0 file reports its field errors at the same locations as before. The
+version message now reads `expected integer 1 or 2`.
 
 The [README schema](../README.md#schema) and
 [fictional example](../examples/machines.example.toml) describe the supported

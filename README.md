@@ -44,6 +44,9 @@ Or directly from GitHub, which needs access to the private repository:
 uv tool install git+https://github.com/jkosber/ssh-workbench@v0.1.0
 ```
 
+The `v0.1.0` tag predates machines: it reads `projects.toml` and uses R and D
+instead of O. Install from a clone to get the version this README describes.
+
 If your shell can't find `ssh-workbench`, run `uv tool update-shell` and open a
 new terminal. To upgrade a clone install, run `git pull`, then
 `uv tool install --reinstall .`. To upgrade an install from GitHub, run the same
@@ -120,7 +123,7 @@ The file is UTF-8 TOML; a byte-order mark is fine. Schema version 2:
 | `id` | Required and unique. Lowercase ASCII letters and digits, with single hyphens between groups, such as `lab-box` |
 | `name` | Required. Any text with at least one non-space character |
 | `alias` | A `Host` name from your SSH config. See [Connecting](#connecting) |
-| `addresses` | Instead of `alias`: one or more hostnames or IP addresses, tried in the order listed |
+| `addresses` | Instead of `alias`: one or more hostnames or IP addresses. Workbench connects to the first one, so list the address you use most first |
 | `user` | Optional, with `addresses` only. The login name, such as `admin` |
 | `port` | Optional, with `addresses` only. An integer from 1 to 65535; SSH's default otherwise |
 | `key` | Optional, with `addresses` only. The path of this machine's private key |
@@ -133,12 +136,12 @@ Each machine has either `alias` or `addresses`, never both. Rules for the values
 | `alias` | Starts with an ASCII letter or digit; only ASCII letters, digits, dots, underscores and hyphens |
 | Address | A hostname made of letters, digits, hyphens and underscores between dots, an IPv4 address, or an IPv6 address without brackets or a `%` zone |
 | `user` | Starts with an ASCII letter, digit or underscore; only ASCII letters, digits, dots, underscores and hyphens |
-| `key` | An absolute path, such as `C:\Users\you\.ssh\id_ed25519_lab`, or one starting with `~/`. No quotes, `%` or `${`, because SSH would read them as substitutions, and not the `.pub` file |
+| `key` | An absolute path, or one starting with `~/` (or `~\`) inside your home folder. On Windows, use single quotes so backslashes stay literal: `key = 'C:\Users\you\.ssh\id_ed25519_lab'`. No double quotes, `%` or `${`, because SSH would read them as substitutions, and not the `.pub` file |
 | Link `name` | Any text with at least one non-space character, unique within the machine |
 | Link `url` | An absolute `http://` or `https://` URL without a username or password |
 
-These rules keep every value a single safe argument: nothing can start with `-`
-or contain spaces, so no value can turn into an SSH option. A Windows user name
+These rules keep every value a single safe argument: nothing can start with `-`,
+and only a key path may contain spaces, so no value can turn into an SSH option. A Windows user name
 with a space needs an alias machine with a `User` line in your SSH config.
 
 Unknown fields are errors, so a typo such as `adress` is reported instead of
@@ -170,7 +173,7 @@ alias can also be a plain hostname, or a name that a pattern such as
 
 A machine with addresses needs no SSH config. `HostKeyAlias` makes SSH remember
 the machine's host key under its ID, so you confirm the key once per machine
-whichever address answers. Host keys that `known_hosts` already holds under an
+whichever address is used. Host keys that `known_hosts` already holds under an
 address don't carry over: the first connection asks once. With a `key`, SSH
 offers only that key (`IdentitiesOnly`); a key with a passphrase asks for it,
 unless your SSH agent already holds the key.

@@ -1,6 +1,6 @@
 # Validation
 
-## Task 8: machines replace projects, 2026-10-21
+## Task 8: machines replace projects, 2026-10-20
 
 Branch `feat/task8-machines`. Environment: Windows 11, PowerShell 7.6.7,
 Microsoft Windows Terminal 1.25.2733.0, Python 3.14.7, Textual 8.2.8, uv 0.13.3,
@@ -13,7 +13,7 @@ Windows OpenSSH 9.5p2 and Git for Windows' portable OpenSSH 10.5p1.
 | `uv sync --locked`, Ruff check and format | Passed |
 | `uv run --locked pytest` | 673 passed (450 before Task 8) |
 | `uv build`, `scripts/check_package.py` | Passed; the package check now loads a schema 2 file and drives O through the picker in the installed wheel |
-| Argument lists with real OpenSSH | `ssh -F none -G`, which reads no configuration and connects nowhere, on the lists `ssh_arguments` builds: a direct machine with user, port, a key path containing a space and an IPv6 address, and an alias machine. Both clients printed the expected `hostname`, `user`, `port`, `hostkeyalias`, `identitiesonly yes` and `identityfile` values and exited 0. `-- -oProxyCommand=x` was refused as an invalid hostname |
+| Argument lists with real OpenSSH | `ssh -F none -G`, which reads no configuration and connects nowhere, on the lists `ssh_arguments` builds: a direct machine with user, port, a key path containing a space and an IPv6 address, and an alias machine. Both clients printed the expected `hostname`, `user`, `port`, `hostkeyalias`, `identitiesonly yes` and `identityfile` values and exited 0. An IPv4 destination after `--` parsed the same way, and `-- -oProxyCommand=x` was refused as an invalid hostname |
 | `%` in a key path | With `-i`, a doubled `%%` made both clients report the key as not accessible, and a raw `%` passed their existence check only to be expanded as a token afterwards. Key paths therefore reject `%` |
 
 Windows Terminal check in an owned window with fictional machines, `NO_COLOR`
@@ -37,6 +37,21 @@ actions, from an ignored machine file:
 | --- | --- |
 | Alias machine for the first approved SSH target | Reached a remote prompt with no password or host-key prompt; only `exit` was typed. Workbench returned with `SSH exited with status 0.` and the same machine selected |
 | Alias machine for the second approved target | No prompt appeared and SSH returned 255 without input; the target was not reachable and was skipped |
+
+Two fresh reviewers (spec compliance; code and docs quality) found no critical
+issues. Their important findings were fixed after failing tests:
+
+| Finding | Fix and test |
+| --- | --- |
+| Two picker keys in one console read (Enter twice, or Enter then Escape) dismissed the picker twice and crashed with `ScreenStackError` | The picker answers once, and Enter and Escape are priority bindings handled in arrival order, so the first key wins. `test_picker_ignores_a_second_key_in_the_same_batch` covers all four pairs |
+| A `~\` key became one file name containing backslashes on Linux, and `~//etc/key` or `~/C:\x` could leave the home folder | Either separator is split, and the rules reject a second root or a drive after `~`. `test_invalid_keys` and a literal `home/.ssh/id_box` expectation |
+| An alias machine carrying `user`, `port` or `key` reached the boundary and was silently ignored | The boundary refuses it. `test_alias_machine_with_direct_fields_is_rejected` |
+| The test for C while the picker is open passed even without the guard, because the headless driver cannot suspend | The test now allows suspension and asserts no handoff and an unchanged status; removing the guard makes it fail |
+
+They also corrected the docs: Workbench connects to the first address (not each
+in turn); a Windows key path needs single quotes in TOML; the `v0.1.0` tag
+predates machines. After the fixes: 685 tests passed. Remaining minor findings
+are listed under 0.2.x candidates in the roadmap.
 
 No direct machine was connected for real: its first connection asks to trust
 the host key under the new `HostKeyAlias`, and the approved actions allow only

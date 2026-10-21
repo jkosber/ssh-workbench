@@ -5,7 +5,7 @@
 
 schema_version = 2
 
-# Reached through a Host entry in your SSH config: Workbench runs `ssh garden-demo-host`.
+# Reached through a Host entry in your SSH config: Workbench runs `ssh -- garden-demo-host`.
 [[machines]]
 id = "garden-demo"
 name = "Garden demo"

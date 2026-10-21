@@ -34,7 +34,7 @@ Changes by release, newest first. Version numbers follow the policy in
 - Every SSH command puts `--` before the destination, and every value is
   rechecked just before launch.
 - Direct machines use `HostKeyAlias` with the machine's ID, so you confirm one
-  host key per machine whichever address answers. Keys already recorded under
+  host key per machine whichever address is used. Keys already recorded under
   an address don't carry over, so the first connection asks once.
 - A machine's key is offered with `IdentitiesOnly`, so SSH tries no other key.
   Workbench passes the key's path to SSH and never opens the file.
