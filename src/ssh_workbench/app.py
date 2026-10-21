@@ -204,6 +204,8 @@ class SSHWorkbenchApp(App[None]):
         self.file_text = file_text
         self.machines = tuple(machines or ())
         self._initial_index = 0
+        # Between a save and the rebuild, the list on screen is the old one.
+        self._rebuilding = False
         self._connecting = False
         self._link_request: LinkRequest | None = None
         self._links_closed = Event()
@@ -296,7 +298,8 @@ class SSHWorkbenchApp(App[None]):
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         self.refresh_bindings()
         index = event.list_view.index
-        if index is not None:
+        # An old list can still report a highlight while the panes rebuild.
+        if index is not None and not self._rebuilding:
             self._show_details(index)
 
     def _machine_list(self) -> ListView | None:
@@ -335,8 +338,12 @@ class SSHWorkbenchApp(App[None]):
         self.query_one("#machine-details", VerticalScroll).scroll_home(animate=False)
 
     def _browsing(self) -> bool:
-        """True when the browser screen is active and nothing is connecting."""
-        return not self._connecting and len(self.screen_stack) == 1
+        """True when the browser screen is active, current and not connecting."""
+        return (
+            not self._connecting
+            and not self._rebuilding
+            and len(self.screen_stack) == 1
+        )
 
     def _selected_index(self) -> int | None:
         machine_list = self._machine_list()
@@ -452,6 +459,7 @@ class SSHWorkbenchApp(App[None]):
         self.machines = tuple(machines)
         self.file_text = text
         self.config_supplied = True
+        self._rebuilding = True
         self.call_later(self._rebuild, select)
         return None
 
@@ -472,6 +480,7 @@ class SSHWorkbenchApp(App[None]):
         self.machines = tuple(machines)
         self.file_text = text
         self.config_supplied = text is not None
+        self._rebuilding = True
         self.call_later(self._rebuild, index or 0)
         return (
             "The machine file changed outside Workbench and was reloaded. "
@@ -480,7 +489,10 @@ class SSHWorkbenchApp(App[None]):
 
     async def _rebuild(self, select: int) -> None:
         self._initial_index = min(max(select, 0), max(len(self.machines) - 1, 0))
-        await self.query_one(MachinePanes).recompose()
+        try:
+            await self.query_one(MachinePanes).recompose()
+        finally:
+            self._rebuilding = False
         machine_list = self._machine_list()
         if machine_list is not None:
             self._show_details(self._initial_index)
