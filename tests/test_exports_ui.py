@@ -275,6 +275,24 @@ async def test_a_failed_export_is_shown_instead_of_the_question(
     assert (folder / "config").read_bytes() == USER_CONFIG
 
 
+async def test_the_generated_file_names_the_machine_file_absolutely(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX, LAB))
+    # As typed after --config: relative to the working folder.
+    monkeypatch.chdir(tmp_path)
+    relative = Path("machines.toml")
+    app = SSHWorkbenchApp((BOX, LAB), config_path=relative, file_text=text)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "e")
+        await wait_for(pilot, lambda: isinstance(app.screen, MachineForm))
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: "Saved machine 2: lab." in connection_status(app))
+    assert (folder / EXPORT_NAME).read_text(encoding="utf-8") == format_exports(
+        [BOX, LAB], path.absolute()
+    )
+
+
 class OfflineChecker:
     def resolve_alias(self, alias: str) -> AliasTarget | None:
         return AliasTarget("192.0.2.10", 22, proxied=False, user="dev")
