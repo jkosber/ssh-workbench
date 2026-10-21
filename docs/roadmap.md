@@ -586,22 +586,24 @@ and tag wait for a separate decision.
 
 Acceptance:
 
-- [ ] The Windows install script sets `$ProgressPreference = 'SilentlyContinue'`
+- [x] The Windows install script sets `$ProgressPreference = 'SilentlyContinue'`
   right after `$ErrorActionPreference`, so no CLIXML progress record reaches the
   terminal.
-- [ ] A copy of the key on a line whose first non-blank character is `#` does
+- [x] A copy of the key on a line whose first non-blank character is `#` does
   not count as installed, in the POSIX and the Windows script, and the key is
   added. A key line whose options contain `#` still counts.
-- [ ] Ctrl+C ending ssh-keygen or the install reads `Key setup interrupted.`;
+- [x] Ctrl+C ending ssh-keygen or the install reads `Key setup interrupted.`;
   during the login test it reads `The key was installed, but the login test
   was interrupted.` Interrupted statuses are a POSIX child killed by SIGINT,
-  and 0xC000013A and 0xFFFFFFFF on Windows, plus any value the native check
-  finds. Connect's messages do not change.
-- [ ] When an alias's login test passes with a key its SSH config doesn't name,
+  and 0xC000013A and 0xFFFFFFFF on Windows. The native check found that
+  Windows ssh-keygen exits 255 and ssh can exit 0 after Ctrl+C; those stay
+  statuses. Connect's messages do not change.
+- [x] When an alias's login test passes with a key its SSH config doesn't name,
   the result says SSH may have used another key and gives the `IdentityFile`
   line.
-- [ ] A direct machine's key is saved only after its login test passes;
+- [x] A direct machine's key is saved only after its login test passes;
   otherwise the result adds `The key was not saved as this machine's key.`
+  See the [Task 15 evidence](validation.md#task-15-021-real-use-fixes-2026-10-21).
 - [ ] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   real check on the Windows laptop shows no CLIXML record; README, changelog
   and validation updated.
