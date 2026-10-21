@@ -18,6 +18,9 @@ failed on Ubuntu: `test_timer_rounds_never_run_ssh_g` raised `NoMatches` for
 | Reviews | Two fresh reviewers reproduced the same `NoMatches` through `on_status_finished` in that window, and showed `on_link_finished` and a `call_later` rebuild are exposed the same way |
 | Tests first | Each test hooks every `Unmount` dispatched after `is_running` turns False, so it acts at each step of the screen removal: `test_shutdown_ignores_status_results_and_timers` (31 `NoMatches` before the fix), `test_result_while_the_screens_close_is_ignored` and `test_shutdown_skips_a_pending_rebuild` failed, then passed |
 | Fix | `on_status_finished`, `on_link_finished` and `_rebuild` also return once `App.is_running` is False |
+| [PR #12](https://github.com/jkosber/ssh-workbench/pull/12) CI on head `05d90b9` | [Push run 39549706759](https://github.com/jkosber/ssh-workbench/actions/runs/39549706759) and [PR run 39549711277](https://github.com/jkosber/ssh-workbench/actions/runs/39549711277) passed on Windows and Ubuntu, 802 tests each |
+| Merge | Merged as **`915639e`**, guarded on head `05d90b9`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39550082638](https://github.com/jkosber/ssh-workbench/actions/runs/39550082638) passed on Windows and Ubuntu, 802 tests each |
 | `uv run --locked pytest` | 802 passed (799 before the fix) |
 | `uv build`, `scripts/check_package.py` | Passed |
 
