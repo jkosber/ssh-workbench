@@ -76,7 +76,10 @@ def resolve_alias(alias: str, timeout: float = 10.0) -> AliasTarget | None:
             shell=False,
             check=False,
             stdin=subprocess.DEVNULL,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            # On Windows a timeout still waits for every captured pipe to
+            # close, and a Match exec child can hold stderr open; it is unread.
+            stderr=subprocess.DEVNULL,
             encoding="utf-8",
             errors="replace",
             timeout=timeout,

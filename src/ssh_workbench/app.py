@@ -292,6 +292,9 @@ class SSHWorkbenchApp(App[None]):
         # Without a checker the app never checks; the CLI passes the real one.
         self.checker = checker
         self._statuses: dict[str, MachineStatus] = {}
+        # The address each machine's last finished check found online; a new
+        # round shows Checking but Connect keeps using this.
+        self._online: dict[str, str] = {}
         # What ssh -G said for each alias at startup or the last refresh.
         self._targets: dict[str, AliasTarget | None] = {}
         self._round = 0
@@ -452,11 +455,10 @@ class SSHWorkbenchApp(App[None]):
         return text
 
     def _online_address(self, machine: Machine) -> str | None:
-        """The address the latest check found online, for direct machines."""
-        status = self._statuses.get(machine.id)
-        if machine.alias is None and status and status.state is State.ONLINE:
-            return status.address
-        return None
+        """The address the last finished check found online, for direct machines."""
+        address = self._online.get(machine.id)
+        # An edit may have removed the address since that check.
+        return address if address in machine.addresses else None
 
     def action_refresh(self) -> None:
         if self.check_action("refresh", ()) is True:
@@ -532,6 +534,10 @@ class SSHWorkbenchApp(App[None]):
             self._targets[message.alias] = message.target
         if message.machine_id in {machine.id for machine in self.machines}:
             self._statuses[message.machine_id] = message.status
+            if message.status.state is State.ONLINE and message.status.address:
+                self._online[message.machine_id] = message.status.address
+            else:
+                self._online.pop(message.machine_id, None)
             self._show_statuses()
 
     def _show_statuses(self) -> None:
