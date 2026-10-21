@@ -323,6 +323,42 @@ async def test_shutdown_ignores_delayed_completion(monkeypatch, key) -> None:
         release.set()
 
 
+async def test_result_while_the_screens_close_is_ignored(monkeypatch) -> None:
+    release, entered = threading.Event(), threading.Event()
+
+    def open_url(url):
+        entered.set()
+        assert release.wait(10)
+        return LinkResult.ACCEPTED
+
+    monkeypatch.setattr(app_module, "open_link", open_url)
+    app = SSHWorkbenchApp(MACHINES)
+    updates = Mock(wraps=app._show_link_result)
+    monkeypatch.setattr(app, "_show_link_result", updates)
+    pending: dict[str, LinkRequest] = {}
+    counts: list[int] = []
+
+    def during_shutdown(message: events.Event) -> None:
+        # Textual removes the screens after is_running turns False, while the
+        # app still handles messages.
+        if app.is_running or not isinstance(message, events.Unmount):
+            return
+        counts.append(updates.call_count)
+        app.on_link_finished(LinkFinished(pending["request"], LinkResult.ACCEPTED))
+
+    try:
+        async with app.run_test(message_hook=during_shutdown) as pilot:
+            await pilot.press("o")
+            async with asyncio.timeout(5):
+                while not entered.is_set():
+                    await pilot.pause()
+            pending["request"] = app._link_request
+        assert counts
+        assert updates.call_count == counts[0]
+    finally:
+        release.set()
+
+
 async def test_stale_result_does_not_replace_new_request(monkeypatch) -> None:
     release = threading.Event()
     monkeypatch.setattr(
