@@ -14,6 +14,21 @@ release 0.2.1 and tag it.
 | Installed tool | `uv tool install` of the wheel into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`), leaving Jadon's installed 0.2.0 alone; `--version` printed `ssh-workbench 0.2.1` |
 | Installed-tool smoke in an owned 80x24 Windows Terminal window | With `SSH_WORKBENCH_SSH_DIR` and `APPDATA` pointing at empty ignored folders and a copy of the example machine file, the list, details and footer drew; Q exited with status 0 |
 
+PR #20's PR run on head `c9a270b`, a docs-only commit, failed on Windows with
+1 failed and 1020 passed:
+[run 39651258950](https://github.com/jkosber/ssh-workbench/actions/runs/39651258950).
+The same commit's
+[push run 39651250887](https://github.com/jkosber/ssh-workbench/actions/runs/39651250887)
+passed with 1021 tests on each system.
+
+| Item | Result |
+| --- | --- |
+| Failure | `test_startup_shows_checking_then_each_result` set `ListView.index = 2`, paused once, and read the previous machine's status, "● Online: 192.0.2.40" |
+| Cause | Setting the index posts `ListView.Highlighted` to the list; it reaches the app, which updates the details, one parent at a time. `pilot.pause()` first waits for callbacks it queued on every widget, so it can finish while the message is still climbing. Only its CPU-idle heuristic then covered the gap |
+| Reproduction | A scratch plugin replaced that heuristic with one yield. The test then failed every time, three out of three, reading the previous machine's status |
+| Fix (tests only) | The loop waits until the details show the selected machine's ID, then asserts the status text exactly. It passed three times out of three under the plugin; the full suite passed, 1021 tests |
+| Other latent cases | Under the plugin, seven `tests/test_forms.py` cases fail the same way; they are in the roadmap's 0.2.x candidates |
+
 ## Task 15: 0.2.1 real-use fixes, 2026-10-21
 
 Branch `feat/task15-real-use-fixes`. Environment as in Task 14. Jadon chose the

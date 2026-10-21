@@ -740,6 +740,11 @@ on success, the key saved after a failed test and the commented-out key.
   of the key (it counts as installed).
 - Task 15: an error thrown by the Windows script may also reach the terminal as
   CLIXML; unchecked.
+- Task 16: seven form tests rely on `pilot.pause()`'s CPU-idle heuristic and
+  fail when it is removed: six `test_inline_error_names_the_field_and_blocks_saving`
+  direct-machine cases and `test_huge_port_is_an_error_not_a_crash`. Wait for
+  the condition they assert instead, as `test_startup_shows_checking_then_each_result`
+  now does.
 
 ## Deferred ideas
 
