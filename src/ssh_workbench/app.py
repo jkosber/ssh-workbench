@@ -1191,8 +1191,14 @@ class SSHWorkbenchApp(App[None]):
             if machine.alias is None and machine.key is None
             else None
         )
+        try:
+            choices = self._key_choices(machine, target, folder)
+        except SSHLaunchError as error:
+            # A machine key under "~" needs the home folder.
+            self._show_key_result(machine, str(error))
+            return
         self.push_screen(
-            KeySetup(machine, self._key_choices(machine, target, folder), warning),
+            KeySetup(machine, choices, warning),
             lambda plan: self._key_plan_chosen(machine.id, plan),
         )
 
