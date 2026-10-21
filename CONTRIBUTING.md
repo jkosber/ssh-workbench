@@ -88,7 +88,7 @@ Add a new module-level entry point there, not to an individual test. Socket
 because Windows opens a local socket pair when the loop starts.
 
 Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
-itself, with and without `--config examples/projects.example.toml`; check
+itself, with and without `--config examples/machines.example.toml`; check
 selection, details, scrolling and both exit shortcuts. Record what was actually
 observed in [validation](docs/validation.md). CI uses the same commands on Linux
 and Windows with the Python version in `.python-version`; a queued run is not a
@@ -102,10 +102,10 @@ keys or inventories in tests. A real connection requires separate approval for
 the specific target and action.
 
 For link actions, run `uv run --locked python scripts/check_links.py` and follow
-the [stubbed link checklist](docs/validation.md#task-4-stubbed-link-checklist).
-It replaces browser/OS boundaries, uses fictional projects and guards against
-other external actions. Real R/D actions in the normal application open a browser
-and require an explicitly approved URL for development verification.
+the [link fixture checklist](docs/validation.md#task-8-link-fixture-checklist).
+It replaces browser/OS boundaries, uses fictional machines and guards against
+other external actions. A real O action in the normal application opens a
+browser and requires an explicitly approved URL for development verification.
 
 ## Recover without losing work
 

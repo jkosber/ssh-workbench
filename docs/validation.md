@@ -1,5 +1,64 @@
 # Validation
 
+## Task 8: machines replace projects, 2026-10-21
+
+Branch `feat/task8-machines`. Environment: Windows 11, PowerShell 7.6.7,
+Microsoft Windows Terminal 1.25.2733.0, Python 3.14.7, Textual 8.2.8, uv 0.13.3,
+Windows OpenSSH 9.5p2 and Git for Windows' portable OpenSSH 10.5p1.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_machines.py` failed at collection (`cannot import name 'ConfigError'`). After the converted test commit, 129 tests failed and one module failed to collect, all for the missing machine API |
+| Test-only corrections before the implementation commit | Three new click steps targeted the links value, which sits below the visible details pane at 60x20 and 80x24; they now scroll first or click visible fields. Rewriting `tests/test_app.py` had turned two escaped name cases into literal characters; both lines were restored byte-for-byte from 0.1.0, and a scan found no other literal control or format characters in tracked files |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 673 passed (450 before Task 8) |
+| `uv build`, `scripts/check_package.py` | Passed; the package check now loads a schema 2 file and drives O through the picker in the installed wheel |
+| Argument lists with real OpenSSH | `ssh -F none -G`, which reads no configuration and connects nowhere, on the lists `ssh_arguments` builds: a direct machine with user, port, a key path containing a space and an IPv6 address, and an alias machine. Both clients printed the expected `hostname`, `user`, `port`, `hostkeyalias`, `identitiesonly yes` and `identityfile` values and exited 0. `-- -oProxyCommand=x` was refused as an invalid hostname |
+| `%` in a key path | With `-i`, a doubled `%%` made both clients report the key as not accessible, and a raw `%` passed their existence check only to be expanded as a token afterwards. Key paths therefore reject `%` |
+
+Windows Terminal check in an owned window with fictional machines, `NO_COLOR`
+cleared and `APPDATA` pointed at an empty ignored folder:
+
+| Step | Result |
+| --- | --- |
+| Example file at 80x24 | Both machines listed. The alias machine showed `Connection: SSH alias` and its alias; the direct machine showed `Direct`, both addresses on separate lines and its user |
+| O on the two-link machine | "Open a link" listed Dashboard and Status page with their URLs. Down, then Escape, closed it with the same selection and link status |
+| 60x20, 120x40, back to 80x24 | The screen filled each size; at 60x20 the help line stayed on one row and the link hint wrapped inside its three-row area |
+| Q | Exited with status 0 |
+| `--help` in a 60-column window | `Default machine file:` followed by the full path unbroken on the next line |
+| No machine file | The start screen named the default path under the overridden `APPDATA`; Ctrl+Q exited |
+| `scripts/check_links.py` | O on the no-links case changed nothing. On the picker case, Down and Enter reported `[b]Second[/b] link browser request accepted. Machine 6: fixture-picker`, markup shown literally |
+| `scripts/check_terminal.py` | C handed the terminal to the local child, whose three streams were terminals; typing `return` came back with `SSH exited with status 0. Machine 1: fixture-zero` |
+
+Real connect checks, with Jadon's standing approval for these targets and
+actions, from an ignored machine file:
+
+| Target | Result |
+| --- | --- |
+| Alias machine for the first approved SSH target | Reached a remote prompt with no password or host-key prompt; only `exit` was typed. Workbench returned with `SSH exited with status 0.` and the same machine selected |
+| Alias machine for the second approved target | No prompt appeared and SSH returned 255 without input; the target was not reachable and was skipped |
+
+No direct machine was connected for real: its first connection asks to trust
+the host key under the new `HostKeyAlias`, and the approved actions allow only
+typing `exit`. The alias names stay in ignored `.local/task8-session/`. Linux
+and macOS were not exercised natively.
+
+### Task 8 link fixture checklist
+
+Run `uv run --locked python scripts/check_links.py` in Windows Terminal at
+80x24. It substitutes every browser and OS boundary.
+
+1. On each case, press O from the list and again from the details pane.
+   Accepted reports "accepted"; failed and error report "failed" without the
+   private marker; long wraps in the details pane and stays inside the status
+   area.
+2. On the no-links case, O is dimmed and pressing it changes nothing.
+3. On the picker case, O opens the list: Enter opens the first link, Down and
+   Enter the second, and Escape closes it with the same selection and focus.
+4. Last, on the blocked case, O reports pending and a repeated O reports "still
+   pending". Change the selection and focus, then quit with Q or Ctrl+Q; the
+   process exits at once.
+
 ## Task 7: tooling cleanup, 2026-10-20
 
 Branch `feat/task7-tooling-cleanup`. Environment as in Task 6: Windows 11,
@@ -23,6 +82,12 @@ or important issues. Both confirmed the moved checks match the old string bodies
 and reproduced the two isolation failures. Three documentation statements were
 corrected; four minor test-strength findings are listed under 0.2.x candidates
 in the roadmap.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #8](https://github.com/jkosber/ssh-workbench/pull/8) CI on head `d6f3a61` | [Push run 39532446289](https://github.com/jkosber/ssh-workbench/actions/runs/39532446289) and [PR run 39532471847](https://github.com/jkosber/ssh-workbench/actions/runs/39532471847) passed on Windows and Ubuntu, 450 tests each |
+| Merge | Merged as **`11449aa`**, guarded on head `d6f3a61`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39532704983](https://github.com/jkosber/ssh-workbench/actions/runs/39532704983) passed on Windows and Ubuntu |
 
 ## Task 6: 0.1.0 readiness, 2026-10-20
 

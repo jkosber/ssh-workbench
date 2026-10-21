@@ -5,9 +5,9 @@
 | Path | Responsibility |
 | --- | --- |
 | `src/ssh_workbench/cli.py` | Entry point: help and version, default-file location, loading, starting the app |
-| `src/ssh_workbench/config.py` | TOML loading, schema validation, `Project` records and the shared alias and URL rules. No Textual, subprocesses or filesystem search |
-| `src/ssh_workbench/app.py` | Textual app: project list, details, status lines and the C/R/D/Q actions |
-| `src/ssh_workbench/ssh.py` | Native SSH boundary: alias recheck, executable lookup, child process and SIGINT guard |
+| `src/ssh_workbench/config.py` | TOML loading, schema 1 and 2 validation, `Machine` and `Link` records and the shared field rules. No Textual, subprocesses or filesystem search |
+| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/O/Q actions |
+| `src/ssh_workbench/ssh.py` | Native SSH boundary: machine recheck, argument list, executable lookup, child process and SIGINT guard |
 | `src/ssh_workbench/links.py` | Browser boundary: URL recheck and operating-system dispatch |
 | `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
 | `tests/` | Loader, CLI, boundary and headless UI tests with fictional data |
@@ -22,54 +22,65 @@
 `cli` imports `config` and, after argument parsing, `app`. `app` uses `ssh` and
 `links`, which both reuse validation from `config`. Only `__main__` imports `cli`.
 
-## Implemented CLI and project browser
+## Implemented CLI and machine browser
 
 The installed `ssh-workbench` entry point calls `ssh_workbench.cli.main`.
 Standard-library `argparse` handles help, version and invalid options before
 reading configuration or loading the TUI. Version output uses
 `importlib.metadata.version`; the source of that metadata is `pyproject.toml`.
 
-An explicit `--config PATH` calls `load_projects(Path)` once and skips the
+An explicit `--config PATH` calls `load_machines(Path)` once and skips the
 default file entirely. Without it, `default_config_path()` names the per-user
-file: `%APPDATA%\ssh-workbench\projects.toml` on Windows, otherwise
-`$XDG_CONFIG_HOME/ssh-workbench/projects.toml` when that variable is absolute,
-or `~/.config/ssh-workbench/projects.toml`. The XDG specification says to ignore
+file: `%APPDATA%\ssh-workbench\machines.toml` on Windows, otherwise
+`$XDG_CONFIG_HOME/ssh-workbench/machines.toml` when that variable is absolute,
+or `~/.config/ssh-workbench/machines.toml`. The XDG specification says to ignore
 relative values; an unset or relative `APPDATA`, or an unresolvable home folder,
 means no default location. Resolution reads only environment variables and the
-home folder. The file is loaded only when `Path.is_file()` is true; a missing
-file or a folder at that path leaves the app in its no-configuration state,
-which shows the path. Nothing searches other folders, and nothing creates or
-writes configuration.
+home folder. The default file is loaded when `Path.exists()` is true, so a
+folder at that path is reported instead of hidden; a missing file leaves the app
+in its no-configuration state, which shows the path. The 0.1.0 name
+`projects.toml` is not checked. Nothing searches other folders, and nothing
+creates or writes configuration.
 
-A `ProjectConfigError` becomes an argparse error on stderr with exit status 2,
-before terminal startup. Default-file errors read `default configuration file:`
+A `ConfigError` becomes an argparse error on stderr with exit status 2, before
+terminal startup. Default-file errors read `default configuration file:`
 followed by the loader's message without its own `configuration:` prefix, so a
-user can tell which file failed without the path being printed. `--help` shows
-the resolved path with `%` doubled, because argparse formats help strings.
+user can tell which file failed without the path being printed. `--help` prints
+the resolved path on its own line in an epilog that `RawDescriptionHelpFormatter`
+does not rewrap, escaped for display and for the output encoding. argparse
+%-formats an epilog only when it contains `%(prog)`, so `%` is doubled only then.
 
-`SSHWorkbenchApp(projects, default_config)` receives validated records in file
-order. It retains them in a tuple; `None` means no configuration was loaded and
-an empty sequence means a loaded configuration contains no projects. Those states
-have different informative screens; the first names `default_config`, escaped for
-display, when one exists. The app reads no files and makes no network calls. Its
+`SSHWorkbenchApp(machines, config_path)` receives validated records in file
+order. It retains them in a tuple; `None` means no file was loaded and an empty
+sequence means a loaded file contains no machines. Those states have different
+informative screens, both naming `config_path`, escaped for display, when one
+exists: the loaded file, or the default location. Only the no-file screen
+mentions `--config`. The app reads no files and makes no network calls. Its
 explicit Connect action delegates process I/O to the small native SSH boundary;
-R/D delegate URL dispatch to a separate browser boundary.
+O delegates URL dispatch to a separate browser boundary.
 
-A Textual `ListView` starts focused on the first project. Its `Highlighted` event
-updates five literal `Static` field values in a `VerticalScroll` details pane and
-resets that pane to the top. Tab/Shift+Tab switch panes; details use Textual's
-standard scrolling keys. List rows shorten long names while details wrap the
-full value. Selection uses the list's highlight and focus uses an accent border.
-The footer shows C / Connect, R / Repository, D / Documentation and Q / Quit,
-with Ctrl+Q as an additional exit key. Textual owns the event loop and terminal
-lifecycle. Link actions do not change pane focus or selection.
+A Textual `ListView` starts focused on the first machine. Its `Highlighted`
+event updates literal `Static` values in a `VerticalScroll` details pane and
+resets that pane to the top: ID, name, connection kind, the alias or the
+addresses (one per line, under a label that changes with the kind), user, port,
+key and links (`name: URL` per line). Unset direct fields read `Not set`; alias
+machines read `From your SSH config`. Tab/Shift+Tab switch panes; details use
+Textual's standard scrolling keys. List rows shorten long names while details
+wrap the full value. Selection uses the list's highlight and focus uses an
+accent border. The footer shows C / Connect, O / Open link and Q / Quit, with
+Ctrl+Q as an additional exit key. `check_action` dims C and O without a
+selection, while connecting and while the link picker is open, and dims O for a
+machine without links. Textual owns the event loop and terminal lifecycle. Link
+actions do not change pane focus or selection. Connect results end with
+`Machine N: <id>` so they name the machine.
 
 `_display_text` escapes nonprinting characters using Python-style representations,
 including C0/C1 controls, formatting controls and nonprinting separators. It is
-applied only when rendering; frozen `Project` values remain untouched. Every
-configuration-derived `Static` uses `markup=False`, with no link widgets or
-Rich/Textual markup interpretation. Terminal-provided URL detection is outside
-the application's control.
+applied only when rendering; frozen `Machine` and `Link` values remain
+untouched. Every configuration-derived `Static` uses `markup=False`, and picker
+options are plain `Content`, with no link widgets or Rich/Textual markup
+interpretation. Terminal-provided URL detection is outside the application's
+control.
 
 | Decision | Reason |
 | --- | --- |
@@ -120,15 +131,21 @@ Linux without the desktop environment or GIO, macOS and other platforms report
 unavailable. Dispatch uses the environment running Workbench, including its
 browser associations; the application cannot inspect external page state.
 
-Each explicit R/D action captures a frozen `LinkRequest` containing the project,
-kind, exact URL and one-based list position. One daemon thread calls the boundary;
-repeated actions receive a pending message without starting another request.
+The explicit O action opens a machine's only link directly. With several links
+it pushes `LinkPicker`, a `ModalScreen` with an `OptionList` of `name  URL`
+prompts: Enter dismisses it with the highlighted link and Escape with none.
+Textual's modal binding chain hides the app's bindings, so C and O cannot run
+while it is open; the picker repeats Q and Ctrl+Q so quitting still works.
+The chosen link becomes a frozen `LinkRequest` holding the machine, the `Link`
+and the one-based list position. One daemon thread calls the boundary; repeated
+actions receive a pending message without opening a picker or starting another
+request.
 Installed Textual 8.2.8 thread workers use asyncio's default executor, whose
 shutdown can wait for blocked calls. The daemon avoids that quit delay and
 communicates only through Textual's thread-safe `post_message`. The event handler
 alone updates UI state, accepts only the current request identity, and never
 restores selection or focus. Fixed three-row link status prevents completion
-from resizing the panes; a project number remains visible even if its ID clips.
+from resizing the panes; a machine number remains visible even if its ID clips.
 The separate SSH status cannot be overwritten by a link completion.
 
 Unmount sets a thread-safe shutdown event and clears the request. The thread
@@ -151,12 +168,29 @@ shutdown races, layout and simultaneous SSH lifecycle results.
 
 ## Implemented native SSH boundary
 
-`ssh_workbench.ssh.launch_ssh(alias)` is synchronous and runs on the main thread.
-It shares `config.is_valid_ssh_alias` with the loader, rechecking immediately before
-executable lookup. `shutil.which` finds `ssh.exe` on Windows or `ssh` elsewhere;
-the resulting absolute path and the unchanged alias form the entire argument
-list. The Windows lookup explicitly requests an executable rather than a batch
-file. On Windows, `shutil.which` checks the current directory before `PATH`
+`ssh_workbench.ssh.launch_ssh(machine, address=None)` is synchronous and runs on
+the main thread. `ssh_arguments(machine, address)` first rechecks the machine
+with the loader's own predicates, before executable lookup:
+
+| Machine | Arguments after the executable |
+| --- | --- |
+| Alias | `--`, alias |
+| Direct | `-o HostKeyAlias=<id>`, then `-l <user>`, `-p <port>` and `-i <key> -o IdentitiesOnly=yes` when set, then `--` and the address |
+
+The address defaults to the first listed one and must be one of the machine's
+addresses. `--` ends option parsing as a second safeguard behind validation;
+Windows OpenSSH 9.5p2 and portable OpenSSH 10.5p1 accept it before hostname,
+IPv4 and IPv6 destinations, and still refuse `-- -oProxyCommand=x` as an
+invalid hostname. `HostKeyAlias` checks one `known_hosts` entry per machine,
+whichever address answers. A key starting with `~/` or `~\` is expanded with
+`Path.home()`, because OpenSSH expands only `~/`; other keys pass unchanged.
+OpenSSH checks that the raw `-i` path exists before expanding `%` and `${}`
+codes, so the rules reject those characters rather than escaping them. Workbench
+never opens the key file.
+
+`shutil.which` finds `ssh.exe` on Windows or `ssh` elsewhere; the resulting
+absolute path and those arguments form the entire argument list. The Windows
+lookup explicitly requests an executable rather than a batch file. On Windows, `shutil.which` checks the current directory before `PATH`
 unless `NoDefaultCurrentDirectoryInExePath` is set, and a relative `PATH` entry
 has the same effect anywhere. A relative result is therefore discarded and only
 absolute `PATH` entries are searched, so an `ssh.exe` in the launch folder never runs. `subprocess.run` uses `shell=False`, `check=False` and inherited stdin,
@@ -194,33 +228,52 @@ invocation with fixed local Python children. It exercises real terminal handoff,
 including a child that continues after Ctrl+C, without SSH resources. Its
 [observed results](validation.md#task-3-native-ssh-2026-10-12) are platform-specific.
 Task 4 adds only retry guidance for nonzero status and interruption; the launcher,
-suspension handling, signal guard and restoration remain unchanged.
+suspension handling, signal guard and restoration remain unchanged. Task 8 adds
+the machine argument list and names the machine in the status line; the retry
+guidance mentions the machine's settings rather than the alias for direct
+machines.
 
-## Implemented project metadata loader
+## Implemented machine file loader
 
-`ssh_workbench.config.load_projects(path: Path) -> list[Project]` reads only the
+`ssh_workbench.config.load_machines(path: Path) -> list[Machine]` reads only the
 explicit UTF-8 file and drops a leading byte-order mark, which Windows PowerShell
-5.1 and some editors write. `parse_projects(text)` uses standard-library `tomllib` and
-passes the resulting data to a separate schema validator. The frozen `Project`
-dataclass stores the five documented fields; the list preserves file order.
-Neither loading nor validation depends on Textual, subprocesses or network I/O.
-The loader has no default path or discovery of its own; the CLI chooses which
-file to pass.
+5.1 and some editors write. A folder is reported as `expected a file, got a
+directory` before reading, because Windows would otherwise say "permission
+denied". `parse_machines(text)` uses standard-library `tomllib`, checks
+`schema_version` first and then validates that version's schema. The frozen
+`Machine` dataclass holds `id`, `name`, `alias`, `user`, `addresses`, `port`,
+`key` and `links`; `Link` holds `name` and `url`; tuples keep them immutable and
+the list preserves file order. Neither loading nor validation depends on
+Textual, subprocesses or network I/O. The loader has no default path or
+discovery of its own; the CLI chooses which file to pass.
+
+Schema 1 files load as alias machines: `ssh_alias` becomes `alias`, and
+`repository` and `documentation` become links named "Repository" and
+"Documentation" in that order. Their errors keep `projects[N]` locations, so a
+0.1.0 file reports the same messages as before.
 
 The [README schema](../README.md#schema) and
-[fictional example](../examples/projects.example.toml) describe the supported
-format. Small policy choices for version 1 are:
+[fictional example](../examples/machines.example.toml) describe the supported
+format. Small policy choices:
 
 | Decision | Reason |
 | --- | --- |
-| Reject unknown fields at both levels; accept an explicit empty array | Catch spelling mistakes while allowing a valid configuration with no projects |
+| Reject unknown fields at every level; accept an explicit empty array | Catch spelling mistakes while allowing a valid file with no machines |
 | Preserve strings; reject whitespace-only strings | Avoid changing display names or reference values silently |
-| Require exact integer version 1 and unique, case-sensitive IDs | Python booleans are integers too; explicit checks preserve the TOML contract |
+| Require exact integer version 1 or 2 and unique, case-sensitive IDs | Python booleans are integers too; explicit checks preserve the TOML contract |
+| Either `alias` or `addresses`; `user`, `port` and `key` only with `addresses` | An alias's SSH config already decides those values; mixing them would hide which one SSH uses |
+| `user` and addresses never start with `-` and contain no whitespace, controls or `@`; addresses are hostnames, IPv4 or IPv6 without a `%` zone; digits-and-dots values must be valid IPv4 | Each value stays one SSH argument and cannot become an option or a second destination |
+| Accept either platform's absolute key path, or `~/` and `~\` | A machine file in a synced folder can serve Windows and Linux |
+| Reject `"`, `%`, `${`, controls and `.pub` in key paths | OpenSSH would expand `%` and `${}` after checking the raw path; a `.pub` file is never a private key |
+| Unique link names within a machine; URLs keep the 0.1.0 rule | Names identify picker entries; the browser boundary rechecks the same URL rule |
 | Validate HTTP/HTTPS scheme, host presence, credentials and port syntax/range | `urlsplit` separates components but is not a full URL validator |
 | Reject raw whitespace, controls and backslashes before URL parsing | Parsers can discard controls and browsers can normalize backslashes; rejecting them avoids ambiguous input |
-| Keep paths and SSH argument lists outside the schema | These need separate semantics; no reference is checked against the local filesystem |
-| Fail on the first error with one `ProjectConfigError` type | Callers receive either complete validated data or an actionable failure |
-| Use one-based project positions and omit supplied values, paths and unknown key names in errors | Locate a problem without exposing private metadata; allowed field names and TOML line/column provide context |
+| Fail on the first error with one `ConfigError` type | Callers receive either complete validated data or an actionable failure |
+| Use one-based positions and omit supplied values, paths and unknown key names in errors | Locate a problem without exposing private metadata; allowed field names and TOML line/column provide context |
+
+The predicates `is_valid_machine_id`, `is_valid_ssh_alias`, `is_valid_user`,
+`is_valid_address`, `is_valid_port` and `is_valid_key_path` are public so the
+launch boundary, and later the edit forms, apply exactly the loader's rules.
 
 URL syntax checks do not establish DNS validity, reachability or trust in a link's
 contents. Standard HTTP/HTTPS ports, queries, fragments and encoded path spaces
@@ -232,24 +285,23 @@ No database, telemetry, service account, cloud service or AI API is required.
 
 ### Python API
 
-`load_projects(path)` reads UTF-8 TOML, with or without a byte-order mark, and
-returns a `list[Project]` in file order. Each frozen record contains `id`,
-`name`, `ssh_alias`, `repository` and `documentation`; absent optional
-references are `None`. `parse_projects(text)` performs the same parsing and
-validation on an existing string. Both report problems through
-`ProjectConfigError`. Neither uses the metadata to connect, run commands or open
-links. From the repository:
+`load_machines(path)` reads UTF-8 TOML, with or without a byte-order mark, and
+returns a `list[Machine]` in file order. Absent optional fields are `None`, or
+an empty tuple for `addresses` and `links`. `parse_machines(text)` performs the
+same parsing and validation on an existing string. Both report problems through
+`ConfigError`. Neither uses the data to connect, run commands or open links.
+From the repository:
 
 ```text
-uv run --locked python -c "from pathlib import Path; from ssh_workbench.config import load_projects; print(load_projects(Path('examples/projects.example.toml')))"
+uv run --locked python -c "from pathlib import Path; from ssh_workbench.config import load_machines; print(load_machines(Path('examples/machines.example.toml')))"
 ```
 
 Parsing checks TOML syntax; validation then checks the values against the
-schema. `ssh_alias = "--help"` parses as TOML but fails validation at
-`projects[1].ssh_alias`, because an alias cannot start with a dash. A missing
+schema. `alias = "--help"` parses as TOML but fails validation at
+`machines[1].alias`, because an alias cannot start with a dash. A missing
 closing quote is a parsing error instead, reported with a line and column.
 
-Errors identify a field and a one-based project position where possible. They
+Errors identify a field and a one-based position where possible. They
 omit file paths, supplied values and unknown key names; unknown-field errors list
 the allowed fields. The loader stops at the first error and never returns
 partial results.
@@ -261,10 +313,13 @@ checks. SSH Workbench does not store passwords or private keys, parse private
 keys, or disable host-key verification. Bootstrap and automated tests must never
 read real SSH files or access real hosts.
 
-For subprocess code, validate aliases as data and use an argument list
-with a resolved executable and `shell=False`. Reject values that could be flags,
-commands or multiple arguments. Never build shell command strings from project
-metadata. Do not accept arbitrary SSH flags or remote commands from configuration.
+For subprocess code, validate aliases, users, addresses, ports and key paths as
+data and use an argument list with a resolved executable and `shell=False`.
+Reject values that could be flags, commands or multiple arguments, revalidate
+them at the boundary, and put `--` before the destination. Never build shell
+command strings from machine data. Do not accept arbitrary SSH flags or remote
+commands from configuration. `HostKeyAlias` changes where SSH records a host
+key, never whether it checks one.
 
 Metadata is untrusted input: display it as plain text, report validation errors
 without dumping file contents, and validate supported URL schemes before opening
@@ -312,6 +367,20 @@ handling. Source inspection of the Linux driver is not a Linux terminal test.
 Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
+
+## References checked for task 8
+
+- [OpenSSH ssh(1)](https://man.openbsd.org/ssh) for `-l`, `-p`, `-i` and `-o`
+- [OpenSSH ssh_config(5)](https://man.openbsd.org/ssh_config) for `HostKeyAlias`, `IdentitiesOnly` and token expansion
+- [Textual screens and modal screens](https://textual.textualize.io/guide/screens/)
+- [Textual OptionList](https://textual.textualize.io/widgets/option_list/)
+
+Windows OpenSSH 9.5p2 and Git for Windows' portable OpenSSH 10.5p1 were run
+with `-F none -G`, which reads no configuration file and connects nowhere, on the
+exact argument lists `ssh_arguments` builds. Installed Textual 8.2.8 sources were
+inspected for `check_action`, the modal binding chain and `OptionList`
+highlighting. Python 3.14.7 `argparse` formats an epilog with `%` only when it
+contains `%(prog)`.
 
 ## References checked during bootstrap
 

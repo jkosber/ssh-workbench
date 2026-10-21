@@ -38,7 +38,8 @@ Acceptance criteria:
   domain error that identifies the field/project when possible without echoing
   the entire file or private values. Choose a small typed record and one clear
   error type; no schema framework is needed.
-- [x] Confirm or revise the [supported example](../examples/projects.example.toml)
+- [x] Confirm or revise the supported example (`examples/projects.example.toml`,
+  replaced in Task 8 by [machines.example.toml](../examples/machines.example.toml))
   and document the implemented schema. Private files belong outside Git; the
   loader never creates or overwrites them.
 
@@ -328,33 +329,33 @@ reading come in Tasks 9-11.
 
 Acceptance:
 
-- [ ] Schema 2 machine file with a `machines` array. Each machine has a unique
+- [x] Schema 2 machine file with a `machines` array. Each machine has a unique
   `id` and a `name`, plus either `alias` or `addresses` (with optional `user`,
   `port` and `key`), never both, and optional named `links`. Unknown fields stay
   errors, and errors never repeat values, unknown keys or paths.
-- [ ] Field rules shared by the loader and the launch boundary. `user` and each
+- [x] Field rules shared by the loader and the launch boundary. `user` and each
   address reject anything that could become an SSH option or several arguments
   (a leading `-`, whitespace, control characters, `@` in `user`). Addresses
   accept hostnames, IPv4 and IPv6. Ports are 1-65535. A `key` is an absolute or
   `~/` path to a private key, without quotes, `%`, `${` or a `.pub` ending.
   Link names are unique within a machine; URLs keep the 0.1.0 rule.
-- [ ] Schema 1 files still load: each project becomes an alias machine whose
+- [x] Schema 1 files still load: each project becomes an alias machine whose
   `repository` and `documentation` become links named "Repository" and
   "Documentation". Their errors keep `projects[N]` locations.
-- [ ] The default file is `machines.toml` in the 0.1.0 folders, with no
+- [x] The default file is `machines.toml` in the 0.1.0 folders, with no
   fallback to `projects.toml`. `--config PATH` still overrides it.
-- [ ] Connect runs `ssh -- <alias>` for alias machines. Direct machines run
+- [x] Connect runs `ssh -- <alias>` for alias machines. Direct machines run
   `ssh -o HostKeyAlias=<id> [-l user] [-p port] [-i key -o IdentitiesOnly=yes]
   -- <address>` with the first listed address. Values are revalidated just
   before launch; every 0.1.0 handoff safeguard stays. Real OpenSSH on Windows
   and a portable build accept the arguments.
-- [ ] O opens the selected machine's only link, or a picker when there are
+- [x] O opens the selected machine's only link, or a picker when there are
   several: Enter opens, Escape cancels, and C, O and a second request are blocked
   while it is open. R and D are gone. The 0.1.0 browser boundary is unchanged.
-- [ ] The details pane shows the connection kind, alias or addresses, user, port,
+- [x] The details pane shows the connection kind, alias or addresses, user, port,
   key and links, all literal. C and O are dimmed without a selection, while
   connecting and (O) without links. Status lines name the machine.
-- [ ] Folded 0.1.x fixes: a folder given with `--config` or at the default path
+- [x] Folded 0.1.x fixes: a folder given with `--config` or at the default path
   reports "expected a file, got a directory"; the empty-file screen no longer
   says to restart with `--config PATH`; `--help` prints the default path on its
   own line; a test shows `--help` and `--version` ignore an invalid default
@@ -368,22 +369,12 @@ Acceptance:
 
 Findings from the 0.1.0 review, deferred as non-blocking. Each needs its own
 explicit task. Task 7 took the `uv_build`, guard-list and `check_package.py`
-items. Task 8 takes every item below except the `validation.md` split and the
-U+202E/U+200B URLs, whose validation 0.2.0 keeps unchanged.
+items; Task 8 took the R/D, help line, status line, folder, empty-file,
+`--help` path, help/version test and README items. Two remain:
 
 - Split current test procedures from `validation.md` into a short testing guide
   and keep the dated log.
-- With no projects loaded, disable R/D instead of reporting "select a project
-  first" (changes an existing test).
-- The help line wraps at 60x20; the SSH status line does not name its project.
-- `--config` pointing at a folder reports "permission denied" on Windows.
 - URLs containing U+202E or U+200B pass validation; display already escapes them.
-- An empty default file says to restart with `--config PATH`; a folder at the
-  default path still says to create a file there.
-- `--help` wraps a long default path at hyphens; print it on its own line.
-- Test that `--help` and `--version` ignore an invalid default file.
-- README: escaping also covers format characters and non-ASCII spaces; add an
-  upgrade step for installs from a Git tag.
 
 ## 0.2.x candidates
 
