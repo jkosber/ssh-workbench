@@ -7,10 +7,12 @@ from pathlib import Path
 import pytest
 from textual.widgets import Checkbox, Input, RadioButton, Static
 
+from ssh_workbench import app as app_module
 from ssh_workbench.app import SSHWorkbenchApp
 from ssh_workbench.config import Machine, format_machines, read_machines
-from ssh_workbench.exports import EXPORT_NAME, format_exports
+from ssh_workbench.exports import EXPORT_NAME, ExportError, format_exports
 from ssh_workbench.forms import ConfirmDelete, ConfirmInclude, MachineForm
+from ssh_workbench.status import AliasTarget
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -102,7 +104,7 @@ async def test_saving_an_export_writes_the_file_and_y_adds_the_include(
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmInclude))
         assert read_machines(path)[0] == [LAB, BOX]
         assert (folder / EXPORT_NAME).read_text(encoding="utf-8") == format_exports(
-            [LAB, BOX]
+            [LAB, BOX], path
         )
         assert config.read_bytes() == USER_CONFIG
         assert str(app.screen.query_one("#include-line", Static).content) == (
@@ -173,14 +175,14 @@ async def test_deleting_the_exported_machine_removes_its_block(
 ) -> None:
     folder, path, text = workspace(tmp_path, monkeypatch, (BOX, LAB))
     exported = folder / EXPORT_NAME
-    exported.write_text(format_exports([BOX]), encoding="utf-8")
+    exported.write_text(format_exports([BOX], path), encoding="utf-8")
     app = SSHWorkbenchApp((BOX, LAB), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await pilot.press("x")
         await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
         await pilot.press("y")
         await wait_for(pilot, lambda: "Deleted machine 1" in connection_status(app))
-    assert exported.read_text(encoding="utf-8") == format_exports([])
+    assert exported.read_text(encoding="utf-8") == format_exports([], path)
 
 
 async def test_an_export_named_like_a_users_host_is_refused(
@@ -206,7 +208,7 @@ async def test_the_generated_file_never_counts_as_a_conflict(
 ) -> None:
     included = b"Include ssh-workbench.config\n" + USER_CONFIG
     folder, path, text = workspace(tmp_path, monkeypatch, (BOX, LAB), included)
-    (folder / EXPORT_NAME).write_text(format_exports([BOX]), encoding="utf-8")
+    (folder / EXPORT_NAME).write_text(format_exports([BOX], path), encoding="utf-8")
     app = SSHWorkbenchApp((BOX, LAB), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await pilot.press("e")
@@ -250,3 +252,49 @@ async def test_every_connection_field_shows_in_the_form(
             region = form.query_one(f"#form-{field}").region
             assert region.height > 0, field
             assert direct.region.contains_region(region), field
+
+
+async def test_a_failed_export_is_shown_instead_of_the_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(folder: Path, machines: object, source: Path) -> None:
+        raise ExportError("Could not write ssh-workbench.config: permission denied.")
+
+    monkeypatch.setattr(app_module, "write_exports", refuse)
+    folder, path, text = workspace(tmp_path, monkeypatch, (LAB,))
+    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await add_exported_box(app, pilot)
+        await wait_for(pilot, lambda: "Could not write" in connection_status(app))
+        await pilot.pause()
+        assert connection_status(app) == (
+            "Saved machine 2: box. Could not write ssh-workbench.config: permission "
+            "denied."
+        )
+        assert not isinstance(app.screen, ConfirmInclude)
+    assert (folder / "config").read_bytes() == USER_CONFIG
+
+
+class OfflineChecker:
+    def resolve_alias(self, alias: str) -> AliasTarget | None:
+        return AliasTarget("192.0.2.10", 22, proxied=False, user="dev")
+
+    def port_open(self, host: str, port: int) -> bool:
+        return False
+
+
+async def test_exported_names_are_not_the_users_host_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    included = b"Include ssh-workbench.config\n" + USER_CONFIG
+    named_box = Machine("other", "Other", alias="box")
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX, named_box), included)
+    (folder / EXPORT_NAME).write_text(format_exports([BOX], path), encoding="utf-8")
+    app = SSHWorkbenchApp(
+        (BOX, named_box), config_path=path, file_text=text, checker=OfflineChecker()
+    )
+    async with app.run_test() as pilot:
+        await pilot.press("down")
+        target = app.query_one("#machine-target", Static)
+        await wait_for(pilot, lambda: "not in your SSH config" in str(target.content))
+        assert str(target.content) == "box (not in your SSH config)"
