@@ -392,7 +392,7 @@ async def test_quit_never_waits_for_a_hung_rename_check(
 async def test_a_failed_review_still_checks_every_alias(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def broken(folder: Path) -> list[str]:
+    def broken(folder: Path, skip: Path | None = None) -> list[str]:
         raise RuntimeError("fictional failure")
 
     monkeypatch.setattr(app_module, "host_names", broken)
@@ -494,9 +494,9 @@ async def test_a_timer_round_waits_for_the_review(
     release = threading.Event()
     read = app_module.host_names
 
-    def slow_host_names(folder: Path) -> list[str]:
+    def slow_host_names(folder: Path, skip: Path | None = None) -> list[str]:
         assert release.wait(10)
-        return read(folder)
+        return read(folder, skip=skip)
 
     monkeypatch.setattr(app_module, "host_names", slow_host_names)
     machines = (GARDEN, LAB)
