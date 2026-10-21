@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from textual import events
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, Input, ListView, Static
 
@@ -130,6 +131,69 @@ async def test_timer_rounds_never_run_ssh_g(monkeypatch: pytest.MonkeyPatch) -> 
         )
         assert sorted(checker.resolved) == ["garden-host", "hop-host"]
         assert checker.checked.count(("192.0.2.10", 22)) >= 2
+
+
+async def test_shutdown_ignores_status_results_and_timers() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    app.animation_level = "full"
+    seen: dict[str, tuple[int, int]] = {}
+    errors: list[Exception] = []
+
+    def during_shutdown(message: events.Event) -> None:
+        # Textual turns is_running False, then removes the screens one widget at
+        # a time while app timers and messages still run; each Unmount is a
+        # step of that removal.
+        if app.is_running or not isinstance(message, events.Unmount):
+            return
+        seen.setdefault("before", (app._round, app._frame))
+        try:
+            app.on_status_finished(
+                StatusFinished(
+                    app._round,
+                    "lab",
+                    MachineStatus(State.ONLINE, address="192.0.2.50"),
+                    None,
+                    None,
+                )
+            )
+            app._timer_round()
+            app._tick_animation()
+        except Exception as error:
+            errors.append(error)
+
+    async with app.run_test(message_hook=during_shutdown) as pilot:
+        await checked(app, pilot)
+    assert errors == []
+    assert seen["before"] == (app._round, app._frame)
+    assert app._statuses["lab"] == MachineStatus(State.OFFLINE)
+
+
+async def test_shutdown_skips_a_pending_rebuild(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    rebuild = app._rebuild
+    ran: list[int] = []
+    queued: list[int] = []
+
+    async def recorded(select: int) -> None:
+        ran.append(select)
+        await rebuild(select)
+
+    monkeypatch.setattr(app, "_rebuild", recorded)
+
+    def during_shutdown(message: events.Event) -> None:
+        # A save queues the rebuild with call_later; run_test's teardown can
+        # handle it while the screens are being removed.
+        if app.is_running or not isinstance(message, events.Unmount) or queued:
+            return
+        queued.append(2)
+        app.call_later(app._rebuild, 2)
+
+    async with app.run_test(message_hook=during_shutdown) as pilot:
+        await pilot.pause()
+    assert ran == [2]
+    assert app._initial_index == 0
 
 
 async def test_connect_uses_the_first_online_address(
