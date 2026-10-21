@@ -63,6 +63,10 @@ def status_text(app: SSHWorkbenchApp) -> str:
     return str(app.query_one("#machine-status", Static).content)
 
 
+def details_id(app: SSHWorkbenchApp) -> str:
+    return str(app.query_one("#machine-id", Static).content)
+
+
 async def wait_for(pilot, predicate) -> None:
     async with asyncio.timeout(5):
         while not predicate():
@@ -103,7 +107,9 @@ async def test_startup_shows_checking_then_each_result() -> None:
             ]
             for index, text in enumerate(expected):
                 app.query_one(ListView).index = index
-                await pilot.pause()
+                # The details follow once Highlighted has bubbled to the app,
+                # which a single pause does not guarantee.
+                await wait_for(pilot, lambda: details_id(app) == MACHINES[index].id)
                 assert status_text(app) == text
             assert sorted(checker.resolved) == ["garden-host", "hop-host"]
             assert ("10.0.0.1", 2222) in checker.checked
