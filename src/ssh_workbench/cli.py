@@ -79,7 +79,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(f"default configuration file: {detail}")
 
     from ssh_workbench.app import SSHWorkbenchApp
+    from ssh_workbench.status import StatusChecker
 
-    app = SSHWorkbenchApp(machines, config_path=config_path, file_text=file_text)
+    app = SSHWorkbenchApp(
+        machines,
+        config_path=config_path,
+        file_text=file_text,
+        checker=StatusChecker(),
+    )
     app.run()
     return app.return_code
