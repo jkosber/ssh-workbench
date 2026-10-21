@@ -73,7 +73,7 @@ def details(app: SSHWorkbenchApp) -> dict[str, str]:
     ("machines", "message", "hint"),
     [
         (None, "No machine file selected.", "--config PATH"),
-        ([], "No machines in this file yet.", "Add [[machines]] entries"),
+        ([], "No machines in this file yet.", "Press A to add one."),
     ],
 )
 async def test_empty_states(
@@ -104,6 +104,7 @@ async def test_no_config_screen_names_default_path() -> None:
         assert f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml" in content
         assert "\x1b" not in content
         assert "--config PATH" in content
+        assert "Press A to add your first machine" in content
 
 
 async def test_no_config_screen_without_default_path() -> None:
@@ -125,7 +126,7 @@ async def test_empty_file_screen_names_the_file_without_config_hint() -> None:
         assert f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml" in content
         assert "\x1b" not in content
         assert "--config" not in content
-        assert "Add [[machines]] entries to it, then restart." in content
+        assert "Press A to add one." in content
 
 
 async def test_initial_selection_order_and_keyboard_details() -> None:
