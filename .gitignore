@@ -34,6 +34,8 @@ inventories/
 *.local.*
 *.log
 logs/
+# Workbench's alias state holds the Host names of whoever ran it.
+*.state.*.json
 
 # Coding-agent and tool state
 .claude/

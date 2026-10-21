@@ -24,6 +24,10 @@ Changes by release, newest first. Version numbers follow the policy in
   Checks run at startup, on R and every 30 seconds in the background.
 - C on a machine with addresses uses the first address the latest check
   found online.
+- Renamed aliases are caught: an alias machine whose `Host` entry is gone
+  shows Alias not found and can't connect. When exactly one new `Host` name
+  points at the same host, user and port, U updates the machine. Aliases that
+  are not literal `Host` names are marked "not in your SSH config".
 
 ### Changed
 
@@ -40,6 +44,9 @@ Changes by release, newest first. Version numbers follow the policy in
 - Workbench now writes its machine file when you add, edit or delete a machine.
   Saving keeps the previous file as `machines.toml.bak`, replaces the file in
   one step, and drops comments and hand formatting after asking once.
+- Workbench keeps a state file per computer next to the machine file,
+  `machines.state.<computer>.json`, with the `Host` names it saw and where
+  each alias pointed. Deleting it is safe.
 
 ### Security
 

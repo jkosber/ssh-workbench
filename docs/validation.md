@@ -1,5 +1,49 @@
 # Validation
 
+## Task 11: alias rename detection, 2026-10-21
+
+Branch `feat/task11-alias-renames`. Environment as in Task 8.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | `tests/test_aliases.py` and `tests/test_renames_ui.py` failed at collection for the missing module and message; in `tests/test_status.py` six tests failed for the missing `user` field and state. Three existing assertions there were extended: `resolve_alias` results gain `user="dev"`, which their fixture prints, and the exact list of state words gains "Alias not found" |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 861 passed (802 before Task 11) |
+| `uv build`, `scripts/check_package.py` | Passed; the installed-import check now also covers `aliases` and `status` |
+| `Host` matching | `ssh -F <fictional file> -G` with OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 applied `Host lab-box` to `lab-box` but not to `LAB-BOX`, so an alias is listed only by exact name |
+
+Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
+and `SSH_WORKBENCH_SSH_DIR` pointed at ignored `.local/task11-session/`
+folders, a local listener on 127.0.0.1, and three fictional alias machines:
+Garden (`old-garden`), Shed (`old-shed`, another fictional user) and Pattern
+(`pattern-only`, no `Host` entry):
+
+| Run | Result |
+| --- | --- |
+| 1, both aliases listed | Garden and Shed `● Online via alias`; Pattern `○ Offline` and `pattern-only (not in your SSH config)`. One state file, `machines.state.<computer>.json`, listed both `Host` names, both targets, no baselines and version 1; `git check-ignore` matched it |
+| 2, `old-garden` renamed to `new-garden` and `old-shed` removed | Both `×`. Garden: `× Alias not found. Looks like old-garden became new-garden. Press U to update.`, footer `u Update` without `c Connect`. Shed: `× Alias not found. Fix your SSH config and press R, or press E and save to keep or change the alias.`, neither C nor U in the footer, and C changed nothing. U on Garden: `Updated machine 1: garden now uses alias new-garden.`, `● Online via alias`, and the file's other machines unchanged |
+| 3, restarted at 60x20 | Shed still Alias not found; the footer fit. E then Ctrl+S on Shed without changes: `Saved machine 2: shed.`, `◇ Can't check: press R to resolve this alias`, and `c Connect` back in the footer |
+
+The first run of this check gave both machines the same host, user and port,
+and Shed was also offered `new-garden`. An offer now has to fit only one
+vanished alias: `test_a_new_name_matching_two_vanished_aliases_is_offered_to_neither`
+failed, then passed, and the native check was repeated with distinct targets
+as above.
+
+Two fresh reviews, one for spec compliance and one for code and docs quality,
+found these Important issues, each fixed after a failing test:
+
+| Finding | Fix | Evidence |
+| --- | --- | --- |
+| A name seen once without a unique match (unresolved, or two candidates) was never offered later | Each missing alias keeps the `Host` names from when it was last listed as its baseline; every review resolves the names added since | `test_a_name_that_did_not_resolve_at_first_is_offered_once_it_matches`, `test_an_ambiguous_match_is_offered_once_only_one_name_is_left` |
+| Computers sharing a synced machine file overwrote each other's state | One state file per computer, `<stem>.state.<computer>.json` | `test_state_path_is_per_computer_next_to_the_machine_file` |
+| The documented example run wrote an untracked, unignored state file with the developer's `Host` names into `examples/` | `.gitignore` covers `*.state.*.json`; AGENTS and CONTRIBUTING say so | `git check-ignore` matched `examples/machines.example.state.WORKSTATION.json` and the native check's file |
+| An alias moved into a pattern on purpose stayed blocked, and "Edit the machine" did not clear it | Saving the machine from the form forgets that alias's record | `test_saving_the_machine_from_the_form_keeps_its_alias`, `test_forget_drops_an_alias_record_and_baseline`; native run 3 |
+| A timer tick during the startup or R review dropped it; the two 50 ms timer tests failed with an 80 ms review | Timer rounds wait while a startup or R round still reviews or resolves | `test_a_timer_round_waits_for_the_review`; both timer tests passed with the reviewer's 80 ms delay |
+
+After the fixes: 868 tests passed, and the native check above was repeated.
+Remaining minor findings are in the roadmap's 0.2.x candidates.
+
 ## Status timer during shutdown, 2026-10-21
 
 After [PR #11](https://github.com/jkosber/ssh-workbench/pull/11) merged as
@@ -18,6 +62,9 @@ failed on Ubuntu: `test_timer_rounds_never_run_ssh_g` raised `NoMatches` for
 | Reviews | Two fresh reviewers reproduced the same `NoMatches` through `on_status_finished` in that window, and showed `on_link_finished` and a `call_later` rebuild are exposed the same way |
 | Tests first | Each test hooks every `Unmount` dispatched after `is_running` turns False, so it acts at each step of the screen removal: `test_shutdown_ignores_status_results_and_timers` (31 `NoMatches` before the fix), `test_result_while_the_screens_close_is_ignored` and `test_shutdown_skips_a_pending_rebuild` failed, then passed |
 | Fix | `on_status_finished`, `on_link_finished` and `_rebuild` also return once `App.is_running` is False |
+| [PR #12](https://github.com/jkosber/ssh-workbench/pull/12) CI on head `05d90b9` | [Push run 39549706759](https://github.com/jkosber/ssh-workbench/actions/runs/39549706759) and [PR run 39549711277](https://github.com/jkosber/ssh-workbench/actions/runs/39549711277) passed on Windows and Ubuntu, 802 tests each |
+| Merge | Merged as **`915639e`**, guarded on head `05d90b9`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39550082638](https://github.com/jkosber/ssh-workbench/actions/runs/39550082638) passed on Windows and Ubuntu, 802 tests each |
 | `uv run --locked pytest` | 802 passed (799 before the fix) |
 | `uv build`, `scripts/check_package.py` | Passed |
 

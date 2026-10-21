@@ -28,6 +28,7 @@ from ssh_workbench.links import LinkResult
 
 PACKAGE_MODULES = (
     "ssh_workbench",
+    "ssh_workbench.aliases",
     "ssh_workbench.app",
     "ssh_workbench.cli",
     "ssh_workbench.config",
@@ -36,6 +37,7 @@ PACKAGE_MODULES = (
     "ssh_workbench.links",
     "ssh_workbench.ssh",
     "ssh_workbench.sshconfig",
+    "ssh_workbench.status",
     "ssh_workbench.store",
 )
 

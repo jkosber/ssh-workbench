@@ -77,7 +77,9 @@ def test_resolve_alias_runs_ssh_g_without_a_shell(
         monkeypatch, tmp_path, subprocess.CompletedProcess([], 0, G_OUTPUT, "")
     )
 
-    assert resolve_alias("lab-host") == AliasTarget("192.0.2.40", 2222, proxied=False)
+    assert resolve_alias("lab-host") == AliasTarget(
+        "192.0.2.40", 2222, proxied=False, user="dev"
+    )
 
     run.assert_called_once_with(
         [str(tmp_path / "ssh"), "-G", "--", "lab-host"],
@@ -128,7 +130,22 @@ def test_proxied_alias_is_marked(
     substitute_ssh(
         monkeypatch, tmp_path, subprocess.CompletedProcess([], 0, output, "")
     )
-    assert resolve_alias("lab-host") == AliasTarget("192.0.2.40", 2222, proxied=True)
+    assert resolve_alias("lab-host") == AliasTarget(
+        "192.0.2.40", 2222, proxied=True, user="dev"
+    )
+
+
+def test_resolve_alias_without_a_user_line_has_an_empty_user(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    substitute_ssh(
+        monkeypatch,
+        tmp_path,
+        subprocess.CompletedProcess([], 0, "hostname 192.0.2.40\nport 22\n", ""),
+    )
+    assert resolve_alias("lab-host") == AliasTarget(
+        "192.0.2.40", 22, proxied=False, user=""
+    )
 
 
 @pytest.mark.parametrize(
@@ -240,9 +257,23 @@ def test_alias_machine_status(
 def test_state_words_and_symbols_are_all_different() -> None:
     words = [state.word for state in State]
     symbols = [state.symbol for state in State]
-    assert words == ["Checking", "Online", "Offline", "Can't check", "Not checked"]
+    assert words == [
+        "Checking",
+        "Online",
+        "Offline",
+        "Can't check",
+        "Not checked",
+        "Alias not found",
+    ]
     assert len(set(symbols)) == len(symbols)
     assert all(symbol.strip() for symbol in symbols)
+
+
+def test_alias_not_found_has_its_own_word_and_symbol() -> None:
+    assert (State.NOT_FOUND.word, State.NOT_FOUND.symbol) == (
+        "Alias not found",
+        "×",
+    )
 
 
 def test_status_checker_uses_the_module_functions(

@@ -427,9 +427,39 @@ Acceptance:
   runs only at startup and on R; the timer reuses its saved results.
 - [x] C on a direct machine connects to the first address the latest check
   found online, else the first listed address. Nothing retries another address.
-- [ ] Tests substitute every network and process boundary. Docs say Workbench
+- [x] Tests substitute every network and process boundary. Docs say Workbench
   now opens these connections. Full checks, CI and a native Windows Terminal
   check with a local listener and fictional machines pass.
+
+## 11. Alias rename detection
+
+Workbench remembers which SSH aliases it saw, so a renamed `Host` entry is
+caught before a connect fails.
+
+Acceptance:
+
+- [x] After each startup or R, Workbench keeps a state file next to the machine
+  file (`machines.state.json` for `machines.toml`): the literal `Host` names it
+  read and, for each alias machine whose alias is one of them, the host, user
+  and port `ssh -G` resolved. It holds no secrets, is never written into the
+  machine file and is written only when the machine file exists. A missing,
+  unreadable or invalid state file, or one written on another computer, counts
+  as no state.
+- [x] At startup and on R, an alias machine whose alias was a literal `Host`
+  name at an earlier check and is gone now shows Alias not found, with its own
+  symbol, and cannot connect: C is hidden for it. Neither `ssh -G` nor a port
+  check runs for it, and timer rounds keep the state.
+- [x] If exactly one `Host` name that appeared since that check resolves to the
+  recorded host, user and port, the details pane says "Looks like old became
+  new. Press U to update." U saves the selected machine with the new alias,
+  asking for a second U when saving would drop the file's comments or
+  formatting. Nothing changes without U. The offer stays across restarts while
+  the new name still resolves the same way.
+- [x] An alias that is not a literal `Host` name still connects; the details
+  mark it "not in your SSH config" as information.
+- [ ] Tests use temporary SSH folders, machine files and state files and a fake
+  checker. Docs describe the state file and U. Full checks, CI and a native
+  Windows Terminal check with a fictional SSH folder pass.
 
 ## 0.1.x candidates
 
@@ -492,6 +522,15 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   pulse, and the O label test checks only that "Link" appears in the label.
 - Task 10: a thread starts only to post "press R to resolve this alias", and the
   animation timer also updates symbols that never move.
+- Task 11: when the review itself fails at startup, every alias is resolved and
+  checked, a vanished one included.
+- Task 11: a save during the startup or R review still drops that review until
+  the next R.
+- Task 11: a machine file deleted outside Workbench during a session still gets
+  a state file written next to it.
+- Task 11: no test presses R, saves or reloads while an alias is missing and
+  then asserts it was never resolved; no test moves the selection between two
+  U presses; one test waits 0.2 s of real time for a negative result.
 
 ## Deferred ideas
 

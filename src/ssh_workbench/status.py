@@ -26,6 +26,7 @@ class State(Enum):
     OFFLINE = ("Offline", "○")
     UNKNOWN = ("Can't check", "◇")
     NOT_CHECKED = ("Not checked", "·")
+    NOT_FOUND = ("Alias not found", "×")
 
     def __init__(self, word: str, symbol: str) -> None:
         self.word = word
@@ -37,6 +38,8 @@ class AliasTarget:
     host: str
     port: int
     proxied: bool
+    # Recorded for rename suggestions; never displayed.
+    user: str = ""
 
 
 @dataclass(frozen=True)
@@ -99,7 +102,7 @@ def resolve_alias(alias: str, timeout: float = 10.0) -> AliasTarget | None:
         values.get(key, "none").lower() != "none"
         for key in ("proxyjump", "proxycommand")
     )
-    return AliasTarget(host, int(port), proxied)
+    return AliasTarget(host, int(port), proxied, values.get("user", ""))
 
 
 def check_machine(
