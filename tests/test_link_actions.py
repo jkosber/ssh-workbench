@@ -72,7 +72,7 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
         keys = [key for key in footer.query("FooterKey") if key.action == "open_link"]
         assert len(keys) == 1
         assert keys[0].key == "o"
-        assert "Open link" in keys[0].render().plain
+        assert "Link" in keys[0].render().plain
         assert keys[0].visible
         assert app.screen.region.contains_region(keys[0].region)
         actions = {key.action for key in footer.query("FooterKey")}

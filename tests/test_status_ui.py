@@ -228,7 +228,8 @@ async def test_footer_keys_fit_at_60_columns() -> None:
             pilot, lambda: expected <= {key.action for key in footer.query("FooterKey")}
         )
         for key in footer.query("FooterKey"):
-            assert app.screen.region.contains_region(key.region), key.action
+            # Windows Terminal cut the last column at 60x20; keep one spare.
+            assert key.region.right <= 59, key.action
 
 
 async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
