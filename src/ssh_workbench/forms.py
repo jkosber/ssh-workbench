@@ -379,18 +379,23 @@ class KeySetup(ModalScreen[KeyPlan | None]):
         border: solid $accent;
         background: $surface;
         padding: 0 1;
+        overflow-y: auto;
+    }
+    /* Borderless lists keep the picker within 60x20 with a wrapped note. */
+    #key-choices, #key-system {
+        border: none;
+        padding: 0;
+        height: auto;
     }
     #key-choices {
-        height: auto;
-        max-height: 50vh;
+        max-height: 8;
     }
     .key-label {
         text-style: bold;
-        margin-top: 1;
     }
     #key-note {
         height: auto;
-        margin-top: 1;
+        color: $warning;
     }
     """
 
@@ -412,6 +417,8 @@ class KeySetup(ModalScreen[KeyPlan | None]):
                 f"({display_text(self.machine.id)}).",
                 markup=False,
             )
+            # Above the lists, so a small terminal still shows it.
+            yield Static("", id="key-note", markup=False)
             yield Static("Key", classes="key-label", markup=False)
             yield OptionList(
                 *(
@@ -426,10 +433,9 @@ class KeySetup(ModalScreen[KeyPlan | None]):
                     "Linux, macOS or other POSIX", value=True, id="system-posix"
                 )
                 yield RadioButton("Windows (OpenSSH Server)", id="system-windows")
-            yield Static("", id="key-note", markup=False)
             yield Static(
-                "Up/Down: key   Tab, Space: target system   Enter: start   "
-                "Escape: cancel",
+                "Up/Down: key  Tab, Space: system  Enter: start  Escape: cancel",
+                id="key-help",
                 markup=False,
             )
 
