@@ -38,14 +38,17 @@ checks above after relevant changes; package validation is described in
   inject a fake checker; `ssh -G` never runs on the status timer.
 - Workbench writes only its machine file and `machines.toml.bak`, through
   `store.save_machines` (outside-change check, backup, atomic replace). It reads
-  only `Host` and `Include` lines of the SSH config and never changes it.
+  only `Host` and `Include` lines of the SSH config, runs `ssh -G` (which
+  evaluates the whole config) only at startup and on R, and never changes it.
 - Never read real SSH configuration, keys, host inventories, remote hosts or the
   real per-user machine file as part of development tests. Use temporary files
   and fictional fixtures; the test suite points `APPDATA`, `XDG_CONFIG_HOME` and
   `SSH_WORKBENCH_SSH_DIR` at an empty folder. Without `--config`,
   `uv run --locked ssh-workbench` loads, and A/E/X can now change, the
-  developer's real machine file; native checks set those variables to ignored
-  `.local/` folders first.
+  developer's real machine file. Any run with alias machines also runs `ssh -G`
+  on the real SSH config and checks every machine's port, the example file's
+  fictional names included; native checks and manual runs set those
+  variables to ignored `.local/` folders first.
 - Native SSH owns authentication and host-key checks. Launch code must revalidate
   every machine value with the loader's predicates, pass argument lists without a
   shell and put `--` before the destination. Never disable host-key

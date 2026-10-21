@@ -222,13 +222,14 @@ details pane, with color on top:
 | --- | --- | --- |
 | `◐` (turning) | Checking | A check is running |
 | `●` (pulsing) | Online | The SSH port answered. Details show the address that answered, or "via alias" |
-| `○` | Offline | Nothing answered within 3 seconds |
-| `◇` | Can't check | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, or a newly added alias waits for **R** |
+| `○` | Offline | No address answered. Each connection attempt waits up to 3 seconds; a refused connection or a name that doesn't resolve also counts as offline |
+| `◇` | Can't check | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, an added or edited alias waits for **R**, or the check itself failed |
 
 Workbench checks at startup, when you press **R**, and every 30 seconds. A
-check opens a TCP connection to the machine's SSH port and closes it at once:
-it sends nothing, logs in nowhere and uses no ping. Checks run in the
-background, so the screen and quitting never wait for them.
+check looks up the machine's host name if it has one, then opens a TCP
+connection to its SSH port and closes it at once: it sends nothing, logs in
+nowhere and uses no ping. Checks run in the background, so the screen and
+quitting never wait for them.
 
 For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
 startup and on **R** only: `ssh -G` reads your whole SSH config, including
@@ -296,13 +297,17 @@ status 2.
 
 ## Privacy
 
-Workbench reads and writes its machine file and its `.bak` copy. From your SSH
-config it reads only `Host` and `Include` lines, to suggest aliases. It doesn't
+Workbench reads and writes its machine file and its `.bak` copy. To suggest
+aliases it reads only the `Host` and `Include` lines of your SSH config. At
+startup and on **R** it also runs `ssh -G` for each alias: SSH then evaluates
+your whole SSH config, including any `Match exec` commands, and Workbench
+reads only the host, port and proxy settings it prints. Workbench doesn't
 change your SSH config, read keys or `known_hosts`, store credentials, change
 host-key settings, collect telemetry or need an AI service. Its own network
-traffic is the status checks: one TCP connection to each checked address's
-SSH port, closed at once without sending anything. Everything else comes from
-the SSH sessions and browser requests you start.
+traffic is the status checks: DNS lookups for host names, and one TCP
+connection to each checked address's SSH port, closed at once without
+sending anything. Everything else comes from the SSH sessions and browser
+requests you start.
 
 ## Development
 

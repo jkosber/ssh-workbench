@@ -31,6 +31,19 @@ Windows, and the seven keys needed all 60 columns. The first footer test read
 the key regions before layout and passed wrongly; it now waits for the layout,
 failed as expected, and passes since O is labelled Link in the footer.
 
+Two fresh reviews, one for spec compliance and one for code and docs quality,
+found three Important issues, each fixed after a failing test or, for docs, by
+rewording:
+
+| Finding | Fix | Evidence |
+| --- | --- | --- |
+| C during a running round connected to the first listed address: each round replaced the last online result with Checking | The app keeps the address each machine's last finished check found online, if the machine still lists it | `test_connect_during_a_round_uses_the_last_online_address` failed, then passed |
+| `ssh -G` captured stderr; on Windows a timeout still waits for a `Match exec` child that holds that pipe open | stderr goes to `DEVNULL`; it was never read | `test_resolve_alias_runs_ssh_g_without_a_shell`, updated in the test commit, failed, then passed |
+| Docs said only `Host` and `Include` lines are read and that the TCP connection is the only traffic; `ssh -G` evaluates the whole config, DNS lookups go out, and the example run reaches the real SSH config unless `SSH_WORKBENCH_SSH_DIR` is set | README, CHANGELOG, AGENTS, CONTRIBUTING, architecture and the example file corrected; Offline and Can't check reasons now match the code | Reviewed diff |
+
+After the fixes: 799 tests passed. Remaining minor findings are in the
+roadmap's 0.2.x candidates.
+
 ## Task 9: add, edit and delete machines, 2026-10-21
 
 Branch `feat/task9-edit-machines`. Environment as in Task 8.

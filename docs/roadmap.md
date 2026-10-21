@@ -478,6 +478,20 @@ Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
   network share would pause the screen.
 - Task 9: `test_actions_wait_for_the_rebuilt_list` collects the active bindings
   without asserting them.
+- Task 10: a save or timer round during a resolving round drops that round's
+  `ssh -G` answers, so an alias shows "press R" until the next R.
+- Task 10: timer rounds start while checks are still running. A machine whose
+  check takes over 30 seconds (slow DNS for several names) never leaves
+  Checking, and repeated R starts overlapping `ssh -G` processes.
+- Task 10: a `Match exec` command could open the terminal and draw over the
+  screen; proposal: `start_new_session=True` on POSIX and `CREATE_NO_WINDOW` on
+  Windows for `ssh -G`.
+- Task 10: the "the check failed" and "the check could not start" paths have no
+  test; the stale-round test asserts nothing for its removed-machine message.
+- Task 10: the spinner test depends on real time, nothing tests the Online
+  pulse, and the O label test checks only that "Link" appears in the label.
+- Task 10: a thread starts only to post "press R to resolve this alias", and the
+  animation timer also updates symbols that never move.
 
 ## Deferred ideas
 
