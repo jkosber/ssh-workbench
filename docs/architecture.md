@@ -84,7 +84,7 @@ the wheel and locked runtime dependencies in a disposable environment outside
 the checkout, where it checks help/version, missing-configuration errors, and the
 loader. The checks that import the installed package live in
 `scripts/package_smoke.py`; each run starts with the isolation and module-path
-assertions. It also substitutes the terminal-run boundary with Textual's headless
+assertions. The package check also substitutes the terminal-run boundary with Textual's headless
 pilot to exercise CLI loading, initial selection, navigation and quit at 80x24.
 Common process, connection and browser entry points fail that smoke check if
 called unexpectedly. During explicit Connect checks, only executable resolution

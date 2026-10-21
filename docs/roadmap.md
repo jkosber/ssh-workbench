@@ -337,6 +337,20 @@ items; Task 8 takes the items in code it rewrites.
 - README: escaping also covers format characters and non-ASCII spaces; add an
   upgrade step for installs from a Git tag.
 
+## 0.2.x candidates
+
+Minor review findings from the 0.2.0 tasks, deferred as non-blocking.
+
+- Task 7: `test_no_external_actions_rejects_every_shared_boundary` passes even
+  without a direct `subprocess.run` guard, because the guarded `Popen` fails
+  first; assert that every guarded attribute is the fixture's own function.
+- Task 7: no test proves that `check_links.install_fixture_guards` and
+  `package_smoke.reject_external_actions` install the shared guards.
+- Task 7: the strings test in `tests/test_tooling.py` misses inline children
+  such as `["python", "-I", "-c", "..."]`; also reject a `"-c"` string.
+- Task 7: `package_smoke.guarded_boundaries()` inserts `scripts/` at the front
+  of `sys.path`; load the list by path or append it instead.
+
 ## Deferred ideas
 
 tmux integration, automatic discovery, file transfer, cloud sync, embedded
