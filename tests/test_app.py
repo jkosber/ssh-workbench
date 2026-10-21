@@ -219,6 +219,10 @@ async def test_names_are_literal_and_controls_are_visible(
         )
         assert not rendered.spans
         await pilot.click("#machine-name")
+        app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
+            app.query_one("#machine-links"), animate=False
+        )
+        await pilot.pause()
         await pilot.click("#machine-links")
         await pilot.press("enter")
         assert app.is_running

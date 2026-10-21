@@ -79,6 +79,10 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
         assert status(app) == INITIAL_STATUS
         await pilot.press("down", "up", "enter", "tab", "enter", "pagedown", "home")
         await pilot.press("r", "d")
+        app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
+            app.query_one("#machine-links"), animate=False
+        )
+        await pilot.pause()
         await pilot.click("#machine-links")
         await pilot.resize_terminal(80, 24)
         await pilot.press("shift+tab", "q")

@@ -85,8 +85,8 @@ async def test_connect_is_visible_and_never_automatic(
         assert "C" in connect_key.render().plain.upper()
         assert app.screen.region.contains_region(connect_key.region)
         await pilot.press("down", "up", "enter", "tab", "enter")
-        await pilot.click("#machine-links")
-        await pilot.click("#machine-target")
+        await pilot.click("#machine-id")
+        await pilot.click("#machine-name")
         launch.assert_not_called()
         assert app.is_running
 
