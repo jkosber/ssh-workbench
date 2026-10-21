@@ -13,10 +13,12 @@ failed on Ubuntu: `test_timer_rounds_never_run_ssh_g` raised `NoMatches` for
 
 | Item | Result |
 | --- | --- |
-| Cause | Textual 8.2.8's `App._shutdown` sets `_running` False, removes the screens in `_close_all`, and only then stops the app's timers. The test's 0.05 s status timer fired in that window and queried a half-removed screen |
-| Test first | `test_timers_start_nothing_once_the_app_stops_running` calls both timer callbacks after the app stopped; it failed with a new round started, then passed |
-| Fix | `_timer_round` and `_tick_animation` return once `App.is_running` is False |
-| `uv run --locked pytest` | 800 passed; the timer test passed eight times in a row locally (the failure was not reproduced on Windows) |
+| Cause (inferred from the trace and the Textual 8.2.8 source; not reproduced on Windows) | When Pilot's `run_test` tears the app down, `App._shutdown` sets `_running` False and removes the screens in `_close_all` while the app's timers and message handling still run; only then does it stop them. The test's 0.05 s status timer fired in that window and queried a half-removed screen. A normal exit stops the timers and message handling first, so the window is a test-teardown race |
+| First fix | `_timer_round` and `_tick_animation` return once `App.is_running` is False |
+| Reviews | Two fresh reviewers reproduced the same `NoMatches` through `on_status_finished` in that window, and showed `on_link_finished` and a `call_later` rebuild are exposed the same way |
+| Tests first | Each test hooks every `Unmount` posted after `is_running` turns False, so it acts at each step of the screen removal: `test_shutdown_ignores_status_results_and_timers` (31 `NoMatches` before the fix), `test_result_while_the_screens_close_is_ignored` and `test_shutdown_skips_a_pending_rebuild` failed, then passed |
+| Fix | `on_status_finished`, `on_link_finished` and `_rebuild` also return once `App.is_running` is False |
+| `uv run --locked pytest` | 802 passed (799 before the fix) |
 | `uv build`, `scripts/check_package.py` | Passed |
 
 ## Task 10: live status, 2026-10-21
