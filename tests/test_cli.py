@@ -82,6 +82,7 @@ def test_explicit_config_loads_records_without_writing(
     app = started_apps[0]
     assert app.config_supplied
     assert app.config_path == path
+    assert app.file_text == original.decode("utf-8")
     assert app.machines == (
         Machine(
             "second",
@@ -117,7 +118,7 @@ def test_no_config_does_not_discover_local_files(
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(Path, "read_text", guard_read)
-    monkeypatch.setattr(cli_module, "load_machines", unexpected_load)
+    monkeypatch.setattr(cli_module, "read_machines", unexpected_load)
 
     assert cli_module.main([]) == 0
 

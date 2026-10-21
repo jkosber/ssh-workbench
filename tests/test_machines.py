@@ -11,8 +11,11 @@ from ssh_workbench.config import (
     ConfigError,
     Link,
     Machine,
+    format_machines,
     load_machines,
     parse_machines,
+    read_machines,
+    validate_machine,
 )
 
 ALIAS = {"id": '"mint"', "name": '"Mint laptop"', "alias": '"mint-host"'}
@@ -442,3 +445,122 @@ def test_link_rules(links: str, message: str) -> None:
     assert str(error).startswith(message)
     assert_private(error, "private-marker")
     assert_private(error, "private_marker")
+
+
+ODD_TEXT = (
+    'Quote " backslash \\ hash # tab\t newline\n cr\r del\x7f esc\x1b nul\x00 '
+    + chr(0x2028)
+    + " \U0001f331 café"
+)
+ROUND_TRIPS = [
+    [],
+    [Machine("mint", "Mint laptop", alias="mint-host")],
+    [
+        Machine(
+            "agent-box",
+            "Agent mini PC",
+            user="dev",
+            addresses=("100.64.0.12", "fd7a:115c:a1e0::1", "box.example"),
+            port=22,
+            key="C:\\Users\\Dev\\.ssh\\id with space",
+            links=(
+                Link("Dashboard", "https://192.168.1.40:8006"),
+                Link("Docs", "https://example.invalid/a%20b?x=1&y=%26#part"),
+            ),
+        )
+    ],
+    [
+        Machine(
+            "odd",
+            ODD_TEXT,
+            alias="odd-host",
+            links=(Link(ODD_TEXT, "https://example.invalid/[b]x[/b]"),),
+        )
+    ],
+    [
+        Machine("plain", "  Spaced name  ", addresses=("host",)),
+        Machine("second", "Second", alias="second", links=()),
+    ],
+]
+
+
+@pytest.mark.parametrize("machines", ROUND_TRIPS)
+def test_format_round_trips(machines: list[Machine]) -> None:
+    text = format_machines(machines)
+    assert parse_machines(text) == machines
+    assert format_machines(parse_machines(text)) == text
+
+
+def test_format_round_trips_the_example() -> None:
+    example = Path(__file__).resolve().parents[1] / "examples/machines.example.toml"
+    machines = parse_machines(example.read_text(encoding="utf-8"))
+    assert parse_machines(format_machines(machines)) == machines
+
+
+def test_format_layout() -> None:
+    machines = [
+        Machine(
+            "mint",
+            "Mint",
+            alias="mint-host",
+            links=(Link("Docs", "https://example.invalid/d"),),
+        ),
+        Machine(
+            "box",
+            "Box",
+            user="dev",
+            addresses=("a.example", "b.example"),
+            port=2222,
+            key="~/.ssh/id_box",
+        ),
+    ]
+    assert format_machines(machines) == (
+        "schema_version = 2\n\n"
+        '[[machines]]\nid = "mint"\nname = "Mint"\nalias = "mint-host"\n\n'
+        '[[machines.links]]\nname = "Docs"\nurl = "https://example.invalid/d"\n\n'
+        '[[machines]]\nid = "box"\nname = "Box"\nuser = "dev"\n'
+        'addresses = ["a.example", "b.example"]\nport = 2222\n'
+        'key = "~/.ssh/id_box"\n'
+    )
+    assert format_machines([]) == "schema_version = 2\nmachines = []\n"
+
+
+def test_format_escapes_strings_for_toml() -> None:
+    text = format_machines([Machine("esc", 'a"b\\c\nd\x01e\x7f', alias="esc-host")])
+    assert 'name = "a\\"b\\\\c\\nd\\u0001e\\u007F"' in text
+
+
+def test_validate_machine_uses_the_loader_rules() -> None:
+    table = {"id": "mint", "name": "Mint", "alias": "mint-host"}
+    assert validate_machine(table, "machine") == Machine(
+        "mint", "Mint", alias="mint-host"
+    )
+    for table, message in (
+        (
+            {"id": "box", "name": "Box", "addresses": ["ok.example", "-bad"]},
+            "machine.addresses[2]: expected a hostname or IP address "
+            "without spaces, @, ports or a leading dash",
+        ),
+        (
+            {"id": "box", "name": "Box", "alias": "box-host", "port": 22},
+            "machine.port: only machines with addresses take this field",
+        ),
+        (
+            {"id": "Box", "name": "Box", "alias": "box-host"},
+            "machine.id: use lowercase",
+        ),
+        ({"id": "box", "name": "Box"}, "machine: add alias or addresses"),
+    ):
+        with pytest.raises(ConfigError) as caught:
+            validate_machine(table, "machine")
+        assert str(caught.value).startswith(message)
+
+
+def test_read_machines_returns_the_loaded_text(tmp_path: Path) -> None:
+    text = machine_file(table(ALIAS))
+    path = tmp_path / "machines.toml"
+    path.write_bytes(b"\xef\xbb\xbf" + text.encode("utf-8"))
+    assert read_machines(path) == (
+        [Machine("mint", "Mint laptop", alias="mint-host")],
+        text,
+    )

@@ -1,6 +1,6 @@
-"""Machine selection, literal details and explicit SSH and link actions."""
+"""Machine selection, literal details, editing and explicit SSH and link actions."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Thread
@@ -14,18 +14,25 @@ from textual.screen import ModalScreen
 from textual.widgets import Footer, Header, ListItem, ListView, OptionList, Static
 from textual.widgets.option_list import Option
 
-from ssh_workbench.config import Link, Machine
+from ssh_workbench.config import (
+    ConfigError,
+    Link,
+    Machine,
+    format_machines,
+    read_machines,
+)
+from ssh_workbench.display import display_lines as _display_lines
+from ssh_workbench.display import display_text as _display_text
+from ssh_workbench.forms import ConfirmDelete, MachineForm
 from ssh_workbench.links import LinkResult, open_link
 from ssh_workbench.ssh import SSHLaunchError, launch_ssh, ssh_handoff
-
-
-def _display_text(value: str) -> str:
-    """Make controls visible without interpreting markup or changing records."""
-    return "".join(char if char.isprintable() else ascii(char)[1:-1] for char in value)
-
-
-def _display_lines(values: Sequence[str]) -> str:
-    return "\n".join(_display_text(value) for value in values)
+from ssh_workbench.sshconfig import host_names, ssh_folder
+from ssh_workbench.store import (
+    FileChangedError,
+    SaveError,
+    backup_path,
+    save_machines,
+)
 
 
 @dataclass(frozen=True)
@@ -119,6 +126,14 @@ class LinkPicker(ModalScreen[Link | None]):
             self.dismiss(link)
 
 
+class MachinePanes(Vertical):
+    """The browser panes. A save rebuilds them in place: `App.recompose` would
+    rebuild whichever screen is active, which can be an open form."""
+
+    def compose(self) -> ComposeResult:
+        yield from self.app.compose_panes()
+
+
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     SUB_TITLE = "Machines"
@@ -126,11 +141,14 @@ class SSHWorkbenchApp(App[None]):
     BINDINGS = [
         Binding("c", "connect", "Connect"),
         Binding("o", "open_link", "Open link"),
+        Binding("a", "add", "Add"),
+        Binding("e", "edit", "Edit"),
+        Binding("x", "delete", "Delete"),
         Binding("q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
     CSS = """
-    #browser {
+    #panes, #browser {
         height: 1fr;
     }
     #machine-list {
@@ -177,17 +195,40 @@ class SSHWorkbenchApp(App[None]):
         self,
         machines: Sequence[Machine] | None = None,
         config_path: Path | None = None,
+        file_text: str | None = None,
     ) -> None:
         super().__init__()
         self.config_supplied = machines is not None
         self.config_path = config_path
+        # The loaded text; a save refuses to overwrite a file that differs.
+        self.file_text = file_text
         self.machines = tuple(machines or ())
+        self._initial_index = 0
+        # Between a save and the rebuild, the list on screen is the old one.
+        self._rebuilding = False
         self._connecting = False
         self._link_request: LinkRequest | None = None
         self._links_closed = Event()
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield MachinePanes(id="panes")
+        yield Static(
+            "C: connect to the selected machine."
+            if self.machines
+            else "No machines to connect to.",
+            id="connection-status",
+            markup=False,
+        )
+        yield Static(
+            "O: open a link of the selected machine. Opens in this environment.",
+            id="link-status",
+            markup=False,
+        )
+        yield Footer()
+
+    def compose_panes(self) -> ComposeResult:
+        """The list and details, or the empty screen; rebuilt after each save."""
         if self.machines:
             with Horizontal(id="browser"):
                 machine_list = ListView(
@@ -195,7 +236,7 @@ class SSHWorkbenchApp(App[None]):
                         ListItem(Static(_display_text(machine.name), markup=False))
                         for machine in self.machines
                     ),
-                    initial_index=0,
+                    initial_index=min(self._initial_index, len(self.machines) - 1),
                     id="machine-list",
                 )
                 machine_list.border_title = "Machines"
@@ -229,19 +270,6 @@ class SSHWorkbenchApp(App[None]):
         else:
             with VerticalScroll(id="empty-content"):
                 yield Static(self._empty_message(), id="empty-state", markup=False)
-        yield Static(
-            "C: connect to the selected machine."
-            if self.machines
-            else "No machines to connect to.",
-            id="connection-status",
-            markup=False,
-        )
-        yield Static(
-            "O: open a link of the selected machine. Opens in this environment.",
-            id="link-status",
-            markup=False,
-        )
-        yield Footer()
 
     def _empty_message(self) -> str:
         path = (
@@ -251,14 +279,12 @@ class SSHWorkbenchApp(App[None]):
         )
         if self.config_supplied:
             location = f":\n{path}" if path is not None else "."
-            return (
-                f"No machines in this file yet{location}\n\n"
-                "Add [[machines]] entries to it, then restart."
-            )
+            return f"No machines in this file yet{location}\n\nPress A to add one."
         if path is not None:
             return (
-                f"No machine file yet.\n\nCreate one at:\n{path}\n\n"
-                "or restart with --config PATH. The README describes the format."
+                "No machine file yet.\n\nPress A to add your first machine. "
+                f"Workbench creates the file at:\n{path}\n\n"
+                "Or restart with --config PATH. The README describes the format."
             )
         return (
             "No machine file selected.\n\n"
@@ -272,8 +298,16 @@ class SSHWorkbenchApp(App[None]):
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         self.refresh_bindings()
         index = event.list_view.index
-        if index is None:
-            return
+        # An old list can still report a highlight while the panes rebuild.
+        if index is not None and not self._rebuilding:
+            self._show_details(index)
+
+    def _machine_list(self) -> ListView | None:
+        """The list, or None while the panes show the empty screen or rebuild."""
+        found = self.query("#machine-list")
+        return found.first(ListView) if found else None
+
+    def _show_details(self, index: int) -> None:
         machine = self.machines[index]
         direct = machine.alias is None
         unset = "Not set" if direct else "From your SSH config"
@@ -303,20 +337,185 @@ class SSHWorkbenchApp(App[None]):
         )
         self.query_one("#machine-details", VerticalScroll).scroll_home(animate=False)
 
+    def _browsing(self) -> bool:
+        """True when the browser screen is active, current and not connecting."""
+        return (
+            not self._connecting
+            and not self._rebuilding
+            and len(self.screen_stack) == 1
+        )
+
     def _selected_index(self) -> int | None:
-        """The selection, when the browser screen is active and not connecting."""
-        if self._connecting or not self.machines or isinstance(self.screen, LinkPicker):
+        machine_list = self._machine_list()
+        if not self._browsing() or not self.machines or machine_list is None:
             return None
-        return self.query_one(ListView).index
+        return machine_list.index
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action in ("connect", "open_link"):
+        if action == "add":
+            return True if self._browsing() and self.config_path is not None else None
+        if action in ("connect", "open_link", "edit", "delete"):
             index = self._selected_index()
             if index is None:
+                return None
+            if action in ("edit", "delete") and self.config_path is None:
                 return None
             if action == "open_link" and not self.machines[index].links:
                 return None
         return True
+
+    def _rewrite_warning(self) -> str | None:
+        """Why a save would lose text, when the file is not in Workbench's format."""
+        if self.file_text is None or self.file_text == format_machines(self.machines):
+            return None
+        backup = _display_text(backup_path(self.config_path).name)
+        return (
+            "Saving rewrites the file without its comments or formatting; "
+            f"the old file is kept as {backup}."
+        )
+
+    def _form(
+        self,
+        machine: Machine | None,
+        save: Callable[[Machine], str | None],
+        ids_in_use: Callable[[], Collection[str]],
+    ) -> MachineForm:
+        folder = ssh_folder()
+
+        def rewrite_warning() -> str | None:
+            warning = self._rewrite_warning()
+            return warning and f"{warning} Press Ctrl+S again to save."
+
+        return MachineForm(
+            machine,
+            ids_in_use=ids_in_use,
+            host_names=host_names(folder) if folder is not None else (),
+            save=save,
+            rewrite_warning=rewrite_warning,
+        )
+
+    def action_add(self) -> None:
+        if self.check_action("add", ()) is not True:
+            return
+
+        def save(machine: Machine) -> str | None:
+            return self._save_one([*self.machines, machine], len(self.machines))
+
+        self.push_screen(
+            self._form(None, save, lambda: {machine.id for machine in self.machines})
+        )
+
+    def action_edit(self) -> None:
+        index = self._selected_index()
+        if index is None or self.check_action("edit", ()) is not True:
+            return
+        original = self.machines[index]
+
+        def save(machine: Machine) -> str | None:
+            machines = list(self.machines)
+            ids = [item.id for item in machines]
+            # After an outside change the machine may have moved or vanished.
+            position = ids.index(original.id) if original.id in ids else len(machines)
+            machines[position : position + 1] = [machine]
+            return self._save_one(machines, position)
+
+        self.push_screen(
+            self._form(
+                original,
+                save,
+                lambda: {m.id for m in self.machines if m.id != original.id},
+            )
+        )
+
+    def action_delete(self) -> None:
+        index = self._selected_index()
+        if index is None or self.check_action("delete", ()) is not True:
+            return
+        machine = self.machines[index]
+
+        def answered(confirmed: bool | None) -> None:
+            if not confirmed:
+                return
+            remaining = [item for item in self.machines if item.id != machine.id]
+            problem = self._save(
+                remaining, min(index, len(remaining) - 1), retry="delete"
+            )
+            self.query_one("#connection-status", Static).update(
+                problem or f"Deleted machine {index + 1}: {_display_text(machine.id)}."
+            )
+
+        self.push_screen(ConfirmDelete(machine, self._rewrite_warning()), answered)
+
+    def _save_one(self, machines: list[Machine], position: int) -> str | None:
+        problem = self._save(machines, position)
+        if problem is None:
+            self.query_one("#connection-status", Static).update(
+                f"Saved machine {position + 1}: {_display_text(machines[position].id)}."
+            )
+        return problem
+
+    def _save(
+        self, machines: list[Machine], select: int, retry: str = "save"
+    ) -> str | None:
+        """Write the file and rebuild the panes; return a problem to show, if any."""
+        try:
+            text = save_machines(self.config_path, machines, self.file_text)
+        except FileChangedError:
+            return self._reload_after_outside_change(retry)
+        except SaveError as error:
+            return str(error)
+        self.machines = tuple(machines)
+        self.file_text = text
+        self.config_supplied = True
+        self._rebuilding = True
+        self.call_later(self._rebuild, select)
+        return None
+
+    def _reload_after_outside_change(self, retry: str) -> str:
+        machines: list[Machine] = []
+        text = None
+        if self.config_path.exists():
+            try:
+                machines, text = read_machines(self.config_path)
+            except ConfigError as error:
+                detail = str(error).removeprefix("configuration: ")
+                return (
+                    "The machine file changed outside Workbench and now has an "
+                    f"error: {detail}. Fix the file, then {retry} again."
+                )
+        # Keep the same machine selected, not the same row: a connect must not
+        # go to whichever machine moved into that position.
+        index = self._selected_index_any()
+        selected = self.machines[index].id if index is not None else None
+        ids = [machine.id for machine in machines]
+        self.machines = tuple(machines)
+        self.file_text = text
+        self.config_supplied = text is not None
+        self._rebuilding = True
+        self.call_later(self._rebuild, ids.index(selected) if selected in ids else 0)
+        return (
+            "The machine file changed outside Workbench and was reloaded. "
+            f"Check the list, then {retry} again."
+        )
+
+    def _selected_index_any(self) -> int | None:
+        """The list's selection even while a form is open on top of it."""
+        machine_list = self._machine_list()
+        index = machine_list.index if machine_list is not None else None
+        return index if index is not None and index < len(self.machines) else None
+
+    async def _rebuild(self, select: int) -> None:
+        self._initial_index = min(max(select, 0), max(len(self.machines) - 1, 0))
+        try:
+            await self.query_one(MachinePanes).recompose()
+        finally:
+            self._rebuilding = False
+        machine_list = self._machine_list()
+        if machine_list is not None:
+            self._show_details(self._initial_index)
+            # The browser may sit under a form; focus returns here when it closes.
+            self.screen_stack[0].set_focus(machine_list)
+        self.refresh_bindings()
 
     def action_open_link(self) -> None:
         if self._links_closed.is_set():

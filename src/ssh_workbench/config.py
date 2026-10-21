@@ -3,6 +3,8 @@
 import ipaddress
 import re
 import tomllib
+import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from urllib.parse import urlsplit
@@ -40,7 +42,8 @@ _ALIAS_RULE = (
 )
 
 
-def _read_config(path: Path) -> str:
+def read_machine_text(path: Path) -> str:
+    """Read the file's UTF-8 text without a byte-order mark; never parse it."""
     # Windows reports reading a folder as permission denied; name the real cause.
     if path.is_dir():
         raise ConfigError("configuration: expected a file, got a directory")
@@ -74,7 +77,68 @@ def _parse_toml(text: str) -> dict[str, object]:
 
 def load_machines(path: Path) -> list[Machine]:
     """Read only the supplied UTF-8 file; never create or modify it."""
-    return parse_machines(_read_config(path))
+    return read_machines(path)[0]
+
+
+def read_machines(path: Path) -> tuple[list[Machine], str]:
+    """Load the file and also return its text, to detect later outside changes."""
+    text = read_machine_text(path)
+    return parse_machines(text), text
+
+
+def format_machines(machines: Sequence[Machine]) -> str:
+    """Write schema 2 TOML that parse_machines reads back as the same records."""
+    if not machines:
+        return "schema_version = 2\nmachines = []\n"
+    blocks = ["schema_version = 2\n"]
+    for machine in machines:
+        lines = [
+            "[[machines]]",
+            f"id = {_toml_string(machine.id)}",
+            f"name = {_toml_string(machine.name)}",
+        ]
+        if machine.alias is not None:
+            lines.append(f"alias = {_toml_string(machine.alias)}")
+        else:
+            if machine.user is not None:
+                lines.append(f"user = {_toml_string(machine.user)}")
+            addresses = ", ".join(_toml_string(value) for value in machine.addresses)
+            lines.append(f"addresses = [{addresses}]")
+            if machine.port is not None:
+                lines.append(f"port = {machine.port}")
+            if machine.key is not None:
+                lines.append(f"key = {_toml_string(machine.key)}")
+        blocks.append("\n".join(lines) + "\n")
+        for link in machine.links:
+            blocks.append(
+                "[[machines.links]]\n"
+                f"name = {_toml_string(link.name)}\nurl = {_toml_string(link.url)}\n"
+            )
+    return "\n".join(blocks)
+
+
+_TOML_ESCAPES = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\t": "\\t",
+    "\n": "\\n",
+    "\f": "\\f",
+    "\r": "\\r",
+}
+
+
+def _toml_string(value: str) -> str:
+    """A TOML basic string with every control character escaped."""
+    return '"' + "".join(_toml_character(character) for character in value) + '"'
+
+
+def _toml_character(character: str) -> str:
+    if character in _TOML_ESCAPES:
+        return _TOML_ESCAPES[character]
+    if unicodedata.category(character) == "Cc":
+        return f"\\u{ord(character):04X}"
+    return character
 
 
 def parse_machines(text: str) -> list[Machine]:
@@ -204,46 +268,62 @@ def _validate_machines(data: dict[str, object]) -> list[Machine]:
         location = f"machines[{index}]"
         if not isinstance(entry, dict):
             raise ConfigError(f"{location}: expected a machine table")
-        _check_fields(entry, _MACHINE_FIELDS, location)
-        identifier = _identifier(entry, "machines", index, identifiers)
-        name = _string(entry, "name", location)
-        if "alias" in entry and "addresses" in entry:
-            raise ConfigError(f"{location}: use either alias or addresses, not both")
-        if "alias" in entry:
-            for field in ("user", "port", "key"):
-                if field in entry:
-                    raise ConfigError(
-                        f"{location}.{field}: only machines with addresses take "
-                        "this field"
-                    )
-            alias = _string(entry, "alias", location)
-            if not is_valid_ssh_alias(alias):
-                raise ConfigError(f"{location}.alias: {_ALIAS_RULE}")
-            connection: dict[str, object] = {"alias": alias}
-        elif "addresses" in entry:
-            connection = {
-                "user": _optional_user(entry, location),
-                "addresses": _addresses(entry, location),
-                "port": _optional_port(entry, location),
-                "key": _optional_key(entry, location),
-            }
-        else:
-            raise ConfigError(f"{location}: add alias or addresses")
-        machines.append(
-            Machine(identifier, name, **connection, links=_links(entry, location))
-        )
+        machine = validate_machine(entry, location)
+        if machine.id in identifiers:
+            raise ConfigError(
+                f"{location}.id: duplicate of machines[{identifiers[machine.id]}].id"
+            )
+        identifiers[machine.id] = index
+        machines.append(machine)
     return machines
+
+
+def validate_machine(entry: dict[str, object], location: str) -> Machine:
+    """Check one machine table with the loader's rules; IDs are not compared.
+
+    Errors start with `location`, so the edit forms can map them to fields.
+    """
+    _check_fields(entry, _MACHINE_FIELDS, location)
+    identifier = _machine_id(entry, location)
+    name = _string(entry, "name", location)
+    if "alias" in entry and "addresses" in entry:
+        raise ConfigError(f"{location}: use either alias or addresses, not both")
+    if "alias" in entry:
+        for field in ("user", "port", "key"):
+            if field in entry:
+                raise ConfigError(
+                    f"{location}.{field}: only machines with addresses take this field"
+                )
+        alias = _string(entry, "alias", location)
+        if not is_valid_ssh_alias(alias):
+            raise ConfigError(f"{location}.alias: {_ALIAS_RULE}")
+        connection: dict[str, object] = {"alias": alias}
+    elif "addresses" in entry:
+        connection = {
+            "user": _optional_user(entry, location),
+            "addresses": _addresses(entry, location),
+            "port": _optional_port(entry, location),
+            "key": _optional_key(entry, location),
+        }
+    else:
+        raise ConfigError(f"{location}: add alias or addresses")
+    return Machine(identifier, name, **connection, links=_links(entry, location))
+
+
+def _machine_id(entry: dict[str, object], location: str) -> str:
+    identifier = _string(entry, "id", location)
+    if not is_valid_machine_id(identifier):
+        raise ConfigError(
+            f"{location}.id: use lowercase ASCII letters/digits with single hyphens"
+        )
+    return identifier
 
 
 def _identifier(
     entry: dict[str, object], collection: str, index: int, seen: dict[str, int]
 ) -> str:
     location = f"{collection}[{index}]"
-    identifier = _string(entry, "id", location)
-    if not is_valid_machine_id(identifier):
-        raise ConfigError(
-            f"{location}.id: use lowercase ASCII letters/digits with single hyphens"
-        )
+    identifier = _machine_id(entry, location)
     if identifier in seen:
         raise ConfigError(
             f"{location}.id: duplicate of {collection}[{seen[identifier]}].id"

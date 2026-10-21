@@ -5,22 +5,27 @@
 | Path | Responsibility |
 | --- | --- |
 | `src/ssh_workbench/cli.py` | Entry point: help and version, default-file location, loading, starting the app |
-| `src/ssh_workbench/config.py` | TOML loading, schema 1 and 2 validation, `Machine` and `Link` records and the shared field rules. No Textual, subprocesses or filesystem search |
-| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/O/Q actions |
+| `src/ssh_workbench/config.py` | TOML loading and formatting, schema 1 and 2 validation, `Machine` and `Link` records and the shared field rules. No Textual, subprocesses or filesystem search |
+| `src/ssh_workbench/store.py` | The only file writing: outside-change check, `.bak` copy and atomic replace of the machine file |
+| `src/ssh_workbench/sshconfig.py` | The SSH folder and the literal `Host` names from its `config` and `Include` files; nothing else is interpreted |
+| `src/ssh_workbench/app.py` | Textual app: machine list, details, status lines, the link picker and the C/O/A/E/X/Q actions |
+| `src/ssh_workbench/forms.py` | The machine form and the delete confirmation |
+| `src/ssh_workbench/display.py` | Literal display of configuration text, with nonprinting characters escaped |
 | `src/ssh_workbench/ssh.py` | Native SSH boundary: machine recheck, argument list, executable lookup, child process and SIGINT guard |
 | `src/ssh_workbench/links.py` | Browser boundary: URL recheck and operating-system dispatch |
 | `src/ssh_workbench/__main__.py` | `python -m ssh_workbench` |
 | `tests/` | Loader, CLI, boundary and headless UI tests with fictional data |
 | `scripts/check_package.py` | Installs the wheel from `uv build` in a temporary environment and checks it |
-| `scripts/package_smoke.py` | The installed-wheel loader, headless app and blocked-opener quit checks, run by `check_package.py` with `python -I` |
+| `scripts/package_smoke.py` | The installed-wheel loader, headless app, blocked-opener quit and first-save checks, run by `check_package.py` with `python -I` |
 | `scripts/external_boundaries.py` | The shared list of process, network and browser entry points that tests, fixtures and the package check reject |
 | `scripts/check_terminal.py` | Interactive terminal handoff check with harmless local children instead of SSH |
 | `scripts/check_links.py` | Interactive link check with substituted openers; never opens a real browser |
 | `examples/` | Fictional configuration |
 | `.github/` | CI and the pull-request template |
 
-`cli` imports `config` and, after argument parsing, `app`. `app` uses `ssh` and
-`links`, which both reuse validation from `config`. Only `__main__` imports `cli`.
+`cli` imports `config` and, after argument parsing, `app`. `app` uses `forms`,
+`store`, `sshconfig`, `ssh` and `links`, which reuse validation from `config`.
+Only `__main__` imports `cli`.
 
 ## Implemented CLI and machine browser
 
@@ -39,8 +44,8 @@ means no default location. Resolution reads only environment variables and the
 home folder. The default file is loaded when `Path.exists()` is true, so a
 folder at that path is reported instead of hidden; a missing file leaves the app
 in its no-configuration state, which shows the path. The 0.1.0 name
-`projects.toml` is not checked. Nothing searches other folders, and nothing
-creates or writes configuration.
+`projects.toml` is not checked. Nothing searches other folders, and loading
+never creates or writes anything; only a save does.
 
 A `ConfigError` becomes an argparse error on stderr with exit status 2, before
 terminal startup. Default-file errors read `default configuration file:`
@@ -50,14 +55,15 @@ the resolved path on its own line in an epilog that `RawDescriptionHelpFormatter
 does not rewrap, escaped for display and for the output encoding. argparse
 %-formats an epilog only when it contains `%(prog)`, so `%` is doubled only then.
 
-`SSHWorkbenchApp(machines, config_path)` receives validated records in file
-order. It retains them in a tuple; `None` means no file was loaded and an empty
-sequence means a loaded file contains no machines. Those states have different
-informative screens, both naming `config_path`, escaped for display, when one
-exists: the loaded file, or the default location. Only the no-file screen
-mentions `--config`. The app reads no files and makes no network calls. Its
-explicit Connect action delegates process I/O to the small native SSH boundary;
-O delegates URL dispatch to a separate browser boundary.
+`SSHWorkbenchApp(machines, config_path, file_text)` receives validated records
+in file order and the text they were read from. It retains them in a tuple;
+`None` means no file was loaded and an empty sequence means a loaded file
+contains no machines. Those states have different informative screens, both
+naming `config_path`, escaped for display, when one exists: the loaded file, or
+the default location, where the first save creates the file. Only the no-file
+screen mentions `--config`. The app makes no network calls. Its explicit Connect
+action delegates process I/O to the small native SSH boundary; O delegates URL
+dispatch to a separate browser boundary; saves go through `store`.
 
 A Textual `ListView` starts focused on the first machine. Its `Highlighted`
 event updates literal `Static` values in a `VerticalScroll` details pane and
@@ -67,12 +73,22 @@ key and links (`name: URL` per line). Unset direct fields read `Not set`; alias
 machines read `From your SSH config`. Tab/Shift+Tab switch panes; details use
 Textual's standard scrolling keys. List rows shorten long names while details
 wrap the full value. Selection uses the list's highlight and focus uses an
-accent border. The footer shows C / Connect, O / Open link and Q / Quit, with
-Ctrl+Q as an additional exit key. `check_action` dims C and O without a
-selection, while connecting and while the link picker is open, and dims O for a
-machine without links. Textual owns the event loop and terminal lifecycle. Link
-actions do not change pane focus or selection. Connect results end with
-`Machine N: <id>` so they name the machine.
+accent border. The footer shows C / Connect, O / Open link, A / Add, E / Edit,
+X / Delete and Q / Quit, with Ctrl+Q as an additional exit key. `check_action`
+dims every action except quitting while connecting, while a modal screen is open and while the
+panes rebuild after a save; it also dims C, O, E and X without a selection, O
+for a machine without links, and A, E and X without a file location. Textual
+owns the event loop and terminal lifecycle. Link actions do not change pane
+focus or selection. Connect results end with `Machine N: <id>` so they name the
+machine.
+
+The list, details and help line live in `MachinePanes`, a container whose
+`compose` asks the app for its children. A save rebuilds that container with
+`Widget.recompose`: `App.recompose` would rebuild whichever screen is active,
+which can be an open form. Between a save and the rebuild the old list is still
+mounted while the app already holds the new machines, so a `_rebuilding` flag
+keeps actions and stale highlights off until the rebuild ends; the rebuild then
+shows the saved machine's details and focuses the list on the browser screen.
 
 `_display_text` escapes nonprinting characters using Python-style representations,
 including C0/C1 controls, formatting controls and nonprinting separators. It is
@@ -281,8 +297,8 @@ launch boundary, and later the edit forms, apply exactly the loader's rules.
 URL syntax checks do not establish DNS validity, reachability or trust in a link's
 contents. Standard HTTP/HTTPS ports, queries, fragments and encoded path spaces
 are supported; the original string is retained. All metadata stays inert until
-a later, explicitly requested action uses it. No private file is created or
-overwritten, and underlying parser/file exception text is suppressed.
+a later, explicitly requested action uses it. The loader creates and overwrites
+nothing, and underlying parser/file exception text is suppressed.
 
 No database, telemetry, service account, cloud service or AI API is required.
 
@@ -309,12 +325,59 @@ omit file paths, supplied values and unknown key names; unknown-field errors lis
 the allowed fields. The loader stops at the first error and never returns
 partial results.
 
+## Implemented editing and saving
+
+A, E and X open `forms.MachineForm` or `forms.ConfirmDelete` as modal screens.
+The form turns its fields into a table (addresses split on commas and spaces,
+a port of digits made an integer, one link per line with the last word as the
+URL, structured fields stripped) and checks it with `config.validate_machine`,
+the loader's per-machine rules, plus a unique-ID check. It shows the first
+problem under its field once that field changed or a save was attempted.
+Ctrl+S and Escape are priority bindings handled in arrival order, and the form
+answers once, so keys typed after a save cannot save twice.
+
+The form hands a valid machine to the app, which calls
+`store.save_machines(path, machines, expected_text)`:
+
+| Step | Detail |
+| --- | --- |
+| Outside change | The current text is read the same way as when loading. If it differs from the text loaded (or the file appeared or vanished), `FileChangedError` stops the save. The app reloads the file and keeps the form open with a message; an invalid file is reported and nothing changes |
+| Unchanged | When the new text equals the current text, nothing is written |
+| Read-only | A file the user made read-only is refused with "permission denied" before anything is written, on POSIX as on Windows |
+| Backup | The previous bytes go to `machines.toml.bak`, written like the file itself but with the default mode, so a read-only original never makes the backup read-only |
+| Write | `config.format_machines` produces schema 2 TOML in a fixed layout, escaping every control character. The bytes go to a temporary file in the same folder, are flushed and fsynced, take the old file's mode on POSIX, and `os.replace` puts them in place. On Windows the mode is not copied, because it is only the read-only flag |
+| Failure | The temporary file is made writable and removed, and a `SaveError` names only the reason, never the path |
+
+A text comparison catches edits that keep the modification time, such as some
+synced folders. Saving drops comments and hand formatting; when the loaded text
+differs from `format_machines` of the loaded machines, the form's first Ctrl+S
+says so and the second saves, and the delete question repeats the warning.
+`parse_machines(format_machines(m)) == m` is tested for every record shape.
+
+The add form lists literal `Host` names from `sshconfig.host_names`. It reads
+`config` in the SSH folder (`SSH_WORKBENCH_SSH_DIR` when absolute, else
+`~/.ssh`) and follows `Include` lines: relative names from that folder, `~`
+meaning its parent, globs in sorted order, up to OpenSSH's depth of 16, each
+file once and at most 1 MB. Only `Host` and `Include` keywords are interpreted;
+names with `*`, `?` or `!`, or that fail the alias rule, are skipped. Include
+targets named `id_*`, `*.pub`, `*.pem`, `*.ppk`, `*.key`, `known_hosts*` or `authorized_keys*` are never
+opened. Unreadable files are skipped silently, because the names are only
+suggestions.
+
 ## Security and privacy boundaries
 
 Native SSH handles credentials, agents, user SSH configuration and host-key
 checks. SSH Workbench does not store passwords or private keys, parse private
 keys, or disable host-key verification. Bootstrap and automated tests must never
-read real SSH files or access real hosts.
+read real SSH files or access real hosts; the test suite points
+`SSH_WORKBENCH_SSH_DIR`, `APPDATA` and `XDG_CONFIG_HOME` at an empty folder.
+
+0.2.0 deliberately changes two 0.1.0 rules:
+
+| 0.1.0 rule | Now |
+| --- | --- |
+| Never writes configuration | Writes its own machine file and `.bak` copy, only from A, E or X, with the change check and atomic replace above |
+| Never reads SSH configuration | Reads `Host` and `Include` lines of the user's SSH config to suggest aliases; never opens an included file named like a key, `known_hosts` or `authorized_keys`, and never changes the SSH config |
 
 For subprocess code, validate aliases, users, addresses, ports and key paths as
 data and use an argument list with a resolved executable and `shell=False`.
@@ -370,6 +433,16 @@ handling. Source inspection of the Linux driver is not a Linux terminal test.
 Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
+
+## References checked for task 9
+
+- [Python os.replace](https://docs.python.org/3.14/library/os.html#os.replace) and [tempfile.mkstemp](https://docs.python.org/3.14/library/tempfile.html#tempfile.mkstemp)
+- [OpenSSH ssh_config(5)](https://man.openbsd.org/ssh_config) for `Host` patterns and `Include`
+- [TOML 1.0 basic strings](https://toml.io/en/v1.0.0#string)
+
+Installed Textual 8.2.8 sources were checked for `Widget.recompose` against
+`App.recompose`, `Screen.set_focus` on an inactive screen, priority bindings in
+modal screens, `RadioSet`, `TextArea` and `SuggestFromList`.
 
 ## References checked for task 8
 

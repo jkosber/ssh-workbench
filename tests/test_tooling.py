@@ -9,7 +9,14 @@ from pathlib import Path
 import pytest
 from external_boundaries import EXTERNAL_BOUNDARIES, WINDOWS_OPENER
 
+from ssh_workbench.sshconfig import ssh_folder
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_suite_never_points_at_the_real_ssh_folder(empty_user_config: Path) -> None:
+    assert ssh_folder() == empty_user_config / "ssh"
+    assert ssh_folder() != Path.home() / ".ssh"
 
 
 def test_shared_boundaries_are_the_expected_entry_points() -> None:

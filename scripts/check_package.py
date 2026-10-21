@@ -34,6 +34,8 @@ def main() -> None:
         cli_environment = os.environ.copy()
         cli_environment.pop("PYTHONPATH", None)
         cli_environment.pop("PYTHONHOME", None)
+        # The add form reads Host names; never let it reach the real SSH folder.
+        cli_environment["SSH_WORKBENCH_SSH_DIR"] = str(temporary / "no-ssh-folder")
         isolated_environment = cli_environment | {"PYTHONPATH": str(root / "src")}
         smoke_command = [str(python), "-I", str(smoke), str(environment)]
         subprocess.run(
@@ -144,10 +146,22 @@ def main() -> None:
                 raise SystemExit(
                     f"Installed wheel blocked-opener quit check failed: {key}"
                 )
+        result = subprocess.run(
+            [*smoke_command, "save"],
+            cwd=temporary,
+            env=isolated_environment,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        if result.stdout.strip() != "Saved machine file: created and loaded back":
+            raise SystemExit("Installed wheel save check failed")
     print(
         "Built wheel: isolated installation, help/version, configuration errors, "
         "verified installed import paths, machine loader, headless selection/quit, "
-        "substituted SSH/link results and blocked-opener Q/Ctrl+Q exit passed."
+        "substituted SSH/link results, blocked-opener Q/Ctrl+Q exit and a first "
+        "save passed."
     )
 
 
