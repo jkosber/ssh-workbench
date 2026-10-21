@@ -491,3 +491,21 @@ async def test_footer_with_k_fits_60_columns(
         )
         for key in footer.query("FooterKey"):
             assert key.region.right <= 59, key.action
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+async def test_the_picker_shows_its_note_and_keys_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size: tuple[int, int]
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text)
+    async with app.run_test(size=size) as pilot:
+        screen = await picker(app, pilot)
+        await wait_for(pilot, lambda: note(screen).startswith("Your SSH config"))
+        await pilot.pause()
+        box = screen.query_one("#key-setup")
+        assert box.region.bottom <= size[1]
+        for widget in ("#key-note", "#key-help", "#key-choices", "#key-system"):
+            region = screen.query_one(widget).region
+            assert region.height > 0, widget
+            assert box.region.contains_region(region), widget
