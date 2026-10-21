@@ -132,6 +132,19 @@ async def test_timer_rounds_never_run_ssh_g(monkeypatch: pytest.MonkeyPatch) -> 
         assert checker.checked.count(("192.0.2.10", 22)) >= 2
 
 
+async def test_timers_start_nothing_once_the_app_stops_running() -> None:
+    checker = FakeChecker()
+    app = SSHWorkbenchApp(MACHINES, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        before = (app._round, app._frame)
+    # Textual stops the app's own timers only after it has removed the screens,
+    # so a timer can fire on a half-removed screen while the app shuts down.
+    app._timer_round()
+    app._tick_animation()
+    assert (app._round, app._frame) == before
+
+
 async def test_connect_uses_the_first_online_address(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
