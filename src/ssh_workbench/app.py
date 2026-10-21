@@ -465,6 +465,10 @@ class SSHWorkbenchApp(App[None]):
             self._start_round(resolve=True)
 
     def _timer_round(self) -> None:
+        # Textual stops app timers only after removing the screens on shutdown;
+        # is_running turns False first.
+        if not self.is_running:
+            return
         if self.machines and not self._connecting and not self._rebuilding:
             self._start_round(resolve=False)
 
@@ -555,7 +559,7 @@ class SSHWorkbenchApp(App[None]):
             )
 
     def _tick_animation(self) -> None:
-        if self.animation_level == "none":
+        if self.animation_level == "none" or not self.is_running:
             return
         self._frame += 1
         for symbol in self.query(StatusSymbol):
