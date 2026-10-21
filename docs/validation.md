@@ -1,5 +1,23 @@
 # Validation
 
+## Screen waits in UI tests, 2026-10-21
+
+[PR run 39621203373](https://github.com/jkosber/ssh-workbench/actions/runs/39621203373)
+on PR #17's first head `5e9368a`, a docs-only commit, failed on Windows with 1
+failed and 992 passed. `test_an_alias_offers_its_own_keys_first_and_explains_others`
+raised `NoMatches` for `OptionList` on `KeySetup`. The same commit's
+[push run 39621197515](https://github.com/jkosber/ssh-workbench/actions/runs/39621197515)
+passed with 993 tests on each system.
+
+| Item | Result |
+| --- | --- |
+| Order of errors | The test's own `query_one(OptionList)` failed first. The app's `KeySetup.on_mount` then raised the same `NoMatches` while the screens closed, and `run_test` re-raised it on exit |
+| Cause | `push_screen` makes the new screen current at once; the screen composes in its own task. The helpers waited only for `isinstance(app.screen, X)`. On an alias, K pushes the picker from a thread's message, which can arrive during a `pilot.pause()` after that pause has already waited for the screen, so `picker()` could return before the picker had any widgets. A scratch script showed `app.screen` as an unmounted `KeySetup` with no `OptionList` right after `push_screen` |
+| Reproduction | A scratch pytest plugin delayed the modal screens' compose by 0.3 s and the alias's resolve by 0.3 s. The test then failed the same way on every run: the picker was pushed during a pause, and the pause ended with the picker current and not mounted |
+| Fix (tests only) | Each UI test file's `showing(app, kind)` also requires `app.screen.is_mounted`; all 21 waits for a screen to appear use it |
+| After the fix | The reproduction passed three times out of three; the five UI test files passed under it, 104 tests |
+| `uv run --locked pytest`, Ruff check and format | 993 passed; Ruff passed |
+
 ## 0.2.0 follow-up checks, 2026-10-21
 
 After the release, Jadon approved two more real targets for live status, K and
@@ -50,6 +68,13 @@ Earlier the same day, with Jadon's approval, Task 14's leftovers were deleted:
 - uv, its Python and the 0.2.0 tool on the Linux target.
 
 Each copy was confirmed identical to its live file first.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #17](https://github.com/jkosber/ssh-workbench/pull/17) CI on first head `5e9368a` | [Push run 39621197515](https://github.com/jkosber/ssh-workbench/actions/runs/39621197515) passed on Windows and Ubuntu, 993 tests each. [PR run 39621203373](https://github.com/jkosber/ssh-workbench/actions/runs/39621203373) failed on Windows from a flaky test; see [Screen waits in UI tests](#screen-waits-in-ui-tests-2026-10-21) |
+| CI on head `c72a66a` | [Push run 39621698413](https://github.com/jkosber/ssh-workbench/actions/runs/39621698413) and [PR run 39621707333](https://github.com/jkosber/ssh-workbench/actions/runs/39621707333) passed on Windows and Ubuntu, 993 tests each. The push run's jobs finished at 15:03 UTC, but GitHub showed the run in progress until 15:32 |
+| Merge | Merged as **`db0f922`**, guarded on head `c72a66a`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39625837877](https://github.com/jkosber/ssh-workbench/actions/runs/39625837877) passed on Windows and Ubuntu, 993 tests each |
 
 ## Task 14: 0.2.0 release, 2026-10-21
 
