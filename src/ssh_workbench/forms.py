@@ -78,7 +78,7 @@ class MachineForm(ModalScreen[None]):
         ids_in_use: Callable[[], Collection[str]],
         host_names: Sequence[str],
         save: Callable[[Machine], str | None],
-        rewrite_warning: str | None,
+        rewrite_warning: Callable[[], str | None],
     ) -> None:
         super().__init__()
         self.machine = machine
@@ -223,7 +223,7 @@ class MachineForm(ModalScreen[None]):
                     table[field] = value(field).strip()
             port = value("port").strip()
             if port:
-                table["port"] = int(port) if re.fullmatch(r"[0-9]+", port) else port
+                table["port"] = int(port) if re.fullmatch(r"[0-9]{1,5}", port) else port
         else:
             table["alias"] = value("alias").strip()
         links: list[dict[str, str]] = []
@@ -259,15 +259,18 @@ class MachineForm(ModalScreen[None]):
             if field is not None:
                 self.query_one(f"#form-{field}").focus()
             return
-        if self.rewrite_warning and not self._armed:
+        # Asked at each save: an outside change can bring comments with it.
+        warning = self.rewrite_warning()
+        if warning and not self._armed:
             self._armed = True
-            self.query_one("#form-message", Static).update(self.rewrite_warning)
+            self.query_one("#form-message", Static).update(warning)
             return
         problem = self.save(machine)
         if problem is None:
             self._answered = True
             self.dismiss(None)
         else:
+            self._armed = False
             self.query_one("#form-message", Static).update(problem)
 
     def action_cancel(self) -> None:

@@ -16,7 +16,9 @@ _MAX_DEPTH = 16
 _MAX_BYTES = 1_000_000
 _KEYWORD = re.compile(r"\s*([A-Za-z]+)(?:\s*=\s*|\s+)(.*)")
 _WORD = re.compile(r'"([^"]*)"|(\S+)')
-_NEVER_READ = re.compile(r"id_.*|.*\.pub|known_hosts.*|authorized_keys.*", re.I)
+_NEVER_READ = re.compile(
+    r"id_.*|.*\.(pub|pem|ppk|key)|known_hosts.*|authorized_keys.*", re.I
+)
 
 
 def ssh_folder() -> Path | None:

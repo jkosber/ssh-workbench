@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import stat
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -47,12 +48,14 @@ def save_machines(path: Path, machines: Sequence[Machine], expected: str | None)
     if text == current:
         # Nothing to change; keep the file's bytes and the previous backup.
         return text
-    existing = path if current is not None else None
+    # On Windows a copied mode is only the read-only flag, which would make the
+    # new file, and through it every later backup, impossible to replace.
+    keep_mode = path if current is not None and os.name == "posix" else None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        if existing is not None:
-            _replace(backup_path(path), path.read_bytes(), mode_from=existing)
-        _replace(path, text.encode("utf-8"), mode_from=existing)
+        if current is not None:
+            _replace(backup_path(path), path.read_bytes(), mode_from=None)
+        _replace(path, text.encode("utf-8"), mode_from=keep_mode)
     except OSError as error:
         reason = (
             "permission denied"
@@ -79,6 +82,7 @@ def _replace(target: Path, data: bytes, mode_from: Path | None) -> None:
         os.replace(temporary, target)
     except BaseException:
         try:
+            os.chmod(temporary, stat.S_IREAD | stat.S_IWRITE)
             os.unlink(temporary)
         except OSError:
             pass

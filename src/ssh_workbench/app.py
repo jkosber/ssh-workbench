@@ -381,13 +381,17 @@ class SSHWorkbenchApp(App[None]):
         ids_in_use: Callable[[], Collection[str]],
     ) -> MachineForm:
         folder = ssh_folder()
-        warning = self._rewrite_warning()
+
+        def rewrite_warning() -> str | None:
+            warning = self._rewrite_warning()
+            return warning and f"{warning} Press Ctrl+S again to save."
+
         return MachineForm(
             machine,
             ids_in_use=ids_in_use,
             host_names=host_names(folder) if folder is not None else (),
             save=save,
-            rewrite_warning=warning and f"{warning} Press Ctrl+S again to save.",
+            rewrite_warning=rewrite_warning,
         )
 
     def action_add(self) -> None:
@@ -433,7 +437,9 @@ class SSHWorkbenchApp(App[None]):
             if not confirmed:
                 return
             remaining = [item for item in self.machines if item.id != machine.id]
-            problem = self._save(remaining, min(index, len(remaining) - 1))
+            problem = self._save(
+                remaining, min(index, len(remaining) - 1), retry="delete"
+            )
             self.query_one("#connection-status", Static).update(
                 problem or f"Deleted machine {index + 1}: {_display_text(machine.id)}."
             )
@@ -448,12 +454,14 @@ class SSHWorkbenchApp(App[None]):
             )
         return problem
 
-    def _save(self, machines: list[Machine], select: int) -> str | None:
+    def _save(
+        self, machines: list[Machine], select: int, retry: str = "save"
+    ) -> str | None:
         """Write the file and rebuild the panes; return a problem to show, if any."""
         try:
             text = save_machines(self.config_path, machines, self.file_text)
         except FileChangedError:
-            return self._reload_after_outside_change()
+            return self._reload_after_outside_change(retry)
         except SaveError as error:
             return str(error)
         self.machines = tuple(machines)
@@ -463,7 +471,7 @@ class SSHWorkbenchApp(App[None]):
         self.call_later(self._rebuild, select)
         return None
 
-    def _reload_after_outside_change(self) -> str:
+    def _reload_after_outside_change(self, retry: str) -> str:
         machines: list[Machine] = []
         text = None
         if self.config_path.exists():
@@ -473,19 +481,28 @@ class SSHWorkbenchApp(App[None]):
                 detail = str(error).removeprefix("configuration: ")
                 return (
                     "The machine file changed outside Workbench and now has an "
-                    f"error: {detail}. Fix the file, then save again."
+                    f"error: {detail}. Fix the file, then {retry} again."
                 )
-        machine_list = self._machine_list()
-        index = machine_list.index if machine_list is not None else None
+        # Keep the same machine selected, not the same row: a connect must not
+        # go to whichever machine moved into that position.
+        index = self._selected_index_any()
+        selected = self.machines[index].id if index is not None else None
+        ids = [machine.id for machine in machines]
         self.machines = tuple(machines)
         self.file_text = text
         self.config_supplied = text is not None
         self._rebuilding = True
-        self.call_later(self._rebuild, index or 0)
+        self.call_later(self._rebuild, ids.index(selected) if selected in ids else 0)
         return (
             "The machine file changed outside Workbench and was reloaded. "
-            "Check the list, then save again."
+            f"Check the list, then {retry} again."
         )
+
+    def _selected_index_any(self) -> int | None:
+        """The list's selection even while a form is open on top of it."""
+        machine_list = self._machine_list()
+        index = machine_list.index if machine_list is not None else None
+        return index if index is not None and index < len(self.machines) else None
 
     async def _rebuild(self, select: int) -> None:
         self._initial_index = min(max(select, 0), max(len(self.machines) - 1, 0))
