@@ -15,6 +15,10 @@ Changes by release, newest first. Version numbers follow the policy in
   list to choose from when there are several; Escape closes the list.
 - The details pane shows how each machine connects, and status lines name the
   machine they belong to.
+- A adds, E edits and X deletes machines in a form that checks every value with
+  the file's own rules. The first save creates the machine file and its folder.
+- The add form suggests the `Host` names from your SSH config, following its
+  `Include` lines.
 
 ### Changed
 
@@ -28,6 +32,9 @@ Changes by release, newest first. Version numbers follow the policy in
   start screen.
 - `--help` prints the default path on its own line, and the empty-file screen
   no longer suggests restarting with `--config`.
+- Workbench now writes its machine file when you add, edit or delete a machine.
+  Saving keeps the previous file as `machines.toml.bak`, replaces the file in
+  one step, and drops comments and hand formatting after asking once.
 
 ### Security
 
@@ -38,6 +45,10 @@ Changes by release, newest first. Version numbers follow the policy in
   an address don't carry over, so the first connection asks once.
 - A machine's key is offered with `IdentitiesOnly`, so SSH tries no other key.
   Workbench passes the key's path to SSH and never opens the file.
+- A save never overwrites a machine file that changed on disk since Workbench
+  loaded it; it reloads the list and keeps your form open instead.
+- Only `Host` and `Include` lines of your SSH config are read; Workbench never
+  opens keys, `known_hosts` or `authorized_keys` and never changes the config.
 
 ### Development
 

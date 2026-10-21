@@ -377,22 +377,22 @@ config.
 
 Acceptance:
 
-- [ ] A adds, E edits and X deletes the selected machine, each visible in the
+- [x] A adds, E edits and X deletes the selected machine, each visible in the
   footer. A works on the no-file and empty-file screens and creates the file and
   its folder on the first save. Escape cancels any form without saving.
-- [ ] The form has the machine's ID, name, connection kind, alias or addresses,
+- [x] The form has the machine's ID, name, connection kind, alias or addresses,
   user, port, key and links. It validates inline with the loader's own rules,
   shows the first problem next to its field, refuses duplicate IDs and saves
   only valid machines. X asks for confirmation.
-- [ ] Saving keeps the previous file as `machines.toml.bak` next to it and
+- [x] Saving keeps the previous file as `machines.toml.bak` next to it and
   replaces the file atomically, so an interrupted save never leaves a
   half-written file. Errors are sanitized like loading errors.
-- [ ] Before saving, Workbench checks that the file has not changed on disk
+- [x] Before saving, Workbench checks that the file has not changed on disk
   since it was loaded. If it has, nothing is overwritten: Workbench reloads the
   list and keeps the unsaved change in the open form, which says what happened.
-- [ ] Comments and hand formatting are not kept. Before the first save that
+- [x] Comments and hand formatting are not kept. Before the first save that
   would drop them, Workbench says so and asks. The README says so too.
-- [ ] The add form suggests the literal `Host` names from the user's SSH config,
+- [x] The add form suggests the literal `Host` names from the user's SSH config,
   following `Include` lines and skipping patterns with `*`, `?` or `!`. Only
   `Host` and `Include` lines are interpreted; keys and `known_hosts` are never
   read. Typing a name that is not listed is allowed. Tests and native checks

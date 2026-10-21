@@ -6,8 +6,9 @@ dashboard. Pick one, press **C**, and your own OpenSSH client takes over the
 terminal. When the session ends, you are back in the list with the same machine
 selected.
 
-Workbench reads one TOML file and starts `ssh` with an argument list it checks
-first. Passwords, keys, the SSH agent and host-key checks all stay with OpenSSH.
+Workbench keeps your machines in one TOML file, which you can edit inside it,
+and starts `ssh` with an argument list it checks first. Passwords, keys, the SSH
+agent and host-key checks all stay with OpenSSH.
 
 ## Platform support
 
@@ -56,43 +57,72 @@ it is.
 
 ## Quick start
 
-1. Create the machine file. On Windows, in PowerShell:
+1. Run `ssh-workbench` and press **A**.
+2. Fill in an ID and a name. Choose **SSH alias** if `ssh <alias>` already works
+   for the machine, or **Direct** to give its addresses, user and port without
+   any SSH config. Press **Ctrl+S**. Workbench creates the machine file.
+3. Select the machine and press **C**. Type `exit` in the remote shell to come
+   back.
 
-   ```powershell
-   New-Item -ItemType Directory -Force "$env:APPDATA\ssh-workbench"
-   notepad "$env:APPDATA\ssh-workbench\machines.toml"
-   ```
+`ssh-workbench --help` shows where the machine file lives. You can also write it
+by hand:
 
-   On Linux or macOS, run `mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/ssh-workbench"`
-   and create `machines.toml` in that folder.
-2. Add a machine. Use `alias` if `ssh <alias>` already works for it, or
-   `addresses` to connect without any SSH config:
+```toml
+schema_version = 2
 
-   ```toml
-   schema_version = 2
+[[machines]]
+id = "web"
+name = "Web server"
+alias = "web"
 
-   [[machines]]
-   id = "web"
-   name = "Web server"
-   alias = "web"
+[[machines]]
+id = "lab-box"
+name = "Lab box"
+user = "admin"
+addresses = ["100.64.0.20", "192.168.1.20"]
 
-   [[machines]]
-   id = "lab-box"
-   name = "Lab box"
-   user = "admin"
-   addresses = ["100.64.0.20", "192.168.1.20"]
+[[machines.links]]
+name = "Dashboard"
+url = "https://192.168.1.20:8006"
+```
 
-   [[machines.links]]
-   name = "Dashboard"
-   url = "https://192.168.1.20:8006"
-   ```
+[examples/machines.example.toml](examples/machines.example.toml) has another
+example with both kinds of machine.
 
-3. Run `ssh-workbench`, select a machine and press **C**. Type `exit` in the
-   remote shell to come back.
+## Adding, editing and deleting machines
 
-`ssh-workbench --help` shows where Workbench looks for the machine file on your
-machine. [examples/machines.example.toml](examples/machines.example.toml) has
-another example with both kinds of machine.
+**A** adds a machine, **E** edits the selected one and **X** deletes it after
+asking. The form checks each value with the same rules as the file and shows the
+first problem under its field; **Ctrl+S** saves only a valid machine, and
+**Escape** closes the form without saving.
+
+| Field | Enter |
+| --- | --- |
+| ID, Name | As in the file. The ID must be unique |
+| SSH alias | A `Host` name. The form lists the literal `Host` names in your SSH config and completes them as you type (Right accepts); any other name is allowed too |
+| Addresses | One or more, separated by commas or spaces. Workbench connects to the first |
+| User, Port, Key | Optional. Leave them empty to use SSH's defaults |
+| Links | One per line: the name, then the URL, such as `Dashboard https://192.168.1.20:8006` |
+
+To list `Host` names, Workbench reads `config` in your SSH folder (`~/.ssh`, or
+`%USERPROFILE%\.ssh` on Windows) and the files its `Include` lines name. It
+interprets only `Host` and `Include` lines, skips names with `*`, `?` or `!`,
+and never opens keys, `known_hosts` or `authorized_keys`. It never changes your
+SSH config. Set `SSH_WORKBENCH_SSH_DIR` to an absolute path to read a different
+folder instead; in its `Include` lines, `~` then means that folder's parent.
+
+Saving writes the whole file in Workbench's own format:
+
+- The previous file is kept as `machines.toml.bak` next to it, and the new one
+  replaces it in one step, so an interrupted save never leaves half a file.
+- Comments and hand formatting are not kept. When the file has some, the first
+  save says so and waits for a second **Ctrl+S**; deleting says so too.
+- If the file changed on disk since Workbench loaded it, for example in another
+  editor or a synced folder, Workbench does not overwrite it. It reloads the
+  list and keeps your form open, so you can check and save again.
+
+Edits made to the file outside Workbench show up after a restart, or when a save
+finds them.
 
 ## Configuration
 
@@ -104,9 +134,10 @@ another example with both kinds of machine.
 | Linux, macOS | `$XDG_CONFIG_HOME/ssh-workbench/machines.toml`, or `~/.config/ssh-workbench/machines.toml` when `XDG_CONFIG_HOME` is unset or relative |
 
 `ssh-workbench --config PATH` reads a different file instead, and the default
-file is then not checked at all. Workbench only reads: it never creates or
-changes either file. Restart it to pick up edits. Without a file, the start
-screen shows where to create one.
+file is then not checked at all; the file must already exist. Workbench writes
+the file only when you add, edit or delete a machine, and creates the default
+file and its folder on the first save. Without a file, the start screen shows
+where it will be created.
 
 Version 0.1.0 read `projects.toml` from the same folder. Workbench no longer
 looks for that name; rename the file to `machines.toml`. Its schema 1 contents
@@ -191,11 +222,15 @@ over, such as Textual Web, show a message instead of starting SSH.
 | C | Connect to the selected machine |
 | O | Open the selected machine's link, or choose one when it has several |
 | Enter / Escape | In the link list: open the highlighted link / cancel |
-| Q or Ctrl+Q | Quit |
+| A / E / X | Add a machine / edit the selected one / delete it after asking |
+| Tab, Ctrl+S, Escape | In the form: next field, save, close without saving |
+| Y / N | When deleting: delete / keep |
+| Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
-C, O and Q also appear in the footer and can be clicked. C and O are dimmed when
-nothing is selected, and O when the machine has no links. Startup, selection
-and Enter in the machine list never connect or open anything.
+C, O, A, E, X and Q also appear in the footer and can be clicked. C, O, E and X
+are dimmed when nothing is selected, O when the machine has no links, and A, E
+and X when Workbench has no file location. Startup, selection and Enter in the
+machine list never connect, open or change anything.
 
 ## Opening links
 
@@ -224,16 +259,20 @@ status 2.
 | `SSH not found. Install OpenSSH and add it to PATH.` | Install the OpenSSH client. On Windows 11: Settings > System > Optional features > OpenSSH Client |
 | `SSH exited with status 255. ...` | SSH couldn't connect or authenticate. Run the same `ssh` command directly to see its message |
 | `Invalid machine settings. ...` | A value failed the rules above; this only happens if records were changed after loading |
+| `Could not save the machine file: permission denied.` | The file or its folder is read-only, or another program holds the file open. Nothing was changed |
+| `The machine file changed outside Workbench and was reloaded. ...` | Another program changed the file. Check the reloaded list, then save again |
+| `The machine file changed outside Workbench and now has an error: ...` | Fix the file's error, then save again |
 | `Cannot hand off this terminal. ...` | Start Workbench from a local terminal |
 | `browser unavailable. ...` | Links work only on Windows and on Linux desktops with `gio` |
 | `ssh-workbench` not found after installing | Run `uv tool update-shell` and open a new terminal |
 
 ## Privacy
 
-Workbench reads only its machine file. It doesn't read your SSH config, keys or
-`known_hosts`, store credentials, change host-key settings, collect telemetry or
-need an AI service. Network traffic comes only from the SSH sessions and browser
-requests you start.
+Workbench reads and writes its machine file and its `.bak` copy. From your SSH
+config it reads only `Host` and `Include` lines, to suggest aliases. It doesn't
+change your SSH config, read keys or `known_hosts`, store credentials, change
+host-key settings, collect telemetry or need an AI service. Network traffic
+comes only from the SSH sessions and browser requests you start.
 
 ## Development
 

@@ -1,5 +1,37 @@
 # Validation
 
+## Task 9: add, edit and delete machines, 2026-10-21
+
+Branch `feat/task9-edit-machines`. Environment as in Task 8.
+
+| Check | Agent-observed result |
+| --- | --- |
+| New tests before implementation | The formatter, store and SSH config tests failed at collection for the missing functions and modules; the form tests failed at collection, and five app and two CLI tests failed on the new empty-screen text and the loaded-text handoff |
+| Tests added during the task, each red first | Saving unchanged text writes nothing; E and X need a file location; actions stay off while a saved list is rebuilt (an `IndexError` before the fix) |
+| `uv sync --locked`, Ruff check and format | Passed |
+| `uv run --locked pytest` | 751 passed (685 before Task 9) |
+| `uv build`, `scripts/check_package.py` | Passed. The installed wheel now also adds a machine headless and saves it into a new folder, with `SSH_WORKBENCH_SSH_DIR` pointed at an empty temporary folder |
+
+Windows Terminal check in an owned window, with `APPDATA`, `XDG_CONFIG_HOME`
+and `SSH_WORKBENCH_SSH_DIR` pointed at ignored `.local/task9-session/` folders
+holding a commented fictional machine file and an SSH config with
+`Host alpha beta *.wild` and an `Include` of `Host lab-gamma`:
+
+| Step | Result |
+| --- | --- |
+| A, typing the ID, name and `al`, Right, Ctrl+S | The form listed alpha, beta and lab-gamma; Right completed `alpha`. The first Ctrl+S showed the comment warning and left the file unchanged; the second saved, wrote `machines.toml.bak` and selected the new machine |
+| E, adding a link line, Ctrl+S | Saved in place |
+| X, then N; X, then Y | N kept the machine; Y deleted it and reported `Deleted machine 3` |
+| An outside edit while the add form was open, then Ctrl+S twice | The first Ctrl+S reported the outside change and kept the form; the reloaded list held the new machine; the second saved both |
+| A direct machine chosen with Tab, Down and Enter | Saved with both addresses, the user and the port |
+| Escape from a form at 60x20 | The form scrolled to fit; the file hash was unchanged afterwards |
+
+The first run of this check crashed: after a delete, the footer asked for its
+bindings while the old three-item list was still mounted and the app already
+held two machines, and `check_action` indexed past the end. A failing test
+reproduced it inside the rebuild window, the fix keeps actions off until the
+rebuild ends, and the second run passed every step above.
+
 ## Task 8: machines replace projects, 2026-10-20
 
 Branch `feat/task8-machines`. Environment: Windows 11, PowerShell 7.6.7,
@@ -54,6 +86,12 @@ predates machines. After the fixes: 685 tests passed, the build and package
 check passed, and the fictional Windows Terminal check above was repeated with
 the same results. Remaining minor findings are listed under 0.2.x candidates in
 the roadmap.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #9](https://github.com/jkosber/ssh-workbench/pull/9) CI on head `3462344` | [Push run 39538624432](https://github.com/jkosber/ssh-workbench/actions/runs/39538624432) and [PR run 39538651953](https://github.com/jkosber/ssh-workbench/actions/runs/39538651953) passed on Windows and Ubuntu, 685 tests each |
+| Merge | Merged as **`47e7cd4`**, guarded on head `3462344`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39538890532](https://github.com/jkosber/ssh-workbench/actions/runs/39538890532) passed on Windows and Ubuntu |
 
 No direct machine was connected for real: its first connection asks to trust
 the host key under the new `HostKeyAlias`, and the approved actions allow only
