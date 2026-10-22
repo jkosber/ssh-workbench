@@ -141,7 +141,7 @@ in the pull request description.
 | - | uv 0.13.4 security pin | [#21](https://github.com/jkosber/ssh-workbench/pull/21) | 0.2.2 |
 | 17 | Ctrl+C, large-key and status fixes; Python 3.14.8 | [#22](https://github.com/jkosber/ssh-workbench/pull/22) | 0.2.2 |
 | 18 | Release 0.2.2 | [#23](https://github.com/jkosber/ssh-workbench/pull/23) | 0.2.2 |
-| 19 | Documentation and workflow guides; Tasks 1-18 archived | pending | Unreleased |
+| 19 | Documentation and workflow guides; Tasks 1-18 archived | [#24](https://github.com/jkosber/ssh-workbench/pull/24) | Unreleased |
 
 ## Deferred ideas
 
