@@ -289,6 +289,18 @@ async def test_no_file_screen_names_the_user_guide(path: Path | None) -> None:
         assert "README" not in content
 
 
+@pytest.mark.parametrize("size", [(40, 16), (60, 20)])
+async def test_no_file_screen_fits_narrow_terminals(size: tuple[int, int]) -> None:
+    path = Path("fictional") / ("long-folder-name-" * 4) / "machines.toml"
+    app = SSHWorkbenchApp(None, config_path=path)
+    async with app.run_test(size=size) as pilot:
+        await pilot.pause()
+        empty = app.query_one("#empty-state", Static)
+        assert app.screen.region.contains_region(empty.region)
+        lines = [empty.render_line(y).text.rstrip() for y in range(empty.region.height)]
+        assert any(line.endswith("format.") for line in lines)
+
+
 @pytest.mark.parametrize("size", [(40, 16), (200, 50)])
 async def test_empty_screen_fits_any_size(size: tuple[int, int]) -> None:
     app = SSHWorkbenchApp([])
