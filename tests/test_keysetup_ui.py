@@ -67,6 +67,13 @@ def public_key(seed: int, comment: str) -> PublicKey:
     return PublicKey("ssh-ed25519", blob(seed), comment)
 
 
+def rsa_key(bits: int, comment: str) -> PublicKey:
+    """An RSA public key of the given size in the OpenSSH layout; no private half."""
+    parts = (b"ssh-rsa", b"\x01\x00\x01", b"\x00" + b"\xc1" * (bits // 8))
+    data = b"".join(struct.pack(">I", len(part)) + part for part in parts)
+    return PublicKey("ssh-rsa", base64.b64encode(data).decode(), comment)
+
+
 def press_ctrl_c() -> None:
     """Deliver Ctrl+C to Workbench as the console does: to its SIGINT handler."""
     signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
@@ -272,6 +279,60 @@ async def test_a_windows_target_gets_the_windows_command(
         await pilot.press("enter")
         await finished(app, pilot)
     assert native.calls[0][-1] == windows_install_command(public_key(1, "a"))
+
+
+TOO_LARGE = (
+    "This key is too large for the Windows install command, which cmd.exe "
+    "limits to 8191 characters. Use an Ed25519 key or an RSA key of up to "
+    "4096 bits; nothing was installed."
+)
+
+
+async def test_a_key_too_large_for_windows_is_refused_before_the_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    big = rsa_key(8192, "big")
+    (folder / "id_big.pub").write_text(big.line + "\n", "ascii")
+    suspended: list[bool] = []
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: suspended.append(True),
+    )
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        screen = await picker(app, pilot)
+        assert option_labels(screen)[2] == "id_big.pub"
+        await pilot.press("down", "down")
+        screen.query_one("#system-windows", RadioButton).value = True
+        await pilot.pause()
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == f"{TOO_LARGE} Machine 1: box"
+    assert native.calls == []
+    assert suspended == []
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_a_key_too_large_for_windows_still_installs_on_posix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    big = rsa_key(8192, "big")
+    (folder / "id_big.pub").write_text(big.line + "\n", "ascii")
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("down", "down", "enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "Key login works. The key is saved as this machine's key. Machine 1: box"
+        )
+    assert native.calls[0][-1] == posix_install_command(big)
+    assert [Native.step(call) for call in native.calls] == ["install", "test"]
 
 
 async def test_a_machine_with_a_key_uses_only_that_key(
