@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Event, Thread
 
+from textual import events
 from textual.app import App, ComposeResult, SuspendNotSupported
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -13,8 +14,9 @@ from textual.content import Content
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
+from textual.theme import Theme
 from textual.widget import Widget
-from textual.widgets import Footer, Header, ListItem, ListView, OptionList, Static
+from textual.widgets import Footer, ListItem, ListView, OptionList, Static
 from textual.widgets.option_list import Option
 
 from ssh_workbench.aliases import (
@@ -95,6 +97,44 @@ from ssh_workbench.store import (
 STATUS_INTERVAL = 30.0
 ANIMATION_TICK = 0.2
 SPINNER = "◐◓◑◒"
+
+# Workbench's own colors; Textual derives every shade from these.
+WORKBENCH_THEME = Theme(
+    name="workbench",
+    primary="#4FC1E9",
+    secondary="#7AA2F7",
+    accent="#F2B25C",
+    warning="#E5C07B",
+    error="#EF6B73",
+    success="#7FD48C",
+    foreground="#D8DEE9",
+    background="#10141B",
+    surface="#161B24",
+    panel="#1E2531",
+    dark=True,
+    variables={
+        "border": "#4FC1E9",
+        "border-blurred": "#2C3646",
+        "footer-key-foreground": "#4FC1E9",
+        "footer-background": "#161B24",
+        "block-cursor-background": "#24435A",
+        "block-cursor-foreground": "#F2F6FA",
+        "block-cursor-text-style": "bold",
+        "block-cursor-blurred-background": "#1F2A38",
+        "block-cursor-blurred-foreground": "#D8DEE9",
+        "block-cursor-blurred-text-style": "none",
+    },
+)
+HEADER_TITLE = "SSH Workbench"
+# The header counts these states, in this order. Not checked means status
+# checks are off, so it is left out.
+SUMMARY_STYLES = {
+    State.ONLINE: "$success",
+    State.OFFLINE: "$error",
+    State.CHECKING: "$accent",
+    State.UNKNOWN: "$warning",
+    State.NOT_FOUND: "$error",
+}
 
 
 @dataclass
@@ -178,6 +218,31 @@ class StatusSymbol(Widget):
         return Content(self.state.symbol)
 
 
+class RowTarget(Widget):
+    """Where a machine connects, shown in its list row on wide terminals. Not a
+    `Static`, so the name stays the row's only one."""
+
+    DEFAULT_CSS = """
+    RowTarget {
+        display: none;
+        width: auto;
+        max-width: 50%;
+        height: 1;
+        padding-left: 1;
+        color: $text-muted;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+    """
+
+    def __init__(self, target: str) -> None:
+        super().__init__(classes="row-target")
+        self.target = target
+
+    def render(self) -> Content:
+        return Content(self.target)
+
+
 @dataclass(frozen=True)
 class LinkRequest:
     machine: Machine
@@ -213,7 +278,9 @@ class LinkPicker(ModalScreen[Link | None]):
         max-width: 100;
         height: auto;
         max-height: 90%;
-        border: solid $accent;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-style: bold;
         background: $surface;
         padding: 0 1;
     }
@@ -279,8 +346,12 @@ class MachinePanes(Vertical):
 
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
-    SUB_TITLE = "Machines"
     ENABLE_COMMAND_PALETTE = False
+    # Screen classes for the layout: the list stacks above the details when
+    # narrow, rows show their target when wide, and the help line hides when
+    # short.
+    HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (60, "-normal"), (110, "-wide")]
+    VERTICAL_BREAKPOINTS = [(0, "-short"), (20, "-tall")]
     BINDINGS = [
         Binding("c", "connect", "Connect"),
         # Shown only for a machine with a rename offer, which hides Connect.
@@ -296,16 +367,41 @@ class SSHWorkbenchApp(App[None]):
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
     CSS = """
+    #app-header {
+        height: 1;
+        background: $panel;
+    }
+    #app-title {
+        width: auto;
+        padding: 0 1;
+        background: $primary;
+        color: $background;
+        text-style: bold;
+    }
+    #app-summary {
+        width: 1fr;
+        padding: 0 1;
+        text-align: right;
+        color: $text-muted;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
     #panes, #browser {
         height: 1fr;
+    }
+    #machine-list, #machine-details {
+        background: $surface;
+        border: round $border-blurred;
+        border-title-color: $text-muted;
+        border-title-style: bold;
+    }
+    #machine-list:focus, #machine-details:focus {
+        border: round $border;
+        border-title-color: $primary;
     }
     #machine-list {
         width: 1fr;
         min-width: 20;
-        border: solid $panel;
-    }
-    #machine-list:focus, #machine-details:focus {
-        border: solid $accent;
     }
     #machine-list ListItem {
         height: 1;
@@ -321,25 +417,87 @@ class SSHWorkbenchApp(App[None]):
     }
     #machine-details {
         width: 2fr;
-        border: solid $panel;
         padding: 0 1;
         scrollbar-gutter: stable;
     }
+    .field-row {
+        height: auto;
+    }
     .field-label {
+        width: 12;
+        color: $text-muted;
         text-style: bold;
     }
     .field-value {
-        margin-bottom: 1;
+        width: 1fr;
+    }
+    #machine-name {
+        text-style: bold;
+    }
+    #machine-status.state-online {
+        color: $success;
+    }
+    #machine-status.state-offline, #machine-status.state-not_found {
+        color: $error;
+    }
+    #machine-status.state-unknown {
+        color: $warning;
+    }
+    #machine-status.state-checking {
+        color: $accent;
     }
     #navigation-help, #connection-status, #link-status {
         height: auto;
         padding: 0 1;
     }
+    #navigation-help {
+        color: $text-muted;
+    }
+    #connection-status, #link-status {
+        background: $surface;
+    }
     #link-status {
         height: 3;
     }
     #empty-content {
+        align: center middle;
         padding: 1 2;
+    }
+    #empty-state {
+        width: auto;
+        max-width: 76;
+        height: auto;
+        padding: 1 2;
+        border: round $border-blurred;
+        background: $surface;
+    }
+
+    Screen.-narrow #browser {
+        layout: vertical;
+    }
+    Screen.-narrow #machine-list {
+        width: 1fr;
+        height: 2fr;
+        min-width: 0;
+    }
+    Screen.-narrow #machine-details {
+        width: 1fr;
+        height: 3fr;
+    }
+    Screen.-narrow .field-label {
+        width: 11;
+    }
+    Screen.-wide #machine-list {
+        width: 2fr;
+    }
+    Screen.-wide #machine-details {
+        width: 3fr;
+    }
+    Screen.-wide RowTarget {
+        display: block;
+    }
+    Screen.-short #navigation-help {
+        display: none;
     }
     """
 
@@ -351,6 +509,8 @@ class SSHWorkbenchApp(App[None]):
         checker: StatusChecker | None = None,
     ) -> None:
         super().__init__()
+        self.register_theme(WORKBENCH_THEME)
+        self.theme = WORKBENCH_THEME.name
         self.config_supplied = machines is not None
         self.config_path = config_path
         # The loaded text; a save refuses to overwrite a file that differs.
@@ -402,7 +562,9 @@ class SSHWorkbenchApp(App[None]):
         self._include_declined = False
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        with Horizontal(id="app-header"):
+            yield Static(HEADER_TITLE, id="app-title", markup=False)
+            yield Static(id="app-summary", markup=False)
         yield MachinePanes(id="panes")
         yield Static(
             "C: connect to the selected machine."
@@ -428,6 +590,9 @@ class SSHWorkbenchApp(App[None]):
                             Horizontal(
                                 StatusSymbol(self._status_of(machine).state),
                                 Static(_display_text(machine.name), markup=False),
+                                RowTarget(
+                                    _display_text(machine.alias or machine.addresses[0])
+                                ),
                             )
                         )
                         for machine in self.machines
@@ -450,15 +615,18 @@ class SSHWorkbenchApp(App[None]):
                         ("key", "Key"),
                         ("links", "Links"),
                     ):
-                        yield Static(
-                            label,
-                            id=f"machine-{field}-label",
-                            classes="field-label",
-                            markup=False,
-                        )
-                        yield Static(
-                            id=f"machine-{field}", classes="field-value", markup=False
-                        )
+                        with Horizontal(classes="field-row"):
+                            yield Static(
+                                label,
+                                id=f"machine-{field}-label",
+                                classes="field-label",
+                                markup=False,
+                            )
+                            yield Static(
+                                id=f"machine-{field}",
+                                classes="field-value",
+                                markup=False,
+                            )
             yield Static(
                 "Up/Down: select   Tab: switch pane   PgUp/PgDn: scroll",
                 id="navigation-help",
@@ -481,14 +649,15 @@ class SSHWorkbenchApp(App[None]):
             return (
                 "No machine file yet.\n\nPress A to add your first machine. "
                 f"Workbench creates the file at:\n{path}\n\n"
-                "Or restart with --config PATH. The README describes the format."
+                "Or restart with --config PATH. The user guide describes the format."
             )
         return (
             "No machine file selected.\n\n"
-            "Restart with --config PATH. The README describes the format."
+            "Restart with --config PATH. The user guide describes the format."
         )
 
     def on_mount(self) -> None:
+        self._update_summary()
         if self.machines:
             self.query_one("#machine-list", ListView).focus()
         if self.checker is not None:
@@ -513,10 +682,10 @@ class SSHWorkbenchApp(App[None]):
         machine = self.machines[index]
         direct = machine.alias is None
         unset = "Not set" if direct else "From your SSH config"
+        self._show_status(machine)
         for field, value in (
             ("id", _display_text(machine.id)),
             ("name", _display_text(machine.name)),
-            ("status", self._status_text(machine)),
             (
                 "connection",
                 (
@@ -547,6 +716,57 @@ class SSHWorkbenchApp(App[None]):
     def _status_of(self, machine: Machine) -> MachineStatus:
         default = State.NOT_CHECKED if self.checker is None else State.CHECKING
         return self._statuses.get(machine.id, MachineStatus(default))
+
+    def _show_status(self, machine: Machine) -> None:
+        """The selected machine's status in the details, colored by its state."""
+        widget = self.query_one("#machine-status", Static)
+        widget.update(self._status_text(machine))
+        state = self._status_of(machine).state
+        for other in State:
+            widget.set_class(other is state, f"state-{other.name.lower()}")
+
+    def _update_summary(self, width: int | None = None) -> None:
+        found = self.query("#app-summary")
+        if found:
+            found.first(Static).update(self._summary(width or self.size.width))
+
+    def _summary(self, width: int) -> Content:
+        """Machines counted by status: in words when they fit beside the title,
+        else as symbols."""
+        count = len(self.machines)
+        if not count:
+            return Content("")
+        states = [self._status_of(machine).state for machine in self.machines]
+        counts = [
+            (state, style, states.count(state))
+            for state, style in SUMMARY_STYLES.items()
+            if state in states
+        ]
+        words = Content.assemble(
+            f"{count} machine{'' if count == 1 else 's'}",
+            *(
+                part
+                for state, style, number in counts
+                for part in (
+                    "   ",
+                    (f"{state.symbol} {number} {state.word.lower()}", style),
+                )
+            ),
+        )
+        # The title and both paddings take the rest of the row.
+        if not counts or words.cell_length + len(HEADER_TITLE) + 4 <= width:
+            return words
+        return Content.assemble(
+            f"{count} ",
+            *(
+                part
+                for state, style, number in counts
+                for part in (" ", (f"{state.symbol}{number}", style))
+            ),
+        )
+
+    def on_resize(self, event: events.Resize) -> None:
+        self._update_summary(event.size.width)
 
     def _target_text(self, machine: Machine) -> str:
         if machine.alias is None:
@@ -823,6 +1043,7 @@ class SSHWorkbenchApp(App[None]):
             self._show_statuses()
 
     def _show_statuses(self) -> None:
+        self._update_summary()
         machine_list = self._machine_list()
         if machine_list is None or self._rebuilding:
             return
@@ -833,7 +1054,7 @@ class SSHWorkbenchApp(App[None]):
         index = machine_list.index
         if index is not None and index < len(self.machines):
             machine = self.machines[index]
-            self.query_one("#machine-status", Static).update(self._status_text(machine))
+            self._show_status(machine)
             # A review changes whether the alias is marked.
             self.query_one("#machine-target", Static).update(self._target_text(machine))
 
@@ -1085,6 +1306,7 @@ class SSHWorkbenchApp(App[None]):
             await self.query_one(MachinePanes).recompose()
         finally:
             self._rebuilding = False
+        self._update_summary()
         machine_list = self._machine_list()
         if machine_list is not None:
             self._show_details(self._initial_index)

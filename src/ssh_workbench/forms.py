@@ -66,7 +66,9 @@ class MachineForm(ModalScreen[None]):
         width: 90%;
         max-width: 100;
         height: 90%;
-        border: solid $accent;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-style: bold;
         background: $surface;
         padding: 0 1;
     }
@@ -350,7 +352,9 @@ class ConfirmDelete(ModalScreen[bool]):
         width: 90%;
         max-width: 80;
         height: auto;
-        border: solid $error;
+        border: round $error;
+        border-title-color: $error;
+        border-title-style: bold;
         background: $surface;
         padding: 0 1;
     }
@@ -397,7 +401,9 @@ class ConfirmInclude(ModalScreen[bool]):
         width: 90%;
         max-width: 80;
         height: auto;
-        border: solid $accent;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-style: bold;
         background: $surface;
         padding: 0 1;
     }
@@ -474,7 +480,9 @@ class KeySetup(ModalScreen[KeyPlan | None]):
         max-width: 100;
         height: auto;
         max-height: 90%;
-        border: solid $accent;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-style: bold;
         background: $surface;
         padding: 0 1;
         overflow-y: auto;
