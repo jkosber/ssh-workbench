@@ -231,10 +231,15 @@ async def test_the_status_value_is_colored_by_its_state() -> None:
         assert not status.has_class("state-online")
 
 
-@pytest.mark.parametrize(("height", "shown"), [(16, False), (20, True)])
-async def test_short_terminals_hide_the_help_line(height: int, shown: bool) -> None:
+@pytest.mark.parametrize(
+    ("size", "shown"),
+    [((80, 16), False), ((80, 20), True), ((50, 24), False), ((60, 24), True)],
+)
+async def test_short_or_narrow_terminals_hide_the_help_line(
+    size: tuple[int, int], shown: bool
+) -> None:
     app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(80, height)) as pilot:
+    async with app.run_test(size=size) as pilot:
         await pilot.pause()
         assert app.query_one("#navigation-help").display is shown
         _, pane = panes(app)
