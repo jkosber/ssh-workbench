@@ -1347,6 +1347,17 @@ class SSHWorkbenchApp(App[None]):
             except KeySetupError as error:
                 self._show_key_result(machine, str(error))
                 return
+        if plan.windows and not plan.choice.create:
+            # cmd.exe limits the command's length, so a large RSA key is refused
+            # before the handoff; a new Ed25519 key always fits.
+            private = plan.choice.private
+            try:
+                windows_install_command(
+                    read_public_key(private.with_name(f"{private.name}.pub"))
+                )
+            except KeySetupError as error:
+                self._show_key_result(machine, str(error))
+                return
         machine_list = self.query_one(ListView)
         works = False
         self._connecting = True

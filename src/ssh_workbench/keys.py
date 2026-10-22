@@ -262,8 +262,20 @@ if ($admin) {
 """
 
 
+# Windows sshd runs a command as `"c:\windows\system32\cmd.exe" /c "<command>"`,
+# and cmd.exe takes a command line of at most 8191 characters.
+_CMD_BUDGET = 8191 - len('"c:\\windows\\system32\\cmd.exe" /c ""')
+
+
 def windows_install_command(key: PublicKey) -> str:
     """The Windows OpenSSH install script, encoded so no shell reinterprets it."""
     script = _WINDOWS_SCRIPT.replace("@KEY@", key.line)
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-    return f"powershell -NoProfile -NonInteractive -EncodedCommand {encoded}"
+    command = f"powershell -NoProfile -NonInteractive -EncodedCommand {encoded}"
+    if len(command) > _CMD_BUDGET:
+        raise KeySetupError(
+            "This key is too large for the Windows install command, which cmd.exe "
+            "limits to 8191 characters. Use an Ed25519 key or an RSA key of up to "
+            "4096 bits; nothing was installed."
+        )
+    return command

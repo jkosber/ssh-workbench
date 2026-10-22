@@ -304,7 +304,10 @@ or passphrase: SSH and `ssh-keygen` ask for them.
      shell is cmd.exe. An administrator's key goes into
      `C:\ProgramData\ssh\administrators_authorized_keys`, which may grant
      access only to SYSTEM and Administrators (sshd ignores it otherwise);
-     other accounts use `%USERPROFILE%\.ssh\authorized_keys`.
+     other accounts use `%USERPROFILE%\.ssh\authorized_keys`. cmd.exe
+     limits the command's length, so Workbench refuses an RSA key larger
+     than about 6000 bits before connecting; Ed25519 keys and 4096-bit
+     RSA keys fit.
 3. **Test it.** SSH logs in once more allowing only public-key authentication
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
    with a passphrase works: SSH asks for it. The test can also pass with
