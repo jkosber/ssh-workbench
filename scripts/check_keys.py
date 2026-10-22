@@ -1,8 +1,9 @@
 """Interactive key-setup check with local children only; never runs ssh-keygen or SSH.
 
 The app runs on fictional machines in a working folder. Each handed-off step
-starts a local child that says which step it stands for, waits for "return"
-and exits with the status chosen on the command line. The key-generation child
+starts a local child that says which step it stands for, waits for "return" or
+Ctrl+C and exits with the status chosen on the command line, as Windows ssh can
+exit 0 after Ctrl+C. The key-generation child
 writes a fictional key pair: fixed bytes in the OpenSSH public format, never a
 usable key. No network is used: the status checker reports every port closed.
 """
@@ -50,8 +51,11 @@ def child(step: str, status: int, target: str | None) -> int:
         Path(f"{target}.pub").write_text(
             fictional_public_key(9, "ssh-workbench-box") + "\n", encoding="ascii"
         )
-    while input("Type return to finish this step: ") != "return":
-        pass
+    try:
+        while input("Type return to finish this step: ") != "return":
+            pass
+    except KeyboardInterrupt:
+        print(f"\nThe child received Ctrl+C and exits with status {status}.")
     return status
 
 

@@ -66,6 +66,7 @@ from ssh_workbench.keys import (
 from ssh_workbench.links import LinkResult, open_link
 from ssh_workbench.ssh import (
     SSHLaunchError,
+    ctrl_c_count,
     find_ssh,
     install_arguments,
     interrupted,
@@ -1388,12 +1389,22 @@ class SSHWorkbenchApp(App[None]):
         whether key-only login works, which a new machine key needs before
         it is saved."""
         choice = plan.choice
+        pressed = ctrl_c_count()
+
+        def run(arguments: list[str], name: str = "SSH") -> int | None:
+            # A step's status, or None once Ctrl+C has reached Workbench: Windows
+            # ssh can exit 0 after it, and no later step may start.
+            if ctrl_c_count() != pressed:
+                return None
+            status = run_native(arguments, name)
+            if interrupted(status) or ctrl_c_count() != pressed:
+                return None
+            return status
+
         if choice.create:
             print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
-            status = run_native(
-                keygen_arguments(choice.private, machine.id), "ssh-keygen"
-            )
-            if interrupted(status):
+            status = run(keygen_arguments(choice.private, machine.id), "ssh-keygen")
+            if status is None:
                 return "Key setup interrupted.", False
             if status != 0:
                 return (
@@ -1407,8 +1418,8 @@ class SSHWorkbenchApp(App[None]):
         )
         ssh = find_ssh()
         print("SSH Workbench: installing the key; SSH may ask for the password.")
-        status = run_native([ssh, *install_arguments(machine, address, command)])
-        if interrupted(status):
+        status = run([ssh, *install_arguments(machine, address, command)])
+        if status is None:
             return "Key setup interrupted.", False
         if status != 0:
             return (
@@ -1417,7 +1428,7 @@ class SSHWorkbenchApp(App[None]):
             ), False
         tested = machine if setting is None else replace(machine, key=setting)
         print("SSH Workbench: testing key-only login.")
-        status = run_native([ssh, *login_test_arguments(tested, address)])
+        status = run([ssh, *login_test_arguments(tested, address)])
         if status == 0:
             # A hint means the alias's config doesn't name this key, so SSH
             # offered other keys and the test cannot show which one worked.
@@ -1427,7 +1438,7 @@ class SSHWorkbenchApp(App[None]):
                     f"{choice.hint}"
                 ), True
             return "Key login works.", True
-        if interrupted(status):
+        if status is None:
             message = "The key was installed, but the login test was interrupted."
         else:
             message = (
