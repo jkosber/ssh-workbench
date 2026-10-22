@@ -312,6 +312,28 @@ def test_posix_install_ignores_a_commented_out_copy(
     assert keys_file.read_bytes() == f"{line}{ending}{ED_LINE}\n".encode()
 
 
+def both_copies(commented_first: bool, ending: str) -> bytes:
+    lines = [f"# ssh-ed25519 {ED_BLOB} old", ED_LINE]
+    if not commented_first:
+        lines.reverse()
+    return "".join(line + ending for line in lines).encode()
+
+
+@pytest.mark.parametrize("commented_first", [True, False])
+def test_posix_install_counts_an_active_copy_beside_a_commented_one(
+    tmp_path: Path, commented_first: bool
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    existing = both_copies(commented_first, "\n")
+    keys_file.write_bytes(existing)
+
+    assert install_with_sh(tmp_path, ED_KEY) == (
+        "SSH Workbench: the key was already installed.\n"
+    )
+    assert keys_file.read_bytes() == existing
+
+
 def test_posix_install_finds_a_key_whose_comment_is_not_utf8(tmp_path: Path) -> None:
     # In a UTF-8 locale, GNU grep drops lines with invalid bytes from its output.
     keys_file = tmp_path / ".ssh" / "authorized_keys"
@@ -425,6 +447,33 @@ def test_windows_command_fits_cmd_with_a_6144_bit_rsa_key_and_a_comment() -> Non
     assert len(windows_install_command(rsa)) < 8191
 
 
+# Windows sshd runs `"c:\windows\system32\cmd.exe" /c "<command>"`, and
+# cmd.exe takes a command line of at most 8191 characters.
+CMD_BUDGET = 8191 - len('"c:\\windows\\system32\\cmd.exe" /c ""')
+TOO_LARGE = (
+    "This key is too large for the Windows install command, which cmd.exe "
+    "limits to 8191 characters. Use an Ed25519 key or an RSA key of up to "
+    "4096 bits; nothing was installed."
+)
+
+
+def test_windows_command_is_refused_only_past_what_cmd_accepts() -> None:
+    lengths: list[int] = []
+    refused: list[int] = []
+    for size in range(101):
+        rsa = PublicKey("ssh-rsa", blob("ssh-rsa", b"\x01" * 770), "c" * size or None)
+        try:
+            lengths.append(len(windows_install_command(rsa)))
+        except KeySetupError as error:
+            assert str(error) == TOO_LARGE
+            refused.append(size)
+
+    assert lengths and refused
+    assert refused == list(range(refused[0], 101))
+    # Each comment character adds 0 or 4 characters to the command.
+    assert CMD_BUDGET - 3 <= max(lengths) <= CMD_BUDGET
+
+
 def install_with_powershell(home: Path, key: PublicKey) -> str:
     """Run the Windows script's standard-user branch with USERPROFILE in `home`.
 
@@ -490,6 +539,21 @@ def test_windows_install_ignores_a_commented_out_copy(
         "SSH Workbench: key installed.\n"
     )
     assert keys_file.read_bytes() == f"{line}\r\n{ED_LINE}\r\n".encode()
+
+
+@pytest.mark.parametrize("commented_first", [True, False])
+def test_windows_install_counts_an_active_copy_beside_a_commented_one(
+    tmp_path: Path, commented_first: bool
+) -> None:
+    keys_file = tmp_path / ".ssh" / "authorized_keys"
+    keys_file.parent.mkdir()
+    existing = both_copies(commented_first, "\r\n")
+    keys_file.write_bytes(existing)
+
+    assert install_with_powershell(tmp_path, ED_KEY) == (
+        "SSH Workbench: the key was already installed.\n"
+    )
+    assert keys_file.read_bytes() == existing
 
 
 def test_windows_install_counts_a_key_whose_options_hold_a_hash(

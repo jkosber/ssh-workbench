@@ -420,6 +420,16 @@ def test_sigint_handler_is_restored_on_every_launch_outcome(
         signal.signal(signal.SIGINT, original_handler)
 
 
+def test_the_shield_counts_each_ctrl_c() -> None:
+    before = ssh.ctrl_c_count()
+    with ssh.ssh_handoff():
+        handler = signal.getsignal(signal.SIGINT)
+        handler(signal.SIGINT, None)
+        handler(signal.SIGINT, None)
+
+    assert ssh.ctrl_c_count() == before + 2
+
+
 @pytest.mark.parametrize("lookup_error", [False, True])
 def test_sigint_during_resolution_does_not_cancel_asyncio_runner(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, lookup_error: bool

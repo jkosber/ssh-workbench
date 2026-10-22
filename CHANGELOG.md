@@ -11,6 +11,27 @@ Changes by release, newest first. Version numbers follow the policy in
   removes emSign ECC Root CA - G3 from uv's bundled CA certificates after that
   root's intermediate keys were compromised
   ([GHSA-hq85-5cpj-mr62](https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62)).
+- Development and CI use Python 3.14.8, which fixes six CVEs in `ssl`,
+  `zipfile`, `tarfile`, `urllib.request` and stringprep, and updates the
+  OpenSSL bundled on Windows and macOS to 3.5.9
+  ([release notes](https://www.python.org/downloads/release/python-3148/)).
+
+### Fixed
+
+- Ctrl+C during key setup reads as interrupted even when the tool then exits
+  0, as Windows ssh can while it connects, so K no longer says "Key login
+  works." or saves a direct machine's key after Ctrl+C. Workbench counts the
+  Ctrl+C itself, and no later step starts. On Windows, ssh-keygen's
+  passphrase prompt takes Ctrl+C as a key and exits 255, which still shows as
+  that status; SSH's own prompts have not been checked.
+- K refuses a key too large for the Windows install command, an RSA key over
+  about 6000 bits, before it connects, instead of failing after the password
+  prompt.
+- A 30-second status check no longer replaces a check still running, so a
+  machine whose check takes longer than 30 seconds leaves Checking. R stays
+  dimmed until the alias checks of the last startup or R have reported, so
+  pressing it repeatedly no longer starts a second set of `ssh -G` processes
+  beside the first.
 
 ## 0.2.1 - 2026-10-21
 

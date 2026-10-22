@@ -248,6 +248,10 @@ For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
 startup and on **R** only: `ssh -G` reads your whole SSH config, including
 any `Match exec` lines that run commands, so the 30-second timer reuses the
 last answer. The details pane shows "via alias" rather than the host.
+**R** stays dimmed until the alias checks of the last startup or **R** have
+all reported, so it never starts a second set of `ssh -G` runs beside them,
+and a 30-second check waits for any check still running, so a slow check
+still shows its result.
 
 The symbols turn and pulse only while animations are on; set
 `TEXTUAL_ANIMATIONS=none` to keep them still.
@@ -304,17 +308,21 @@ or passphrase: SSH and `ssh-keygen` ask for them.
      shell is cmd.exe. An administrator's key goes into
      `C:\ProgramData\ssh\administrators_authorized_keys`, which may grant
      access only to SYSTEM and Administrators (sshd ignores it otherwise);
-     other accounts use `%USERPROFILE%\.ssh\authorized_keys`.
+     other accounts use `%USERPROFILE%\.ssh\authorized_keys`. cmd.exe
+     limits the command's length, so Workbench refuses an RSA key larger
+     than about 6000 bits before connecting; Ed25519 keys and 4096-bit
+     RSA keys fit.
 3. **Test it.** SSH logs in once more allowing only public-key authentication
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
    with a passphrase works: SSH asks for it. The test can also pass with
    another key SSH offers: any key `ssh <alias>` would use, or one named in a
    `Host` entry that matches a direct machine's address. When the alias's
    config doesn't name the key you picked, a passing test says SSH may have
-   used another key. Ctrl+C stops the setup. Workbench reports it as
-   interrupted when the tool's exit status shows it. On Windows, ssh-keygen
-   exits 255 after Ctrl+C at its passphrase prompt, which shows as that status,
-   and ssh can exit 0, which reads as success.
+   used another key. Ctrl+C stops the setup: Workbench reports it as
+   interrupted, whatever the tool's exit status, and starts no later step. On
+   Windows, ssh-keygen's passphrase prompt takes Ctrl+C as a key, so Workbench
+   never sees it; ssh-keygen then exits 255, which shows as that status.
+   SSH's own password and passphrase prompts have not been checked.
 
 A direct machine's chosen key is saved as its `key` once the login test
 passes. An alias machine's SSH config decides its keys, and Workbench never

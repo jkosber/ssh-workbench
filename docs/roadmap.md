@@ -614,6 +614,10 @@ Acceptance:
 
 ## 16. Release 0.2.1
 
+**Merged in [PR #20](https://github.com/jkosber/ssh-workbench/pull/20)** as
+`bfb3789`, containing tested head `e4057ac`; the merge tree matches that head,
+and the annotated `v0.2.1` tag points at `bfb3789`.
+
 Jadon asked on 2026-10-21 to release Task 15's fixes as 0.2.1 and tag it. No
 GitHub Release and no visibility change.
 
@@ -625,9 +629,52 @@ Acceptance:
 - [x] Full checks, a fresh build, an isolated install of the wheel and the
   package check pass. See the
   [Task 16 evidence](validation.md#task-16-021-release-2026-10-21).
-- [ ] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
+- [x] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.1` tag on the merge commit that installs
-  from GitHub.
+  from GitHub. See the
+  [Task 16 evidence](validation.md#task-16-021-release-2026-10-21).
+
+## 17. 0.2.2 fixes
+
+Jadon started this task on 2026-10-21 with the 0.2.x candidates below and a
+Python security update. Setting version 0.2.2 and tagging it are a separate
+decision.
+
+Acceptance:
+
+- [x] Record PR #20's integration and PR #21's CI, and tick Task 16's last box.
+- [x] Development moves from Python 3.14.7 to 3.14.8, in its own commit, for
+  its six CVE fixes (`ssl`, `zipfile`, `tarfile`, `urllib.request`,
+  `stringprep`) and updated bundled OpenSSL. 3.14.9 adds only bundled pip and
+  certifi, and uv 0.13.4 has no Linux build of it. The notes on what was
+  inspected on 3.14.7 stay; whatever 3.14.8 changes in `webbrowser`,
+  `argparse`, `asyncio` or `subprocess` is inspected again. See the
+  [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
+- [x] The seven form tests from the Task 16 candidate wait for the condition
+  they assert, in a test-only commit. A scratch plugin that removes
+  `pilot.pause()`'s CPU-idle wait makes them fail before and pass after.
+- [x] Ctrl+C during K's steps reads as an interruption whatever the step's exit
+  status: Workbench counts each Ctrl+C that reaches its shield and compares the
+  count around each step. Once it has seen one, no later step runs. A native
+  check first shows that ssh does not catch Ctrl+C and carry on. Connect's
+  messages do not change.
+- [x] New tests: an alias's login test interrupted with a key its config
+  doesn't name gives no hint; an `authorized_keys` holding a commented and an
+  active copy of the key counts as installed, in both scripts.
+- [x] A key whose Windows install command would not fit is refused before the
+  handoff with `This key is too large for the Windows install command, which
+  cmd.exe limits to 8191 characters. Use an Ed25519 key or an RSA key of up to
+  4096 bits; nothing was installed.` Windows sshd runs the command as
+  `"c:\windows\system32\cmd.exe" /c "<command>"`, and cmd.exe counts that
+  whole line, so the command may have 8156 characters. The same key still
+  installs on a POSIX target.
+- [x] No timer round starts while a check of the current round is still
+  running. R is dimmed while a review or `ssh -G` of any round is still
+  running, so repeated R never starts overlapping `ssh -G` runs. See the
+  [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
+- [x] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
+  native Windows Terminal check of Ctrl+C with local children; README,
+  changelog and validation updated; a fresh review.
 
 ## 0.1.x candidates
 
@@ -645,6 +692,8 @@ items; Task 8 took the R/D, help line, status line, folder, empty-file,
 Minor review findings from the 0.2.0 tasks, deferred as non-blocking. Task 15
 took the CLIXML record, the Ctrl+C status, the alias login test's missing hint
 on success, the key saved after a failed test and the commented-out key.
+Task 17 took Task 10's overlapping rounds, Task 12's large RSA keys, both Task
+15 Ctrl+C and test items, and Task 16's form tests.
 
 - Task 7: `test_no_external_actions_rejects_every_shared_boundary` passes even
   without a direct `subprocess.run` guard, because the guarded `Popen` fails
@@ -680,9 +729,6 @@ on success, the key saved after a failed test and the commented-out key.
   without asserting them.
 - Task 10: a save or timer round during a resolving round drops that round's
   `ssh -G` answers, so an alias shows "press R" until the next R.
-- Task 10: timer rounds start while checks are still running. A machine whose
-  check takes over 30 seconds (slow DNS for several names) never leaves
-  Checking, and repeated R starts overlapping `ssh -G` processes.
 - Task 10: a `Match exec` command could open the terminal and draw over the
   screen; proposal: `start_new_session=True` on POSIX and `CREATE_NO_WINDOW` on
   Windows for `ssh -G`.
@@ -703,10 +749,6 @@ on success, the key saved after a failed test and the commented-out key.
   U presses; one test waits 0.2 s of real time for a negative result.
 - Task 12: a late `ssh -G` answer for K opens the picker even after C or an
   edit in between; a second K while it resolves is ignored without a hint.
-- Task 12: large RSA keys make the Windows command longer than cmd.exe
-  accepts; refuse them before the handoff with a clear message. Since Task 15
-  the largest that fits is 6704 bits with no comment and 6104 bits with a
-  100-character one (0.2.0: 7384 and 6760).
 - Task 12: the "doesn't name this key" note ignores configured keys whose
   `.pub` is missing.
 - Task 12: the picker can open with no choices; "Key setup interrupted." names
@@ -729,22 +771,8 @@ on success, the key saved after a failed test and the commented-out key.
   tests.
 - Task 14: the login test also accepts keys from a `Host` entry in the user's
   SSH config that matches a direct machine's address (documented).
-- Task 15: after Ctrl+C, Windows ssh-keygen exits 255 and ssh can exit 0, so
-  those interruptions read as a failure or, for the login test, as "Key login
-  works.", which now also saves a direct machine's key. Ctrl+C at the login
-  test's passphrase prompt is unchecked. Proposal, after a native check that
-  SSH does not catch Ctrl+C and continue during these steps: a flag set by the
-  parent's shield handler during each `run_native` call.
-- Task 15: no test covers an alias's login test interrupted with an unnamed key
-  (the hint is dropped), or a file holding both a commented and an active copy
-  of the key (it counts as installed).
 - Task 15: an error thrown by the Windows script may also reach the terminal as
   CLIXML; unchecked.
-- Task 16: seven form tests rely on `pilot.pause()`'s CPU-idle heuristic and
-  fail when it is removed: six `test_inline_error_names_the_field_and_blocks_saving`
-  direct-machine cases and `test_huge_port_is_an_error_not_a_crash`. Wait for
-  the condition they assert instead, as `test_startup_shows_checking_then_each_result`
-  now does.
 
 ## Deferred ideas
 

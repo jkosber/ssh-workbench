@@ -66,6 +66,7 @@ from ssh_workbench.keys import (
 from ssh_workbench.links import LinkResult, open_link
 from ssh_workbench.ssh import (
     SSHLaunchError,
+    ctrl_c_count,
     find_ssh,
     install_arguments,
     interrupted,
@@ -385,6 +386,11 @@ class SSHWorkbenchApp(App[None]):
         self._pending_aliases: set[str] = set()
         # True while a startup or R round still reviews or resolves aliases.
         self._resolving = False
+        # Machines whose check in this round has not reported; the timer waits.
+        self._checking: set[str] = set()
+        # Reviews and ssh -G checks still running, from any round. R waits for
+        # them, so it never starts a second set of ssh -G runs beside them.
+        self._resolves_running = 0
         # The machine and new alias a first U warned about.
         self._update_armed: tuple[str, str] | None = None
         # The machine whose alias K is resolving, if any.
@@ -596,8 +602,9 @@ class SSHWorkbenchApp(App[None]):
         # exit stops both first. Timers and results do nothing in that window.
         if not self.is_running:
             return
-        # A timer round would replace a startup or R round still resolving.
-        if self._resolving:
+        # A timer round would replace a startup or R round still resolving, or
+        # a check still running, whose result would then never show.
+        if self._resolving or self._checking:
             return
         if self.machines and not self._connecting and not self._rebuilding:
             self._start_round(resolve=False)
@@ -609,6 +616,7 @@ class SSHWorkbenchApp(App[None]):
         an alias that vanished never reaches ssh -G or a port check.
         """
         self._round += 1
+        self._checking = set()
         aliases = [machine.alias for machine in self.machines if machine.alias]
         reviewing = resolve and bool(aliases)
         self._resolving = reviewing
@@ -623,9 +631,13 @@ class SSHWorkbenchApp(App[None]):
         if reviewing:
             first = self.config_path if not self._memory_loaded else None
             arguments = (self._round, aliases, self._memory, first)
+            # Counted first: a review that cannot start reports at once.
+            self._resolves_running += 1
             if not self._start_thread(self._review_aliases, arguments):
                 self.on_aliases_reviewed(AliasesReviewed(self._round, (), None))
                 return
+            # The footer dims R until the review reports.
+            self.refresh_bindings()
         self._show_statuses()
 
     def _start_thread(self, target: Callable[..., None], arguments: tuple) -> bool:
@@ -642,6 +654,9 @@ class SSHWorkbenchApp(App[None]):
         target = self._targets.get(machine.alias) if machine.alias else None
         arguments = (self._round, machine, resolve, known, target)
         if self._start_thread(self._check, arguments):
+            self._checking.add(machine.id)
+            if resolve and machine.alias is not None:
+                self._resolves_running += 1
             return True
         self._statuses[machine.id] = MachineStatus(
             State.UNKNOWN, reason="the check could not start"
@@ -680,6 +695,7 @@ class SSHWorkbenchApp(App[None]):
                 pass
 
     def on_aliases_reviewed(self, message: AliasesReviewed) -> None:
+        self._resolve_reported()
         if (
             self._status_closed.is_set()
             or not self.is_running
@@ -704,6 +720,17 @@ class SSHWorkbenchApp(App[None]):
             self._round_resolved()
         self._show_statuses()
         self.refresh_bindings()
+
+    def _resolve_reported(self) -> None:
+        """A review or ssh -G check reported, from this round or an older one."""
+        self._resolves_running -= 1
+        if (
+            not self._resolves_running
+            and self.is_running
+            and not self._status_closed.is_set()
+        ):
+            # R is offered again.
+            self.refresh_bindings()
 
     def _round_resolved(self) -> None:
         """Every alias of this startup or R round has reported."""
@@ -770,12 +797,15 @@ class SSHWorkbenchApp(App[None]):
                 pass
 
     def on_status_finished(self, message: StatusFinished) -> None:
+        if message.alias is not None:
+            self._resolve_reported()
         if (
             self._status_closed.is_set()
             or not self.is_running
             or message.round != self._round
         ):
             return
+        self._checking.discard(message.machine_id)
         if message.alias is not None:
             self._targets[message.alias] = message.target
             if message.target is not None and self._memory is not None:
@@ -830,7 +860,12 @@ class SSHWorkbenchApp(App[None]):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "refresh":
-            ready = self.checker is not None and self._browsing() and self.machines
+            ready = (
+                self.checker is not None
+                and self._browsing()
+                and self.machines
+                and not self._resolves_running
+            )
             return True if ready else None
         if action == "add":
             return True if self._browsing() and self.config_path is not None else None
@@ -1346,17 +1381,33 @@ class SSHWorkbenchApp(App[None]):
             except KeySetupError as error:
                 self._show_key_result(machine, str(error))
                 return
+        if plan.windows and not plan.choice.create:
+            # cmd.exe limits the command's length, so a large RSA key is refused
+            # before the handoff; a new Ed25519 key always fits.
+            private = plan.choice.private
+            try:
+                windows_install_command(
+                    read_public_key(private.with_name(f"{private.name}.pub"))
+                )
+            except KeySetupError as error:
+                self._show_key_result(machine, str(error))
+                return
         machine_list = self.query_one(ListView)
         works = False
         self._connecting = True
         self.refresh_bindings()
+        # Counted from here, so a Ctrl+C while the terminal is handed over
+        # stops the first step too.
+        pressed = ctrl_c_count()
         with ssh_handoff():
             try:
                 with self.suspend():
                     # As for C: errors stay inside the suspension block, so
                     # the terminal is always handed back.
                     try:
-                        message, works = self._key_steps(machine, plan, setting)
+                        message, works = self._key_steps(
+                            machine, plan, setting, pressed
+                        )
                     except (SSHLaunchError, KeySetupError) as error:
                         message = str(error)
                     except KeyboardInterrupt:
@@ -1370,6 +1421,12 @@ class SSHWorkbenchApp(App[None]):
                 self._connecting = False
                 machine_list.focus()
                 self.refresh_bindings()
+            # Windows runs Workbench's Ctrl+C handler on a thread of its own,
+            # which can lose the race with a test that exits 0; handing the
+            # terminal back gives it time to arrive.
+            if works and ctrl_c_count() != pressed:
+                works = False
+                message = _test_failed(machine, setting, None, None)
         if works and setting != machine.key:
             machines = list(self.machines)
             machines[index] = replace(machine, key=setting)
@@ -1382,18 +1439,27 @@ class SSHWorkbenchApp(App[None]):
         self._show_key_result(machine, message)
 
     def _key_steps(
-        self, machine: Machine, plan: KeyPlan, setting: str | None
+        self, machine: Machine, plan: KeyPlan, setting: str | None, pressed: int
     ) -> tuple[str, bool]:
         """Runs while the terminal is handed over; returns the result and
         whether key-only login works, which a new machine key needs before
-        it is saved."""
+        it is saved. `pressed` is the Ctrl+C count when the handoff began."""
         choice = plan.choice
+
+        def run(arguments: list[str], name: str = "SSH") -> int | None:
+            # A step's status, or None once Ctrl+C has reached Workbench: Windows
+            # ssh can exit 0 after it, and no later step may start.
+            if ctrl_c_count() != pressed:
+                return None
+            status = run_native(arguments, name)
+            if interrupted(status) or ctrl_c_count() != pressed:
+                return None
+            return status
+
         if choice.create:
             print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
-            status = run_native(
-                keygen_arguments(choice.private, machine.id), "ssh-keygen"
-            )
-            if interrupted(status):
+            status = run(keygen_arguments(choice.private, machine.id), "ssh-keygen")
+            if status is None:
                 return "Key setup interrupted.", False
             if status != 0:
                 return (
@@ -1407,8 +1473,8 @@ class SSHWorkbenchApp(App[None]):
         )
         ssh = find_ssh()
         print("SSH Workbench: installing the key; SSH may ask for the password.")
-        status = run_native([ssh, *install_arguments(machine, address, command)])
-        if interrupted(status):
+        status = run([ssh, *install_arguments(machine, address, command)])
+        if status is None:
             return "Key setup interrupted.", False
         if status != 0:
             return (
@@ -1417,7 +1483,7 @@ class SSHWorkbenchApp(App[None]):
             ), False
         tested = machine if setting is None else replace(machine, key=setting)
         print("SSH Workbench: testing key-only login.")
-        status = run_native([ssh, *login_test_arguments(tested, address)])
+        status = run([ssh, *login_test_arguments(tested, address)])
         if status == 0:
             # A hint means the alias's config doesn't name this key, so SSH
             # offered other keys and the test cannot show which one worked.
@@ -1427,18 +1493,7 @@ class SSHWorkbenchApp(App[None]):
                     f"{choice.hint}"
                 ), True
             return "Key login works.", True
-        if interrupted(status):
-            message = "The key was installed, but the login test was interrupted."
-        else:
-            message = (
-                "The key was installed, but key-only login failed "
-                f"(SSH exited with status {status})."
-            )
-            if choice.hint:
-                message += f" {choice.hint}"
-        if setting != machine.key:
-            message += " The key was not saved as this machine's key."
-        return message, False
+        return _test_failed(machine, setting, status, choice.hint), False
 
     def _show_key_result(self, machine: Machine, message: str) -> None:
         ids = [item.id for item in self.machines]
@@ -1453,6 +1508,25 @@ def _home() -> Path | None:
         return Path.home()
     except RuntimeError:
         return None
+
+
+def _test_failed(
+    machine: Machine, setting: str | None, status: int | None, hint: str | None
+) -> str:
+    """Why the login test did not show key login works; `status` is None when
+    Ctrl+C interrupted it, and an interrupted test says nothing about keys."""
+    if status is None:
+        message = "The key was installed, but the login test was interrupted."
+    else:
+        message = (
+            "The key was installed, but key-only login failed "
+            f"(SSH exited with status {status})."
+        )
+        if hint:
+            message += f" {hint}"
+    if setting != machine.key:
+        message += " The key was not saved as this machine's key."
+    return message
 
 
 def _has_public_key(private: Path) -> bool:

@@ -109,7 +109,7 @@ control.
 
 | Decision | Reason |
 | --- | --- |
-| Python 3.14.7 for development, minimum >=3.14 | A supported stable interpreter already available at bootstrap; one version keeps the initial CI matrix small |
+| Python 3.14.8 for development, minimum >=3.14 | A supported stable interpreter: 3.14.7 at bootstrap, 3.14.8 since Task 17 for its security fixes; one version keeps the initial CI matrix small |
 | Textual as the only direct runtime dependency | Terminal layout, keyboard handling and headless tests without a web backend |
 | Standard-library argparse and metadata | Help/version need no extra CLI framework or duplicated version constant |
 | uv with its build backend and a `src/` layout | One tool for environments, a committed lockfile and installable artifacts; tests exercise an installed package |
@@ -205,7 +205,7 @@ resolving every `STATUS_INTERVAL` (30 s) and after each save:
 | Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
 | Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, standard output captured, standard error discarded and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read; the host and user are never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
 | Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
-| Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R. Timer rounds, animation ticks, status and link results and a pending rebuild do nothing once `App.is_running` is False: when Pilot's `run_test` tears the app down, Textual removes the screens while app timers and messages still run. A normal exit stops both first |
+| Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R. A timer round is skipped while the current round still reviews aliases or has a check that hasn't reported, so a check slower than the interval still shows its result. R is dimmed while a review or resolving check of any round, one a save replaced included, is still running, so R never starts a second set of `ssh -G` runs beside them; K's own `ssh -G` is not counted. Timer rounds, animation ticks, status and link results and a pending rebuild do nothing once `App.is_running` is False: when Pilot's `run_test` tears the app down, Textual removes the screens while app timers and messages still run. A normal exit stops both first |
 | Connect | A direct machine connects to the address its latest status found online, else the first listed |
 
 `StatusSymbol` is a small widget, not a `Static`, so the name `Static` in a
@@ -271,11 +271,11 @@ printed `SSH Workbench:` line before each. A nonzero status stops the steps.
 | Public key | `keys.parse_public_key`: one line of at most 16 KiB with no control characters; a known type; strict base64 whose length-prefixed strings use every byte and start with the same type. A comment outside `[A-Za-z0-9._@+-]` words, or longer than 100 characters, is dropped |
 | Create | `ssh-keygen -t ed25519 -f <path> -C ssh-workbench-<id>`, where the file is `id_ed25519_<id>` with dashes turned into underscores; `ssh-keygen` is found like `ssh` on absolute PATH entries, and a lookup error becomes a launch error inside the handoff |
 | POSIX install | `exec sh -c '<script>'`, so any login shell runs it: `umask 077`, create `~/.ssh` and `authorized_keys`, `chmod 700`/`600`, and append the key line unless `grep -qF` finds its base64 on a line whose first non-blank character is not `#` (both greps with `LC_ALL=C`, so lines with non-UTF-8 bytes still count), adding a newline first when the file lacks one. The script holds no single quote and no `!`; the key line sits in double quotes |
-| Windows install | `powershell -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64>`, so cmd.exe and PowerShell default shells run the same script, with `$ProgressPreference = 'SilentlyContinue'` so no CLIXML progress record reaches the terminal. Comment lines are skipped when looking for the key. An identity whose claims include `S-1-5-32-544` (deny-only included) uses `%ProgramData%\ssh\administrators_authorized_keys`, then gets an ACL with only FullControl for `S-1-5-32-544` and `S-1-5-18`, inheritance removed, checked by reading it back; others use `%USERPROFILE%\.ssh\authorized_keys`. A 4096-bit RSA key keeps the command under cmd.exe's 8191 characters |
+| Windows install | `powershell -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64>`, so cmd.exe and PowerShell default shells run the same script, with `$ProgressPreference = 'SilentlyContinue'` so no CLIXML progress record reaches the terminal. Comment lines are skipped when looking for the key. An identity whose claims include `S-1-5-32-544` (deny-only included) uses `%ProgramData%\ssh\administrators_authorized_keys`, then gets an ACL with only FullControl for `S-1-5-32-544` and `S-1-5-18`, inheritance removed, checked by reading it back; others use `%USERPROFILE%\.ssh\authorized_keys`. Windows sshd runs a command as `"c:\windows\system32\cmd.exe" /c "<command>"`, and cmd.exe takes a command line of at most 8191 characters, so the command may have 8156. A key that would make it longer, an RSA key over 6008 bits with a 100-character comment or over 6608 bits with none, is refused before the handoff; a 4096-bit RSA key fits |
 | Install arguments | `ssh.install_arguments`: `RemoteCommand=none`, since SSH refuses a command next to an alias's own `RemoteCommand`; the connect arguments without `-i`, since the new key is not installed yet; then the command after the destination |
 | Login test | `ssh.login_test_arguments`: `PreferredAuthentications=publickey`, `PasswordAuthentication=no`, `KbdInteractiveAuthentication=no`, `ControlPath=none` so a connection the install left open can't skip authentication, `RemoteCommand=none`, the connect arguments (a direct machine with the chosen key and `IdentitiesOnly=yes`), then `exit`. No `BatchMode`, so a passphrase key works |
 | Afterwards | A direct machine's chosen key is saved through `_save` once its login test passes, as `~/.ssh/<name>` in the real SSH folder or an absolute path; otherwise the result says it was not saved. For an alias, a key its config does not name carries the `IdentityFile` line in the picker and in the test's result, passing or failing |
-| Interruption | `ssh.interrupted`: a POSIX child killed by SIGINT, 0xC000013A or 0xFFFFFFFF. Such a status from ssh-keygen or the install reads "Key setup interrupted."; from the login test, "The key was installed, but the login test was interrupted." Connect reports statuses as they are |
+| Interruption | A step is interrupted when its status is one `ssh.interrupted` names (a POSIX child killed by SIGINT, 0xC000013A or 0xFFFFFFFF), or when `ssh.ctrl_c_count()`, which the shield raises for each Ctrl+C, changed since just before the handoff: Windows ssh can exit 0 after Ctrl+C. Once it changed, no later step starts. Windows runs the parent's handler on a thread of its own, which can lose the race with a child's exit, so the count is read again once the terminal is handed back, and a passing test then reads as interrupted. ssh-keygen or the install then reads "Key setup interrupted."; the login test, "The key was installed, but the login test was interrupted." ssh-keygen's passphrase prompt on Windows takes Ctrl+C as a key, so the shield never sees it there; SSH's own prompts are unchecked. Connect reports statuses as they are |
 
 ## Implemented native SSH boundary
 
@@ -531,6 +531,20 @@ Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
 
+## References checked for task 17
+
+- [Python 3.14.8 changelog](https://docs.python.org/release/3.14.8/whatsnew/changelog.html)
+
+The notes above that name Python 3.14.7 record what was inspected then. 3.14.8
+changes `asyncio` transports, `start_tls` hostname checks and call-graph
+records, and `str()` of `subprocess.CalledProcessError`; nothing in
+`webbrowser` or `argparse`. The CPython `v3.14.7..v3.14.8` diff leaves
+`asyncio/runners.py`, `signal`, `subprocess.run` and `Popen.wait`,
+`os.startfile`, `webbrowser` and `argparse` unchanged, so those notes still
+hold. A Windows console read that Ctrl+C cancels now starts over
+(gh-72353); Workbench reads no console input itself, and Textual reads it
+through `ReadConsoleInputW`.
+
 ## References checked for task 13
 
 - [ssh_config(5)](https://man.openbsd.org/ssh_config): `Include` (relative files are in `~/.ssh`; inside a `Host` or `Match` block it applies only to that block), first obtained value wins, `%` tokens in `IdentityFile`, `HostKeyAlias`
@@ -598,4 +612,4 @@ contains `%(prog)`.
 - [Textual headless testing](https://textual.textualize.io/guide/testing/)
 - [uv build backend and src layout](https://docs.astral.sh/uv/concepts/build-backend/)
 - [uv in GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/)
-- [Python 3.14.7 release](https://www.python.org/downloads/release/python-3147/)
+- [Python 3.14.8 release](https://www.python.org/downloads/release/python-3148/)

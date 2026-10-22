@@ -27,10 +27,25 @@ class SSHLaunchError(Exception):
     """SSH could not be started; the message is safe to display."""
 
 
+# Every Ctrl+C that has reached the shield. Key setup compares it around each
+# step: after Ctrl+C, Windows ssh can exit 0 while it connects.
+_ctrl_c_count = 0
+
+
 def _wait_for_ssh(signum: int, frame: FrameType | None) -> None:
     # A callable shields the parent without inheriting SIG_IGN in the child.
     # SSH may handle Ctrl+C and continue, so only its exit ends the handoff.
-    pass
+    global _ctrl_c_count
+    _ctrl_c_count += 1
+
+
+def ctrl_c_count() -> int:
+    """How many times Ctrl+C has reached Workbench during a terminal handoff.
+
+    A prompt that reads Ctrl+C as a key, such as ssh-keygen's passphrase
+    prompt on Windows, never sends it here.
+    """
+    return _ctrl_c_count
 
 
 def _which_on_absolute_path(command: str) -> str | None:
@@ -183,7 +198,8 @@ def find_ssh_keygen() -> str:
 # Statuses Ctrl+C leaves: a POSIX child killed by SIGINT, Windows'
 # STATUS_CONTROL_C_EXIT, and the -1 Windows OpenSSH exits with when stopped
 # while it connects. After Ctrl+C, Windows ssh-keygen also exits 255 and ssh
-# may exit 0, which say nothing about an interruption.
+# may exit 0, which say nothing about an interruption; key setup also reads
+# ctrl_c_count.
 _INTERRUPTED = (-signal.SIGINT, 0xC000013A, 0xFFFFFFFF)
 
 
