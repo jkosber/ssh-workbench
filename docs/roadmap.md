@@ -10,25 +10,7 @@ No task is in progress.
 
 ## Next
 
-### 20. UI makeover
-
-A more polished look that adapts to the terminal's size, with the same keys,
-actions and safety rules. Acceptance (proposed, refined when the task starts):
-
-- [ ] A Workbench color theme built from Textual's theme system, with every
-  status still readable without color and still without motion when
-  `TEXTUAL_ANIMATIONS=none`.
-- [ ] A header that names the machine file and counts machines by status.
-- [ ] A compact details pane, so a machine's key and links fit at 80x24
-  without scrolling (a 0.2.x candidate).
-- [ ] Responsive layout: usable from 60x20 to wide terminals, rearranging at
-  width breakpoints instead of squeezing; checked at 60x20, 80x24, 120x40 and
-  200x50.
-- [ ] Forms, pickers and questions share the same look.
-- [ ] The no-file screen names the user guide, not the README, for the
-  machine file's format (found by the Task 19 review).
-- [ ] Tests first for each behavior change; full checks; a native Windows
-  Terminal check at each size; a README screenshot from a real run.
+Nothing is planned yet; the [backlog](#backlog) holds candidates.
 
 ## Backlog
 
@@ -40,7 +22,6 @@ needs its own task before work starts.
 
 | Item | From |
 | --- | --- |
-| At 80x24 the details pane needs scrolling to show a machine's key and links; alias machines spend three rows on "From your SSH config" (planned in Task 20) | 8 |
 | An empty schema 1 file is told to add `[[machines]]` entries, which that schema rejects; the hint should name `schema_version = 2` | 8 |
 | Duplicate messages show internal locations such as `machine.links[1].name` | 9 |
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
@@ -142,6 +123,7 @@ in the pull request description.
 | 17 | Ctrl+C, large-key and status fixes; Python 3.14.8 | [#22](https://github.com/jkosber/ssh-workbench/pull/22) | 0.2.2 |
 | 18 | Release 0.2.2 | [#23](https://github.com/jkosber/ssh-workbench/pull/23) | 0.2.2 |
 | 19 | Documentation and workflow guides; Tasks 1-18 archived | [#24](https://github.com/jkosber/ssh-workbench/pull/24) | Unreleased |
+| 20 | UI makeover: theme, status header, responsive layout | [#25](https://github.com/jkosber/ssh-workbench/pull/25) | Unreleased |
 
 ## Deferred ideas
 

@@ -6,6 +6,7 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 | Section | Covers |
 | --- | --- |
 | [Install, upgrade and remove](#install-upgrade-and-remove) | uv tool commands |
+| [The screen](#the-screen) | What each part shows, at every terminal size |
 | [The machine file](#the-machine-file) | Where it lives, the [schema](#schema) and the value rules |
 | [Adding, editing and deleting](#adding-editing-and-deleting) | The form and how saving works |
 | [Connecting](#connecting) | What C runs and how host keys work |
@@ -34,6 +35,30 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 | Upgrade a clone install | `git pull`, then `uv tool install --reinstall .` |
 | Remove | `uv tool uninstall ssh-workbench`. Your machine file stays where it is |
 | Command not found | Run `uv tool update-shell` and open a new terminal |
+
+## The screen
+
+| Part | Shows |
+| --- | --- |
+| Header | The app's name, and your machines counted by [status](#status), such as `5 machines   ● 3 online   ○ 1 offline`. When the words don't fit, the counts shrink to symbols: `5  ●3 ○1` |
+| Machines | The list, with each machine's status symbol. The highlighted row is the selected machine; a bright border marks the focused pane |
+| Machine details | One row per field for the selected machine. The status takes its color |
+| Help line | The keys for moving around |
+| Status lines | The result of the last connection and the last link |
+| Footer | The keys for each action; dimmed keys can't act right now. Click one to use it |
+
+The layout follows the terminal's size, and changes as soon as you resize the
+window, even while a form is open:
+
+| Terminal | Layout |
+| --- | --- |
+| Under 60 columns | The list sits above the details, the footer wraps onto two rows, and the help line hides |
+| 60 to 109 columns | The list and details side by side |
+| 110 columns or more | Each row in the list also shows where the machine connects: its alias, or its first address |
+| Under 20 rows | The help line hides and the link result takes two rows instead of three |
+
+Workbench draws its own colors, so it looks the same in any terminal theme.
+Every status keeps its own symbol and word, so nothing depends on color.
 
 ## The machine file
 
@@ -187,7 +212,8 @@ over, such as Textual Web, show a message instead of starting SSH.
 ## Status
 
 Each machine shows its status as a symbol in the list and as a word in the
-details, with color on top:
+details, with color on top; the header counts each status except Not
+checked:
 
 | Symbol | Status | Meaning |
 | --- | --- | --- |
@@ -372,7 +398,8 @@ at a time, and Q still quits while it waits.
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
 C, O, A, E, X, K, R and Q also appear in the footer and can be clicked; O is
-labelled Link and R Check there. Keys that can't act right now are dimmed or
+labelled Link and R Check there. Under 60 columns the footer shows them on
+two rows. Keys that can't act right now are dimmed or
 hidden:
 
 | Key | Dimmed or hidden when |

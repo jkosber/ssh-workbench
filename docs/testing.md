@@ -80,8 +80,14 @@ uv run --locked ssh-workbench --config examples/machines.example.toml
 At 80x24: the list, details and footer draw; Up and Down change the selected
 machine and its details; Tab moves between the panes; Page Up and Page Down
 scroll the details; R checks again; Q exits, and a second run exits with
-Ctrl+Q. After each exit the shell prompt, echo and keys work normally. Resize
-through 60x20 and 120x40 while it runs.
+Ctrl+Q. After each exit the shell prompt, echo and keys work normally.
+
+Resize while it runs: under 60 columns the list moves above the details and
+the footer wraps onto two rows; at 110 columns or more each row shows where
+it connects; under 20 rows the help line hides. Resize once with a form open
+(E, then Escape): the browser behind it follows. Windows Terminal will not go
+narrower than about 47 columns. If everything is grey, the shell has
+`NO_COLOR` set (coding agents set it); `Remove-Item Env:NO_COLOR` first.
 
 ### Terminal handoff: `scripts/check_terminal.py`
 

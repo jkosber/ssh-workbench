@@ -28,6 +28,31 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 20: UI makeover, 2026-10-22
+
+Windows 11, Windows Terminal, Python 3.14.8, Textual 8.2.8. An owned window
+driven by keystrokes and window resizes, with `NO_COLOR` removed and
+`APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointing at empty
+ignored folders; a copy of the example machine file. No SSH connection and no
+browser.
+
+| Check | Observed |
+| --- | --- |
+| 80x24 | Rounded borders, the title chip and colored counts drew as designed; the header read `2 machines   ◐ 1 checking   ◇ 1 can't check`, then `○ 1 offline` once the fictional host's check ended. Every detail field of the alias machine fit without scrolling |
+| 60x20 | Side by side; the header kept words; the footer on one row |
+| 47x16, the narrowest Windows Terminal allows | The list above the details, the header as symbols (`2  ○1 ◇1`), all eight footer keys on two rows, the help line hidden |
+| 120x40 and 199x46, the largest that fits this screen | Each row showed its alias or address on the right; details one line per field |
+| Form during a resize | E at 120x40 opened the themed form; resizing to 51x21 with it open, then Escape, left the browser stacked with the footer on two rows |
+| Help line at 51x21 | Wrapped onto two rows in the first run; after hiding it below 60 columns, a restart showed none |
+| Quit | Q, and Ctrl+Q after a restart, returned to a working prompt (`echo` answered) |
+| README image | `.local/task20-session/demo.py` ran the app at 110x22 on five fictional machines with a stand-in checker (no network, no `ssh -G`); the window was cropped to the terminal area |
+| Fresh review | An Opus reviewer found no critical issue and one important one: the no-file screen's box took its longest line's width, so at 60 columns and below a long path and the format sentence ran off the screen. Fixed test first; at 50x20 in Windows Terminal the box then fit the width and scrolled down for the rest. Five minor findings were fixed in code comments and docs; sharing the three copies of the status colors was left as optional |
+| Ruff check and format, `uv run --locked pytest` | Passed; 1077 passed |
+
+Not checked: 200x50 natively (the screen fits 46 rows; the headless test
+covers 200x50), Linux and macOS terminals, light terminal themes (Workbench
+paints its own background), and screen readers.
+
 ## Task 19: documentation and workflow, 2026-10-22
 
 Windows 11, Python 3.14.8, uv 0.13.4. Documentation only; no code changed.
