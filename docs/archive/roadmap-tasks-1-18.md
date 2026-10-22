@@ -12,7 +12,7 @@ personal context, but does not maintain another set of acceptance criteria.
 
 The bootstrap establishes the unreleased 0.0.1 scaffold: packaging, startup,
 help/version, keyboard exit, tests, CI configuration and development documentation.
-It does not complete any product feature below. See [validation](validation.md)
+It does not complete any product feature below. See [validation](validation-tasks-1-18.md)
 for evidence and remaining verification limits.
 
 ## 1. Load and validate local project metadata
