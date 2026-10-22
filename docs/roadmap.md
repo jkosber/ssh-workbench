@@ -641,8 +641,8 @@ Acceptance:
 Released as 0.2.2 by Task 18.
 
 Jadon started this task on 2026-10-21 with the 0.2.x candidates below and a
-Python security update. Setting version 0.2.2 and tagging it are a separate
-decision.
+Python security update. Setting version 0.2.2 and tagging it were a separate
+decision, made the same day.
 
 Acceptance:
 
