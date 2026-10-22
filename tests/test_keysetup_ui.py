@@ -492,6 +492,45 @@ async def test_ctrl_c_between_steps_stops_the_later_ones(
     assert path.read_text(encoding="utf-8") == text
 
 
+async def test_a_ctrl_c_that_reaches_workbench_after_the_test_still_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Windows runs the parent's Ctrl+C handler on a thread of its own, which
+    # can lose the race with a child that exits 0; here it arrives while the
+    # terminal is handed back.
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    monkeypatch.setattr(
+        HeadlessDriver, "resume_application_mode", lambda self: press_ctrl_c()
+    )
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == f"{INTERRUPTED_TEST} Machine 1: box"
+    assert [Native.step(call) for call in native.calls] == ["install", "test"]
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_ctrl_c_while_the_terminal_is_handed_over_stops_every_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    monkeypatch.setattr(
+        HeadlessDriver, "suspend_application_mode", lambda self: press_ctrl_c()
+    )
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == "Key setup interrupted. Machine 1: box"
+    assert native.calls == []
+    assert path.read_text(encoding="utf-8") == text
+
+
 async def test_an_earlier_ctrl_c_does_not_interrupt_the_next_key_setup(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

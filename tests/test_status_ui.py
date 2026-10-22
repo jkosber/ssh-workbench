@@ -477,3 +477,44 @@ async def test_checks_that_cannot_start_leave_the_timer_and_r_working(
         started = app._round
         app._timer_round()
         assert app._round == started + 1
+
+
+def refresh_key(app: SSHWorkbenchApp):
+    keys = app.query_one(Footer).query("FooterKey")
+    return next((key for key in keys if key.action == "refresh"), None)
+
+
+def r_dimmed(app: SSHWorkbenchApp) -> bool | None:
+    """Whether the footer shows R dimmed; None while the footer has no R."""
+    key = refresh_key(app)
+    return None if key is None else key.has_class("-disabled")
+
+
+async def test_the_footer_dims_r_while_the_review_it_started_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    release = threading.Event()
+    reviews: list[Path] = []
+    read = app_module.host_names
+
+    def slow_host_names(folder: Path, skip: Path | None = None) -> list[str]:
+        reviews.append(folder)
+        # The startup review runs at once; the one R starts waits.
+        if len(reviews) > 1:
+            assert release.wait(10)
+        return read(folder, skip=skip)
+
+    monkeypatch.setattr(app_module, "host_names", slow_host_names)
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    try:
+        async with app.run_test() as pilot:
+            await checked(app, pilot)
+            await wait_for(pilot, lambda: r_dimmed(app) is False)
+            await pilot.press("r")
+            await wait_for(pilot, lambda: len(reviews) == 2)
+            await wait_for(pilot, lambda: r_dimmed(app) is True)
+            release.set()
+            await checked(app, pilot)
+            await wait_for(pilot, lambda: r_dimmed(app) is False)
+    finally:
+        release.set()
