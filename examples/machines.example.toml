@@ -1,7 +1,7 @@
 # Example machine file. All names, aliases, addresses and links below are fictional.
 # Copy it to the default location shown by `ssh-workbench --help` and edit it,
 # or try it from a clone: ssh-workbench --config examples/machines.example.toml
-# The README's Configuration section describes every field.
+# The schema in docs/guide.md describes every field.
 
 schema_version = 2
 

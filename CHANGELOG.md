@@ -1,9 +1,17 @@
 # Changelog
 
 Changes by release, newest first. Version numbers follow the policy in
-[CONTRIBUTING](CONTRIBUTING.md#versions-and-deliberate-releases).
+[the workflow guide](docs/workflow.md#versions).
 
 ## Unreleased
+
+### Documentation
+
+- The README is now a short landing page; the full reference moved to
+  [the user guide](docs/guide.md). New guides cover
+  [the workflow](docs/workflow.md) and [testing](docs/testing.md), and the
+  roadmap and validation log for Tasks 1-18 moved to
+  [the archive](docs/archive/).
 
 ## 0.2.2 - 2026-10-21
 

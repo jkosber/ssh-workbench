@@ -1,180 +1,82 @@
 # Contributing
 
+SSH Workbench is developed by Jadon Kosberg with coding agents. The repository
+is private for now; these notes are written so that others can join once it is
+public.
+
+| Read | For |
+| --- | --- |
+| [Workflow](docs/workflow.md) | How a task goes from idea to release, and who approves what |
+| [Testing](docs/testing.md) | The automated checks and the manual terminal checks |
+| [Architecture](docs/architecture.md) | How the code is organized and its safety boundaries |
+| [AGENTS.md](AGENTS.md) | The rules coding agents follow, which apply to people too |
+
 ## Set up once
 
-Start in this repository so both uv and the coding agent find the project
-instructions. Read [README.md](README.md) and [AGENTS.md](AGENTS.md), then run:
+Work from the repository folder, so uv and coding agents find the project
+files:
 
 ```text
 git status --short --branch
 uv sync --locked
-uv run --locked ssh-workbench
+uv run --locked ssh-workbench --config examples/machines.example.toml
 ```
 
-uv creates `.venv` with the Python version in `.python-version`. It installs the
-package in editable mode, so source changes are available on the next run.
-`pyproject.toml` declares dependencies; `uv.lock` records the resolved versions.
-`--locked` fails if those files disagree instead of silently changing the lock.
+| Piece | What it does |
+| --- | --- |
+| `.python-version` | The Python version uv installs into `.venv`; don't change your global Python |
+| `pyproject.toml` | Dependencies and the application version |
+| `uv.lock` | The exact resolved versions. `--locked` fails if it disagrees with `pyproject.toml` instead of silently changing it |
+| Editable install | Source changes take effect on the next run |
 
-Without `--config`, the development command loads your real per-user machine
-file if it exists, A, E, X and U change it, and Workbench keeps
-`machines.state.<computer>.json` next to it; `ssh-workbench --help` shows its
-path. Git ignores `*.state.*.json`, so running the example file leaves no
-tracked change. The add form also reads `Host` lines from your real SSH
-config, and at startup and on R Workbench runs `ssh -G` on it for each alias
-machine and checks every machine's SSH port. The test suite never touches
-either: it points `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` at
-an empty folder. For a manual run, use `--config`
-with a file under `.local/` and set `SSH_WORKBENCH_SSH_DIR` to a fictional
-folder there. Keep private configuration and machine-specific notes in the ignored
-`.local/` folder, and review files before staging: ignore rules cannot catch
-every possible secret.
+Add a runtime dependency with `uv add PACKAGE` or a development tool with
+`uv add --dev PACKAGE`, only when the current task needs it, and commit
+`pyproject.toml` and `uv.lock` together. Never edit `uv.lock` by hand.
 
-Use `uv add PACKAGE` for a runtime dependency or `uv add --dev PACKAGE` for a
-development tool. Add a dependency only when the current task needs it. Review
-and commit both metadata and lockfile changes together when authorized.
+## Your real files
 
-## Everyday Git and coding-agent workflow
+Without `--config`, `uv run --locked ssh-workbench` uses your real machine file:
+A, E, X and U change it, and a state file appears next to it. The app also
+reads `Host` lines from your real SSH config, runs `ssh -G` on it for alias
+machines and checks every machine's SSH port. For manual runs, point it at
+ignored folders first, as [the testing guide](docs/testing.md#manual-checks-in-a-real-terminal)
+shows. The test suite never touches real files.
 
-1. Inspect `git status --short --branch` and read any existing changes. Preserve
-   unrelated work. If a prior change is unclear, resolve that before mixing work.
-2. Choose one task from [the roadmap](docs/roadmap.md). Ask the coding agent to
-   implement that task and its acceptance tests, stating what is outside scope.
-3. From a clean, current `main`, make a short-lived branch such as
-   `git switch -c feat/project-config`. A branch names a line of development;
-   it is not a numbered copy of the project directory.
-4. Implement and test a small change. Update affected documentation, meaningful
-   Unreleased notes and observed validation evidence.
-5. Review `git diff --check`, `git diff` and `git status --short`. Check behavior,
-   test assertions and every new file, including examples and lockfile changes.
-6. When Jadon instructs a commit, stage only intended paths with `git add PATH`.
-   Review `git diff --cached --stat` and `git diff --cached` before committing.
-   A commit is a local snapshot; `git push -u origin BRANCH` sends it to GitHub
-   and needs the applicable push authorization. Inspect CI before merging.
+Keep private configuration and notes in the ignored `.local/` folder, and look
+at every file before staging it: ignore rules cannot catch every secret.
 
-Commits, pushes, merges, tags, releases and publication are separate decisions,
-each needing Jadon's authorization. Start coding-agent sessions from this
-repository so the agent reads [AGENTS.md](AGENTS.md). The agent assists
-development; the installed application works without a coding agent or AI account.
+## Everyday commands
 
-## Run and interpret checks
+| Command | Purpose |
+| --- | --- |
+| `uv run --locked ssh-workbench --config examples/machines.example.toml` | Run the app on fictional machines |
+| `uv run --locked ssh-workbench --help` / `--version` | Help, with the default machine file's path / the version |
+| `uv run --locked pytest` | The test suite |
+| `uv run --locked ruff format .` | Format the code |
+| `uv run --locked ruff check .` | Lint |
+| `uv build` then `uv run --locked python scripts/check_package.py` | Build and test the installed wheel |
 
-Run the same commands locally and in CI:
+## Project rules
 
-```text
-uv sync --locked
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-uv run --locked pytest
-uv build
-uv run --locked python scripts/check_package.py
-```
-
-- **Ruff check:** reports unused imports and other selected code problems. Read
-  the file and line in each message; fix the cause.
-- **Formatting:** a failure means formatting differs. Run
-  `uv run --locked ruff format .`, review the result and rerun the check.
-- **pytest:** each failed assertion points to behavior that needs investigation.
-  Do not weaken a test to hide a defect. Async UI tests use Textual's headless
-  pilot; they do not contact hosts or inspect private files.
-- **Build and package check:** produce a source archive and wheel under `dist/`,
-  then install the wheel with locked runtime dependencies in a temporary virtual
-  environment. Help, version and loading a fictional TOML file are exercised
-  outside the checkout, along with missing-configuration errors and headless
-  CLI-to-browser selection/quit and substituted SSH success, failure and
-  interruption, plus explicit link outcomes and quit with a blocked browser
-  opener. Isolated Python mode and imported-module path assertions check the
-  wheel rather than the checkout. The checks that import the installed package
-  live in `scripts/package_smoke.py`, which `check_package.py` runs with
-  `python -I`. A build alone does not prove SSH functionality or interactive
-  terminal compatibility.
-
-`scripts/external_boundaries.py` lists the module-level process, network and
-browser entry points that guarded tests, fixtures and package checks reject.
-Add a new module-level entry point there, not to an individual test. Socket
-`connect` and `connect_ex` are patched separately, once the event loop exists,
-because Windows opens a local socket pair when the loop starts.
-
-Also try `uv run --locked ssh-workbench --help`, `--version`, and the application
-itself, with and without `--config examples/machines.example.toml` and with
-`SSH_WORKBENCH_SSH_DIR` set to a fictional folder under `.local/`. The
-example's status checks look up its fictional names in DNS and try the
-documentation-range address 192.0.2.40; check
-selection, details, scrolling and both exit shortcuts. Record what was actually
-observed in [validation](docs/validation.md). CI uses the same commands on Linux
-and Windows with the Python version in `.python-version`; a queued run is not a
-passing run.
-
-For native terminal handoff, run `uv run --locked python scripts/check_terminal.py`
-in a real terminal and follow the [fixture checklist](docs/validation.md#task-3-local-terminal-fixture).
-It replaces executable lookup and child invocation before using the production
-launcher, so it never invokes SSH or reads SSH files. Do not use real aliases,
-keys or inventories in tests. A real connection requires separate approval for
-the specific target and action.
-
-For link actions, run `uv run --locked python scripts/check_links.py` and follow
-the [link fixture checklist](docs/validation.md#task-8-link-fixture-checklist).
-It replaces browser/OS boundaries, uses fictional machines and guards against
-other external actions. A real O action in the normal application opens a
-browser and requires an explicitly approved URL for development verification.
-
-For key setup, run `uv run --locked python scripts/check_keys.py` in a real
-terminal and press K. It works in a temporary folder with fictional keys,
-and local children stand in for `ssh-keygen` and SSH; `--keygen-status`,
-`--install-status` and `--test-status` choose their exit statuses, and
-`--folder` reuses a folder so a second run shows a saved key. A real key
-install needs approval for the specific target.
+| Rule | Detail |
+| --- | --- |
+| One task at a time | Implement only the task at hand; keep the `src/` layout and runtime dependencies small |
+| Tests first | Commit failing tests before the code; never change a test in the commit that implements the code. Fix the code to match the tests |
+| Fictional data only | Tests and fixtures never read real SSH files, keys, inventories or the real machine file, and never reach real hosts or browsers |
+| OpenSSH owns security | Authentication, host-key checks and private keys stay with the native SSH client |
+| Textual is pinned below 9 | The terminal handoff was verified only on the locked 8.2.8 |
+| Docs follow behavior | A change a user would notice updates the guide and the changelog |
 
 ## Recover without losing work
 
-If something looks wrong, pause and inspect `git status` and `git diff` first.
-Keep a private copy of uncertain uncommitted work before discarding anything.
-`git restore --staged PATH` unstages a file while retaining its working changes.
-To investigate old code, use `git log --oneline` and `git show COMMIT:PATH`.
-
-Prefer an explicitly reviewed `git revert COMMIT` to undo a committed change
-that has been shared. Ask before discarding working changes or rewriting
-history. Do not default to `git reset --hard`, `git clean -fd` or force-pushing.
-If a command or signing requirement fails, diagnose it without bypassing hooks,
-authentication or signing policy.
-
-## Versions and deliberate releases
-
-The authoritative application version is `[project].version` in
-`pyproject.toml`. `--version` reads installed package metadata. Do not add a
-second version file, bump versions per session, or create numbered source folders.
-
-| Version | Meaning |
+| Situation | Safe step |
 | --- | --- |
-| 0.0.1 | Development scaffold before the first release |
-| 0.1.0 | First usable release, tagged privately |
-| 0.1.1 | Example later bug-fix release |
-| 0.2.0 | Machines replace projects, tagged privately |
-| 0.2.1 | Key setup fixes from real use, tagged privately |
-| 0.2.2 | Ctrl+C, large-key and status fixes, tagged privately |
-| 1.0.0 | A deliberately chosen stable release later |
+| Something looks wrong | Read `git status` and `git diff` first |
+| Uncertain uncommitted work | Keep a private copy before discarding anything |
+| A file staged by mistake | `git restore --staged PATH` keeps its changes |
+| Need old code | `git log --oneline`, then `git show COMMIT:PATH` |
+| Undo a shared commit | A reviewed `git revert COMMIT` |
+| A hook or signing step fails | Find the cause; never bypass hooks, authentication or signing |
 
-Rows 0.1.1 and 1.0.0 describe policy, not promised releases. Until stability is
-deliberately declared, document compatibility changes explicitly.
-
-Manual release checklist:
-
-1. Review completed scope and validation, then choose a version. Resolve the
-   license and privacy checklist before a public release; visibility changes
-   need their own approval. Run `git grep -n -i -E "unreleased|scaffold"` and
-   update every line that describes the current state, including the
-   `pyproject.toml` description and the app subtitle.
-2. Update `pyproject.toml`, run `uv lock` as needed and `uv sync --locked`, and
-   review the metadata/lockfile diff.
-3. Run the full checks above, including a fresh build and isolated installation.
-   Complete the approved manual checks appropriate to the release.
-4. Move relevant Unreleased notes into a dated changelog entry, leaving an
-   Unreleased section for later work.
-5. Review and commit the release changes when authorized. Keep the existing Git
-   identity and any signing requirements.
-6. When authorized, create an annotated tag, for example
-   `git tag -a v0.1.0 -m "Release 0.1.0"` on the intended release commit.
-7. When authorized, push the intended branch and exact tag, for example
-   `git push origin main` and `git push origin v0.1.0`. Check remote state and CI.
-8. Create a GitHub Release only when explicitly requested. Package publication
-   also needs separate approval; there is no publishing automation here.
+Ask before discarding work or rewriting history. Avoid `git reset --hard`,
+`git clean -fd` and force-pushing.

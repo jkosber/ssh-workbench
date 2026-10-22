@@ -1,12 +1,22 @@
 ## Purpose
 
-What changes for the user? Link the relevant roadmap task.
+Which roadmap task this is, and what changes for the user.
 
-## Validation
+## Acceptance
 
-List checks run and their results. State what remains untested.
+The task's acceptance criteria from the roadmap, ticked. This copy is their
+record once the task leaves the roadmap.
 
-## Documentation
+## Checks
 
-Note relevant documentation, roadmap and Unreleased changelog updates, or why
-none are needed. Confirm that fixtures and evidence contain no private details.
+- [ ] `ruff check`, `ruff format --check`, `pytest`, `uv build` and `check_package.py` pass
+- [ ] Manual terminal checks, if the screen, terminal handoff or SSH changed (recorded in `docs/validation.md`)
+
+What remains untested:
+
+## Docs
+
+- [ ] User guide or README, if behavior changed
+- [ ] Changelog line under Unreleased, if a user would notice
+- [ ] Roadmap row moved to Done
+- [ ] No private hosts, aliases, addresses, paths or credentials in code, fixtures or evidence
