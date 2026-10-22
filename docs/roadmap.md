@@ -123,7 +123,7 @@ in the pull request description.
 | 17 | Ctrl+C, large-key and status fixes; Python 3.14.8 | [#22](https://github.com/jkosber/ssh-workbench/pull/22) | 0.2.2 |
 | 18 | Release 0.2.2 | [#23](https://github.com/jkosber/ssh-workbench/pull/23) | 0.2.2 |
 | 19 | Documentation and workflow guides; Tasks 1-18 archived | [#24](https://github.com/jkosber/ssh-workbench/pull/24) | Unreleased |
-| 20 | UI makeover: theme, status header, responsive layout | pending | Unreleased |
+| 20 | UI makeover: theme, status header, responsive layout | [#25](https://github.com/jkosber/ssh-workbench/pull/25) | Unreleased |
 
 ## Deferred ideas
 
