@@ -295,8 +295,11 @@ async def test_no_file_screen_fits_narrow_terminals(size: tuple[int, int]) -> No
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
+        # The message may be taller than a short screen, which scrolls; it
+        # must never be wider, which nothing can scroll to.
         empty = app.query_one("#empty-state", Static)
-        assert app.screen.region.contains_region(empty.region)
+        screen = app.screen.region
+        assert screen.x <= empty.region.x and empty.region.right <= screen.right
         lines = [empty.render_line(y).text.rstrip() for y in range(empty.region.height)]
         assert any(line.endswith("format.") for line in lines)
 
