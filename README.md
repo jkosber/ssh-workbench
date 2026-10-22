@@ -248,6 +248,9 @@ For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
 startup and on **R** only: `ssh -G` reads your whole SSH config, including
 any `Match exec` lines that run commands, so the 30-second timer reuses the
 last answer. The details pane shows "via alias" rather than the host.
+**R** is dimmed while an earlier `ssh -G` is still running, so it never
+starts another alongside it, and a 30-second check waits for any check
+still running, so a slow check still shows its result.
 
 The symbols turn and pulse only while animations are on; set
 `TEXTUAL_ANIMATIONS=none` to keep them still.

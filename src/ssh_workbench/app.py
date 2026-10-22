@@ -386,6 +386,11 @@ class SSHWorkbenchApp(App[None]):
         self._pending_aliases: set[str] = set()
         # True while a startup or R round still reviews or resolves aliases.
         self._resolving = False
+        # Machines whose check in this round has not reported; the timer waits.
+        self._checking: set[str] = set()
+        # Reviews and ssh -G checks still running, from any round. R waits for
+        # them, so ssh -G runs never overlap.
+        self._resolves_running = 0
         # The machine and new alias a first U warned about.
         self._update_armed: tuple[str, str] | None = None
         # The machine whose alias K is resolving, if any.
@@ -597,8 +602,9 @@ class SSHWorkbenchApp(App[None]):
         # exit stops both first. Timers and results do nothing in that window.
         if not self.is_running:
             return
-        # A timer round would replace a startup or R round still resolving.
-        if self._resolving:
+        # A timer round would replace a startup or R round still resolving, or
+        # a check still running, whose result would then never show.
+        if self._resolving or self._checking:
             return
         if self.machines and not self._connecting and not self._rebuilding:
             self._start_round(resolve=False)
@@ -610,6 +616,7 @@ class SSHWorkbenchApp(App[None]):
         an alias that vanished never reaches ssh -G or a port check.
         """
         self._round += 1
+        self._checking = set()
         aliases = [machine.alias for machine in self.machines if machine.alias]
         reviewing = resolve and bool(aliases)
         self._resolving = reviewing
@@ -624,6 +631,8 @@ class SSHWorkbenchApp(App[None]):
         if reviewing:
             first = self.config_path if not self._memory_loaded else None
             arguments = (self._round, aliases, self._memory, first)
+            # Counted first: a review that cannot start reports at once.
+            self._resolves_running += 1
             if not self._start_thread(self._review_aliases, arguments):
                 self.on_aliases_reviewed(AliasesReviewed(self._round, (), None))
                 return
@@ -643,6 +652,9 @@ class SSHWorkbenchApp(App[None]):
         target = self._targets.get(machine.alias) if machine.alias else None
         arguments = (self._round, machine, resolve, known, target)
         if self._start_thread(self._check, arguments):
+            self._checking.add(machine.id)
+            if resolve and machine.alias is not None:
+                self._resolves_running += 1
             return True
         self._statuses[machine.id] = MachineStatus(
             State.UNKNOWN, reason="the check could not start"
@@ -681,6 +693,7 @@ class SSHWorkbenchApp(App[None]):
                 pass
 
     def on_aliases_reviewed(self, message: AliasesReviewed) -> None:
+        self._resolve_reported()
         if (
             self._status_closed.is_set()
             or not self.is_running
@@ -705,6 +718,17 @@ class SSHWorkbenchApp(App[None]):
             self._round_resolved()
         self._show_statuses()
         self.refresh_bindings()
+
+    def _resolve_reported(self) -> None:
+        """A review or ssh -G check reported, from this round or an older one."""
+        self._resolves_running -= 1
+        if (
+            not self._resolves_running
+            and self.is_running
+            and not self._status_closed.is_set()
+        ):
+            # R is offered again.
+            self.refresh_bindings()
 
     def _round_resolved(self) -> None:
         """Every alias of this startup or R round has reported."""
@@ -771,12 +795,15 @@ class SSHWorkbenchApp(App[None]):
                 pass
 
     def on_status_finished(self, message: StatusFinished) -> None:
+        if message.alias is not None:
+            self._resolve_reported()
         if (
             self._status_closed.is_set()
             or not self.is_running
             or message.round != self._round
         ):
             return
+        self._checking.discard(message.machine_id)
         if message.alias is not None:
             self._targets[message.alias] = message.target
             if message.target is not None and self._memory is not None:
@@ -831,7 +858,12 @@ class SSHWorkbenchApp(App[None]):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action == "refresh":
-            ready = self.checker is not None and self._browsing() and self.machines
+            ready = (
+                self.checker is not None
+                and self._browsing()
+                and self.machines
+                and not self._resolves_running
+            )
             return True if ready else None
         if action == "add":
             return True if self._browsing() and self.config_path is not None else None
