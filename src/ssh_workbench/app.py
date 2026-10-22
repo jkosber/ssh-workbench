@@ -636,6 +636,8 @@ class SSHWorkbenchApp(App[None]):
             if not self._start_thread(self._review_aliases, arguments):
                 self.on_aliases_reviewed(AliasesReviewed(self._round, (), None))
                 return
+            # The footer dims R until the review reports.
+            self.refresh_bindings()
         self._show_statuses()
 
     def _start_thread(self, target: Callable[..., None], arguments: tuple) -> bool:
@@ -1394,13 +1396,18 @@ class SSHWorkbenchApp(App[None]):
         works = False
         self._connecting = True
         self.refresh_bindings()
+        # Counted from here, so a Ctrl+C while the terminal is handed over
+        # stops the first step too.
+        pressed = ctrl_c_count()
         with ssh_handoff():
             try:
                 with self.suspend():
                     # As for C: errors stay inside the suspension block, so
                     # the terminal is always handed back.
                     try:
-                        message, works = self._key_steps(machine, plan, setting)
+                        message, works = self._key_steps(
+                            machine, plan, setting, pressed
+                        )
                     except (SSHLaunchError, KeySetupError) as error:
                         message = str(error)
                     except KeyboardInterrupt:
@@ -1414,6 +1421,12 @@ class SSHWorkbenchApp(App[None]):
                 self._connecting = False
                 machine_list.focus()
                 self.refresh_bindings()
+            # Windows runs Workbench's Ctrl+C handler on a thread of its own,
+            # which can lose the race with a test that exits 0; handing the
+            # terminal back gives it time to arrive.
+            if works and ctrl_c_count() != pressed:
+                works = False
+                message = _test_failed(machine, setting, None, None)
         if works and setting != machine.key:
             machines = list(self.machines)
             machines[index] = replace(machine, key=setting)
@@ -1426,13 +1439,12 @@ class SSHWorkbenchApp(App[None]):
         self._show_key_result(machine, message)
 
     def _key_steps(
-        self, machine: Machine, plan: KeyPlan, setting: str | None
+        self, machine: Machine, plan: KeyPlan, setting: str | None, pressed: int
     ) -> tuple[str, bool]:
         """Runs while the terminal is handed over; returns the result and
         whether key-only login works, which a new machine key needs before
-        it is saved."""
+        it is saved. `pressed` is the Ctrl+C count when the handoff began."""
         choice = plan.choice
-        pressed = ctrl_c_count()
 
         def run(arguments: list[str], name: str = "SSH") -> int | None:
             # A step's status, or None once Ctrl+C has reached Workbench: Windows
@@ -1481,18 +1493,7 @@ class SSHWorkbenchApp(App[None]):
                     f"{choice.hint}"
                 ), True
             return "Key login works.", True
-        if status is None:
-            message = "The key was installed, but the login test was interrupted."
-        else:
-            message = (
-                "The key was installed, but key-only login failed "
-                f"(SSH exited with status {status})."
-            )
-            if choice.hint:
-                message += f" {choice.hint}"
-        if setting != machine.key:
-            message += " The key was not saved as this machine's key."
-        return message, False
+        return _test_failed(machine, setting, status, choice.hint), False
 
     def _show_key_result(self, machine: Machine, message: str) -> None:
         ids = [item.id for item in self.machines]
@@ -1507,6 +1508,25 @@ def _home() -> Path | None:
         return Path.home()
     except RuntimeError:
         return None
+
+
+def _test_failed(
+    machine: Machine, setting: str | None, status: int | None, hint: str | None
+) -> str:
+    """Why the login test did not show key login works; `status` is None when
+    Ctrl+C interrupted it, and an interrupted test says nothing about keys."""
+    if status is None:
+        message = "The key was installed, but the login test was interrupted."
+    else:
+        message = (
+            "The key was installed, but key-only login failed "
+            f"(SSH exited with status {status})."
+        )
+        if hint:
+            message += f" {hint}"
+    if setting != machine.key:
+        message += " The key was not saved as this machine's key."
+    return message
 
 
 def _has_public_key(private: Path) -> bool:
