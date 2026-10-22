@@ -16,6 +16,22 @@ Changes by release, newest first. Version numbers follow the policy in
   OpenSSL bundled on Windows and macOS to 3.5.9
   ([release notes](https://www.python.org/downloads/release/python-3148/)).
 
+### Fixed
+
+- Ctrl+C during key setup reads as interrupted even when the tool then exits
+  0, as Windows ssh can while it connects, so K no longer says "Key login
+  works." or saves a direct machine's key after Ctrl+C. Workbench counts the
+  Ctrl+C itself, and no later step starts. On Windows, a password or
+  passphrase prompt can take Ctrl+C as a key; the tool then exits 255, which
+  still shows as that status.
+- K refuses a key too large for the Windows install command, an RSA key over
+  about 6000 bits, before it connects, instead of failing after the password
+  prompt.
+- A 30-second status check no longer replaces a check still running, so a
+  machine whose check takes longer than 30 seconds leaves Checking. R is
+  dimmed while `ssh -G` from an earlier check is still running, so pressing it
+  repeatedly no longer starts overlapping `ssh -G` processes.
+
 ## 0.2.1 - 2026-10-21
 
 Key setup fixes from use on real machines. Tagged privately.

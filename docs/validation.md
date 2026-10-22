@@ -16,6 +16,56 @@ environment had run 3.14.9 from a system install; it now runs uv's 3.14.8.
 | Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1021 passed |
 | `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.1; the package check passed |
 
+The seven form tests, in a test-only commit, with a scratch pytest plugin that
+replaces `pilot.pause()`'s CPU-idle wait with one event-loop yield:
+
+| Run | Result |
+| --- | --- |
+| `tests/test_forms.py` before | 7 failed, 34 passed, three times out of three: the six direct-machine cases of `test_inline_error_names_the_field_and_blocks_saving` and `test_huge_port_is_an_error_not_a_crash` read an empty error |
+| Fix | Each waits until the field shows an error, then asserts it exactly as before |
+| `tests/test_forms.py` after | 41 passed, three times out of three |
+| Whole suite under the plugin | 1021 passed after the fix; 1043 passed at the end of the task |
+
+Native Ctrl+C check before the code, in an owned 80x24 Windows Terminal
+window. A probe ran each tool through Workbench's own `find_ssh`,
+`find_ssh_keygen` and `run_native`, with a callable SIGINT handler that
+counts, as K's shield does. Local children only, three runs each:
+
+| Tool and step | Exit status | Ctrl+C seen by Workbench | Exit after Ctrl+C |
+| --- | --- | --- | --- |
+| Windows OpenSSH 9.5p2 `ssh -F none`, waiting on a local ProxyCommand that sleeps 60 s | 0 | Yes, once | 8-10 ms |
+| `ssh-keygen` at its passphrase prompt | 255 | No | 8-11 ms; no key file written |
+
+Neither tool carries on after Ctrl+C. The status 0 that read as "Key login
+works." comes with a Ctrl+C that Workbench sees, so counting it fixes that
+case. The passphrase prompt reads Ctrl+C as a key and never passes it on,
+so that 255 stays a status, as it was in 0.2.1. SSH's own password and
+passphrase prompts were not checked: they need a server.
+
+Tests first. Each fix's tests were committed failing before its
+implementation:
+
+| Fix | Failing first | Guards that passed before, as intended |
+| --- | --- | --- |
+| Ctrl+C | `test_the_shield_counts_each_ctrl_c`; six cases of `test_ctrl_c_during_a_step_is_an_interruption_whatever_its_status` (keygen, install and test, each with status 0 and 255); `test_ctrl_c_between_steps_stops_the_later_ones`; `test_an_earlier_ctrl_c_does_not_interrupt_the_next_key_setup`; the Ctrl+C-with-status-0 case of `test_an_alias_login_test_interrupted_with_an_unnamed_key_gives_no_hint` | That test's interrupted-status case; `test_posix_install_counts_an_active_copy_beside_a_commented_one` and its Windows twin, both orders each |
+| Oversized key | `test_windows_command_is_refused_only_past_what_cmd_accepts`; `test_a_key_too_large_for_windows_is_refused_before_the_handoff` | `test_a_key_too_large_for_windows_still_installs_on_posix` |
+| Status rounds | `test_a_timer_round_waits_for_a_check_still_running`; `test_r_is_dimmed_until_every_ssh_g_has_answered`; `test_r_after_a_save_still_waits_for_the_earlier_ssh_g` | `test_checks_that_cannot_start_leave_the_timer_and_r_working` |
+
+The cmd.exe limit, measured locally and read in the Windows OpenSSH source:
+
+| Question | Result |
+| --- | --- |
+| What cmd.exe counts | `cmd.exe /c rem xxxx...` ran up to a whole command line of 8191 characters, its own path and `/c` included, and printed "The command line is too long." past it, with three different prefixes |
+| What Windows sshd runs | Win32-OpenSSH (`w32-doexec.c`, `pwd.c` on `latestw_all`) starts the default shell as `"c:\windows\system32\cmd.exe" /c "<command>"`, 35 characters around the command, so the command may have 8156. Read, not run against a real server |
+| Largest RSA keys that fit | 6608 bits with no comment and 6008 bits with a 100-character one; a 4096-bit key with a 100-character comment makes 7306 characters. Task 15's figures counted only the command against 8191 |
+
+| Check | Agent-observed result |
+| --- | --- |
+| Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1043 passed |
+| `uv build`, `scripts/check_package.py`, `--help`, `--version` | Passed; `ssh-workbench 0.2.1` |
+| `scripts/check_keys.py --test-status 0` in an owned 80x24 Windows Terminal window | Box with `id_a.pub`: the install child finished; Ctrl+C at the test child, which then exited 0, read "The key was installed, but the login test was interrupted. The key was not saved as this machine's key."; the machine file gained no key. K again, Ctrl+C at the install child, which exited 0: "Key setup interrupted.", and no test child ran. Q exited with status 0 |
+| Smoke with a copy of the example file | `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed at empty ignored folders: the list and statuses drew, R checked again, and Q exited with status 0 |
+
 ## uv 0.13.4 security pin, 2026-10-21
 
 Branch `ci/uv-0.13.4`. Windows 11, Python 3.14.9, uv 0.13.4. Jadon asked for uv

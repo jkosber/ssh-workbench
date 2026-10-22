@@ -650,25 +650,28 @@ Acceptance:
   inspected on 3.14.7 stay; whatever 3.14.8 changes in `webbrowser`,
   `argparse`, `asyncio` or `subprocess` is inspected again. See the
   [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
-- [ ] The seven form tests from the Task 16 candidate wait for the condition
+- [x] The seven form tests from the Task 16 candidate wait for the condition
   they assert, in a test-only commit. A scratch plugin that removes
   `pilot.pause()`'s CPU-idle wait makes them fail before and pass after.
-- [ ] Ctrl+C during K's steps reads as an interruption whatever the step's exit
+- [x] Ctrl+C during K's steps reads as an interruption whatever the step's exit
   status: Workbench counts each Ctrl+C that reaches its shield and compares the
   count around each step. Once it has seen one, no later step runs. A native
   check first shows that ssh does not catch Ctrl+C and carry on. Connect's
   messages do not change.
-- [ ] New tests: an alias's login test interrupted with a key its config
+- [x] New tests: an alias's login test interrupted with a key its config
   doesn't name gives no hint; an `authorized_keys` holding a commented and an
   active copy of the key counts as installed, in both scripts.
-- [ ] A key whose Windows install command would reach cmd.exe's 8191-character
-  limit is refused before the handoff with `This key is too large for the
-  Windows install command, which cmd.exe limits to 8191 characters. Use an
-  Ed25519 key or an RSA key of up to 4096 bits; nothing was installed.` The
-  same key still installs on a POSIX target.
-- [ ] No timer round starts while a check of the current round is still
+- [x] A key whose Windows install command would not fit is refused before the
+  handoff with `This key is too large for the Windows install command, which
+  cmd.exe limits to 8191 characters. Use an Ed25519 key or an RSA key of up to
+  4096 bits; nothing was installed.` Windows sshd runs the command as
+  `"c:\windows\system32\cmd.exe" /c "<command>"`, and cmd.exe counts that
+  whole line, so the command may have 8156 characters. The same key still
+  installs on a POSIX target.
+- [x] No timer round starts while a check of the current round is still
   running. R is dimmed while a review or `ssh -G` of any round is still
-  running, so repeated R never starts overlapping `ssh -G` runs.
+  running, so repeated R never starts overlapping `ssh -G` runs. See the
+  [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
 - [ ] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   native Windows Terminal check of Ctrl+C with local children; README,
   changelog and validation updated; a fresh review.

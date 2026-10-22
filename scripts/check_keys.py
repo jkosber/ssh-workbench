@@ -3,9 +3,9 @@
 The app runs on fictional machines in a working folder. Each handed-off step
 starts a local child that says which step it stands for, waits for "return" or
 Ctrl+C and exits with the status chosen on the command line, as Windows ssh can
-exit 0 after Ctrl+C. The key-generation child
-writes a fictional key pair: fixed bytes in the OpenSSH public format, never a
-usable key. No network is used: the status checker reports every port closed.
+exit 0 after Ctrl+C. The key-generation child writes a fictional key pair:
+fixed bytes in the OpenSSH public format, never a usable key. No network is
+used: the status checker reports every port closed.
 """
 
 import argparse
