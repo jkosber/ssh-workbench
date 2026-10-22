@@ -109,7 +109,7 @@ control.
 
 | Decision | Reason |
 | --- | --- |
-| Python 3.14.7 for development, minimum >=3.14 | A supported stable interpreter already available at bootstrap; one version keeps the initial CI matrix small |
+| Python 3.14.8 for development, minimum >=3.14 | A supported stable interpreter: 3.14.7 at bootstrap, 3.14.8 since Task 17 for its security fixes; one version keeps the initial CI matrix small |
 | Textual as the only direct runtime dependency | Terminal layout, keyboard handling and headless tests without a web backend |
 | Standard-library argparse and metadata | Help/version need no extra CLI framework or duplicated version constant |
 | uv with its build backend and a `src/` layout | One tool for environments, a committed lockfile and installable artifacts; tests exercise an installed package |
@@ -531,6 +531,20 @@ Installed Python 3.14.7 `webbrowser` and Textual 8.2.8 worker, message-pump and
 shutdown sources were inspected. Linux dispatch is covered with substituted
 boundaries; it has not been exercised on a Linux desktop.
 
+## References checked for task 17
+
+- [Python 3.14.8 changelog](https://docs.python.org/release/3.14.8/whatsnew/changelog.html)
+
+The notes above that name Python 3.14.7 record what was inspected then. 3.14.8
+changes `asyncio` transports, `start_tls` hostname checks and call-graph
+records, and `str()` of `subprocess.CalledProcessError`; nothing in
+`webbrowser` or `argparse`. The CPython `v3.14.7..v3.14.8` diff leaves
+`asyncio/runners.py`, `signal`, `subprocess.run` and `Popen.wait`,
+`os.startfile`, `webbrowser` and `argparse` unchanged, so those notes still
+hold. A Windows console read that Ctrl+C cancels now starts over
+(gh-72353); Workbench reads no console input itself, and Textual reads it
+through `ReadConsoleInputW`.
+
 ## References checked for task 13
 
 - [ssh_config(5)](https://man.openbsd.org/ssh_config): `Include` (relative files are in `~/.ssh`; inside a `Host` or `Match` block it applies only to that block), first obtained value wins, `%` tokens in `IdentityFile`, `HostKeyAlias`
@@ -598,4 +612,4 @@ contains `%(prog)`.
 - [Textual headless testing](https://textual.textualize.io/guide/testing/)
 - [uv build backend and src layout](https://docs.astral.sh/uv/concepts/build-backend/)
 - [uv in GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/)
-- [Python 3.14.7 release](https://www.python.org/downloads/release/python-3147/)
+- [Python 3.14.8 release](https://www.python.org/downloads/release/python-3148/)

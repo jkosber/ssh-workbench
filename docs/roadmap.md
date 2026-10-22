@@ -643,12 +643,13 @@ decision.
 Acceptance:
 
 - [x] Record PR #20's integration and PR #21's CI, and tick Task 16's last box.
-- [ ] Development moves from Python 3.14.7 to 3.14.8, in its own commit, for
+- [x] Development moves from Python 3.14.7 to 3.14.8, in its own commit, for
   its six CVE fixes (`ssl`, `zipfile`, `tarfile`, `urllib.request`,
   `stringprep`) and updated bundled OpenSSL. 3.14.9 adds only bundled pip and
   certifi, and uv 0.13.4 has no Linux build of it. The notes on what was
   inspected on 3.14.7 stay; whatever 3.14.8 changes in `webbrowser`,
-  `argparse`, `asyncio` or `subprocess` is inspected again.
+  `argparse`, `asyncio` or `subprocess` is inspected again. See the
+  [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
 - [ ] The seven form tests from the Task 16 candidate wait for the condition
   they assert, in a test-only commit. A scratch plugin that removes
   `pilot.pause()`'s CPU-idle wait makes them fail before and pass after.

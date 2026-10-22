@@ -11,6 +11,10 @@ Changes by release, newest first. Version numbers follow the policy in
   removes emSign ECC Root CA - G3 from uv's bundled CA certificates after that
   root's intermediate keys were compromised
   ([GHSA-hq85-5cpj-mr62](https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62)).
+- Development and CI use Python 3.14.8, which fixes six CVEs in `ssl`,
+  `zipfile`, `tarfile`, `urllib.request` and stringprep, and updates the
+  OpenSSL bundled on Windows and macOS to 3.5.9
+  ([release notes](https://www.python.org/downloads/release/python-3148/)).
 
 ## 0.2.1 - 2026-10-21
 

@@ -1,5 +1,21 @@
 # Validation
 
+## Task 17: 0.2.2 fixes, 2026-10-21
+
+Branch `feat/task17-0.2.2-fixes`. Environment as in Task 14, with Python
+3.14.8. Jadon started the task with its scope.
+
+Python moved from 3.14.7 to 3.14.8 in its own commit. The local virtual
+environment had run 3.14.9 from a system install; it now runs uv's 3.14.8.
+
+| Check | Agent-observed result |
+| --- | --- |
+| uv 0.13.4 downloads | 3.14.8 has Linux x86-64 and Windows builds; 3.14.9 has neither |
+| `uv python install 3.14.8 --no-bin`, `uv sync --locked` | The environment was recreated on 3.14.8 with the locked packages; `ssl.OPENSSL_VERSION` is OpenSSL 3.5.9 |
+| Re-inspection | The changelog and the CPython `v3.14.7..v3.14.8` diff change no code that the 3.14.7 notes rely on; see [architecture](architecture.md#references-checked-for-task-17) |
+| Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1021 passed |
+| `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.1; the package check passed |
+
 ## uv 0.13.4 security pin, 2026-10-21
 
 Branch `ci/uv-0.13.4`. Windows 11, Python 3.14.9, uv 0.13.4. Jadon asked for uv
