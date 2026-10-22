@@ -67,18 +67,29 @@ def public_key(seed: int, comment: str) -> PublicKey:
     return PublicKey("ssh-ed25519", blob(seed), comment)
 
 
+def press_ctrl_c() -> None:
+    """Deliver Ctrl+C to Workbench as the console does: to its SIGINT handler."""
+    signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
+
+
 class Native:
-    """Records each handed-off command; ssh-keygen writes a fictional key pair."""
+    """Records each handed-off command; ssh-keygen writes a fictional key pair.
+
+    `ctrl_c` names a step during which Ctrl+C reaches Workbench too; that step
+    still exits with its status, as Windows tools can.
+    """
 
     def __init__(
         self,
         statuses: dict[str, int] | None = None,
         interrupt: str | None = None,
         new_key: str | None = None,
+        ctrl_c: str | None = None,
     ) -> None:
         self.statuses = statuses or {}
         self.interrupt = interrupt
         self.new_key = new_key or public_key(9, "ssh-workbench-box").line
+        self.ctrl_c = ctrl_c
         self.calls: list[list[str]] = []
 
     @staticmethod
@@ -92,6 +103,8 @@ class Native:
         step = self.step(arguments)
         if step == self.interrupt:
             raise KeyboardInterrupt
+        if step == self.ctrl_c:
+            press_ctrl_c()
         if step == "keygen":
             private = Path(arguments[arguments.index("-f") + 1])
             private.write_text("fictional private half\n", encoding="ascii")
@@ -359,6 +372,93 @@ async def test_a_failed_step_stops_the_later_ones(
     assert path.read_text(encoding="utf-8") == text
 
 
+INTERRUPTED_TEST = (
+    "The key was installed, but the login test was interrupted. "
+    "The key was not saved as this machine's key."
+)
+
+
+@pytest.mark.parametrize(
+    ("step", "status", "steps", "message"),
+    [
+        ("keygen", 0, ["keygen"], "Key setup interrupted."),
+        ("keygen", 255, ["keygen"], "Key setup interrupted."),
+        ("install", 0, ["install"], "Key setup interrupted."),
+        ("install", 255, ["install"], "Key setup interrupted."),
+        ("test", 0, ["install", "test"], INTERRUPTED_TEST),
+        ("test", 255, ["install", "test"], INTERRUPTED_TEST),
+    ],
+)
+async def test_ctrl_c_during_a_step_is_an_interruption_whatever_its_status(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    step: str,
+    status: int,
+    steps: list[str],
+    message: str,
+) -> None:
+    native = Native(statuses={step: status}, ctrl_c=step)
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press(*(["down", "down"] if step == "keygen" else []), "enter")
+        await finished(app, pilot)
+        assert connection_status(app) == f"{message} Machine 1: box"
+    assert [Native.step(call) for call in native.calls] == steps
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_ctrl_c_between_steps_stops_the_later_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+
+    def find_ssh() -> str:
+        # ssh-keygen has finished; Ctrl+C arrives while Workbench looks up SSH.
+        press_ctrl_c()
+        return SSH
+
+    monkeypatch.setattr(app_module, "find_ssh", find_ssh)
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("down", "down", "enter")
+        await finished(app, pilot)
+        assert connection_status(app) == "Key setup interrupted. Machine 1: box"
+    assert [Native.step(call) for call in native.calls] == ["keygen"]
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_an_earlier_ctrl_c_does_not_interrupt_the_next_key_setup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native(ctrl_c="test")
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        first = connection_status(app)
+        assert first == f"{INTERRUPTED_TEST} Machine 1: box"
+        native.ctrl_c = None
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await wait_for(pilot, lambda: connection_status(app) != first)
+        assert connection_status(app) == (
+            "Key login works. The key is saved as this machine's key. Machine 1: box"
+        )
+    assert [Native.step(call) for call in native.calls] == [
+        "install",
+        "test",
+        "install",
+        "test",
+    ]
+    assert read_machines(path)[0][0].key == str(folder / "id_a")
+
+
 async def test_a_failed_login_test_does_not_save_the_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -510,6 +610,41 @@ async def test_an_alias_test_passing_with_an_unnamed_key_says_so(
             "Key-only login works, but SSH may have used another key. "
             f"{hint} IdentityFile {folder / 'id_a'} Machine 1: garden"
         )
+    assert path.read_text(encoding="utf-8") == text
+
+
+@pytest.mark.parametrize(
+    "native",
+    [Native(statuses={"test": 0xFFFFFFFF}), Native(ctrl_c="test")],
+    ids=["interrupted-status", "ctrl-c-and-status-0"],
+)
+async def test_an_alias_login_test_interrupted_with_an_unnamed_key_gives_no_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, native: Native
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10",
+        22,
+        proxied=False,
+        user="dev",
+        identity_files=("~/ssh/id_lab",),
+        identities_only=True,
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("down")
+        await pilot.press("enter")
+        await finished(app, pilot)
+        # An interrupted test says nothing about which key SSH used.
+        assert connection_status(app) == (
+            "The key was installed, but the login test was interrupted. "
+            "Machine 1: garden"
+        )
+    assert [Native.step(call) for call in native.calls] == ["install", "test"]
     assert path.read_text(encoding="utf-8") == text
 
 
