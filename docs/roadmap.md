@@ -6,29 +6,36 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
-
-## Next
-
 ### 20. UI makeover
 
-A more polished look that adapts to the terminal's size, with the same keys,
-actions and safety rules. Acceptance (proposed, refined when the task starts):
+Jadon asked on 2026-10-22 to make the UI less bland and to have it work at
+any terminal size. pixel (pixelgui.com) was considered and set aside: it is a
+TypeScript toolkit that runs on Windows only through WSL. The makeover uses
+Textual's own themes, CSS and size breakpoints, with the same keys, actions
+and safety rules.
 
-- [ ] A Workbench color theme built from Textual's theme system, with every
-  status still readable without color and still without motion when
-  `TEXTUAL_ANIMATIONS=none`.
-- [ ] A header that names the machine file and counts machines by status.
-- [ ] A compact details pane, so a machine's key and links fit at 80x24
-  without scrolling (a 0.2.x candidate).
-- [ ] Responsive layout: usable from 60x20 to wide terminals, rearranging at
-  width breakpoints instead of squeezing; checked at 60x20, 80x24, 120x40 and
-  200x50.
+- [ ] A `workbench` color theme, registered with Textual's theme system. Every
+  status stays readable without color (symbol and word) and still without
+  motion when `TEXTUAL_ANIMATIONS=none`.
+- [ ] A one-row header: the app name and a count of machines by status, in
+  words when the terminal is wide enough and in symbols when it is not.
+- [ ] A compact details pane, one row per field, so a machine's key and links
+  fit at 80x24 without scrolling (a 0.2.x candidate); the status value takes
+  its state's color.
+- [ ] Responsive layout from 40x16 up: below 60 columns the list stacks above
+  the details; from 110 columns each row also shows where the machine
+  connects; below 20 rows the help line hides. Resizing while a form is open
+  leaves the browser in the right layout.
 - [ ] Forms, pickers and questions share the same look.
 - [ ] The no-file screen names the user guide, not the README, for the
   machine file's format (found by the Task 19 review).
-- [ ] Tests first for each behavior change; full checks; a native Windows
-  Terminal check at each size; a README screenshot from a real run.
+- [ ] Every existing test passes unchanged. New tests first; full checks; a
+  native Windows Terminal check at 40x16, 60x20, 80x24, 120x40 and 200x50; a
+  README screenshot from a run on fictional machines.
+
+## Next
+
+Nothing is planned yet; the [backlog](#backlog) holds candidates.
 
 ## Backlog
 
