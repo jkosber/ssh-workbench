@@ -65,6 +65,23 @@ The cmd.exe limit, measured locally and read in the Windows OpenSSH source:
 | `uv build`, `scripts/check_package.py`, `--help`, `--version` | Passed; `ssh-workbench 0.2.1` |
 | `scripts/check_keys.py --test-status 0` in an owned 80x24 Windows Terminal window | Box with `id_a.pub`: the install child finished; Ctrl+C at the test child, which then exited 0, read "The key was installed, but the login test was interrupted. The key was not saved as this machine's key."; the machine file gained no key. K again, Ctrl+C at the install child, which exited 0: "Key setup interrupted.", and no test child ran. Q exited with status 0 |
 | Smoke with a copy of the example file | `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed at empty ignored folders: the list and statuses drew, R checked again, and Q exited with status 0 |
+| [PR #22](https://github.com/jkosber/ssh-workbench/pull/22) CI on head `40e52a2` | [Push run 39711743203](https://github.com/jkosber/ssh-workbench/actions/runs/39711743203) and [PR run 39711767394](https://github.com/jkosber/ssh-workbench/actions/runs/39711767394) passed on Windows and Ubuntu with Python 3.14.8, 1043 tests each |
+
+A fresh Opus review of the whole branch found no critical or important issue,
+reproduced the test-first failure counts and the form tests under its own
+no-idle plugin, and listed five minor findings. Four were fixed, the first two
+test first:
+
+| Finding | Fix and test |
+| --- | --- |
+| Windows runs the parent's Ctrl+C handler on a thread of its own, so it can arrive after a test that exits 0, which would again read "Key login works." and save the key | The count is taken before the handoff and read again after the terminal is handed back. `test_a_ctrl_c_that_reaches_workbench_after_the_test_still_counts` (Ctrl+C during the resume) and `test_ctrl_c_while_the_terminal_is_handed_over_stops_every_step` (during the suspend) failed first with "Key login works." |
+| The footer kept showing R as available after R started a review | The round refreshes the bindings when its review starts. `test_the_footer_dims_r_while_the_review_it_started_runs` timed out waiting for the dimmed key first |
+| "`ssh -G` runs never overlap" claimed too much: one round runs one per alias, and K's own `ssh -G` is not counted | README, changelog, architecture and the code comment now say R never starts a second set beside the first |
+| README, changelog and architecture described SSH's own password prompt, which was not checked | They name ssh-keygen's passphrase prompt and say SSH's prompts are unchecked |
+
+Left as a 0.2.x note: two Task 10 candidate lines are stale; "the check could
+not start" now has a test, and "or timer round" was already guarded before
+this task. Full suite after the fixes: 1046 passed.
 
 ## uv 0.13.4 security pin, 2026-10-21
 

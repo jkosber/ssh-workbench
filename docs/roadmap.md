@@ -672,7 +672,7 @@ Acceptance:
   running. R is dimmed while a review or `ssh -G` of any round is still
   running, so repeated R never starts overlapping `ssh -G` runs. See the
   [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
-- [ ] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
+- [x] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   native Windows Terminal check of Ctrl+C with local children; README,
   changelog and validation updated; a fresh review.
 

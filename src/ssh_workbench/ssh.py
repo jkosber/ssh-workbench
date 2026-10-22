@@ -42,8 +42,8 @@ def _wait_for_ssh(signum: int, frame: FrameType | None) -> None:
 def ctrl_c_count() -> int:
     """How many times Ctrl+C has reached Workbench during a terminal handoff.
 
-    A prompt that reads Ctrl+C as a key, such as a passphrase prompt on
-    Windows, never sends it here.
+    A prompt that reads Ctrl+C as a key, such as ssh-keygen's passphrase
+    prompt on Windows, never sends it here.
     """
     return _ctrl_c_count
 

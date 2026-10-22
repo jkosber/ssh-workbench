@@ -248,9 +248,10 @@ For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
 startup and on **R** only: `ssh -G` reads your whole SSH config, including
 any `Match exec` lines that run commands, so the 30-second timer reuses the
 last answer. The details pane shows "via alias" rather than the host.
-**R** is dimmed while an earlier `ssh -G` is still running, so it never
-starts another alongside it, and a 30-second check waits for any check
-still running, so a slow check still shows its result.
+**R** stays dimmed until the alias checks of the last startup or **R** have
+all reported, so it never starts a second set of `ssh -G` runs beside them,
+and a 30-second check waits for any check still running, so a slow check
+still shows its result.
 
 The symbols turn and pulse only while animations are on; set
 `TEXTUAL_ANIMATIONS=none` to keep them still.
@@ -319,9 +320,9 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    config doesn't name the key you picked, a passing test says SSH may have
    used another key. Ctrl+C stops the setup: Workbench reports it as
    interrupted, whatever the tool's exit status, and starts no later step. On
-   Windows, a password or passphrase prompt can take Ctrl+C as a key, so
-   Workbench never sees it; the tool then exits 255, which shows as that
-   status.
+   Windows, ssh-keygen's passphrase prompt takes Ctrl+C as a key, so Workbench
+   never sees it; ssh-keygen then exits 255, which shows as that status.
+   SSH's own password and passphrase prompts have not been checked.
 
 A direct machine's chosen key is saved as its `key` once the login test
 passes. An alias machine's SSH config decides its keys, and Workbench never

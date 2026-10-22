@@ -389,7 +389,7 @@ class SSHWorkbenchApp(App[None]):
         # Machines whose check in this round has not reported; the timer waits.
         self._checking: set[str] = set()
         # Reviews and ssh -G checks still running, from any round. R waits for
-        # them, so ssh -G runs never overlap.
+        # them, so it never starts a second set of ssh -G runs beside them.
         self._resolves_running = 0
         # The machine and new alias a first U warned about.
         self._update_armed: tuple[str, str] | None = None
