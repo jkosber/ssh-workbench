@@ -5,6 +5,13 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Security
+
+- CI uses uv 0.13.4, and builds require `uv_build` 0.13.4 or later. uv 0.13.4
+  removes emSign ECC Root CA - G3 from uv's bundled CA certificates after that
+  root's intermediate keys were compromised
+  ([GHSA-hq85-5cpj-mr62](https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62)).
+
 ## 0.2.1 - 2026-10-21
 
 Key setup fixes from use on real machines. Tagged privately.
