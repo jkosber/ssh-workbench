@@ -1,5 +1,20 @@
 # Validation
 
+## Task 18: 0.2.2 release, 2026-10-21
+
+Branch `feat/task18-release-0.2.2`. Environment as in Task 17. Jadon asked to
+release 0.2.2 and tag it, as 0.2.1 was, and to upgrade his own tool from the
+tag.
+
+| Check | Agent-observed result |
+| --- | --- |
+| `uv lock`, `uv sync --locked` | The lockfile changed only in Workbench's own version, 0.2.1 to 0.2.2 |
+| Current-state lines | `pyproject.toml`, `AGENTS.md`, CONTRIBUTING's version table and the README install line name 0.2.2; Unreleased moved into `## 0.2.2 - 2026-10-21` |
+| Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1046 passed |
+| `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.2; the package check passed |
+| Installed tool | `uv tool install` of the wheel into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`), leaving Jadon's installed 0.2.1 alone; `--version` printed `ssh-workbench 0.2.2` |
+| Installed-tool smoke in an owned 80x24 Windows Terminal window | With `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointing at empty ignored folders and a copy of the example machine file, the list, details and footer drew, Down selected the second machine, and Q exited with status 0 |
+
 ## Task 17: 0.2.2 fixes, 2026-10-21
 
 Branch `feat/task17-0.2.2-fixes`. Environment as in Task 14, with Python
@@ -81,7 +96,14 @@ test first:
 
 Left as a 0.2.x note: two Task 10 candidate lines are stale; "the check could
 not start" now has a test, and "or timer round" was already guarded before
-this task. Full suite after the fixes: 1046 passed.
+this task. Full suite after the fixes: 1046 passed. Task 18 corrected both
+lines.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #22](https://github.com/jkosber/ssh-workbench/pull/22) CI on head `9cc996b` | [Push run 39714027352](https://github.com/jkosber/ssh-workbench/actions/runs/39714027352) and [PR run 39714032314](https://github.com/jkosber/ssh-workbench/actions/runs/39714032314) passed on Windows and Ubuntu, 1046 tests each |
+| Merge | Jadon approved it. Merged as **`b8e37c6`**, guarded on head `9cc996b`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39715258548](https://github.com/jkosber/ssh-workbench/actions/runs/39715258548) passed on Windows and Ubuntu, 1046 tests each |
 
 ## uv 0.13.4 security pin, 2026-10-21
 

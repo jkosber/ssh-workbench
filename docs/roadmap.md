@@ -636,9 +636,13 @@ Acceptance:
 
 ## 17. 0.2.2 fixes
 
+**Merged in [PR #22](https://github.com/jkosber/ssh-workbench/pull/22)** as
+`b8e37c6`, containing tested head `9cc996b`; the merge tree matches that head.
+Released as 0.2.2 by Task 18.
+
 Jadon started this task on 2026-10-21 with the 0.2.x candidates below and a
-Python security update. Setting version 0.2.2 and tagging it are a separate
-decision.
+Python security update. Setting version 0.2.2 and tagging it were a separate
+decision, made the same day.
 
 Acceptance:
 
@@ -675,6 +679,26 @@ Acceptance:
 - [x] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   native Windows Terminal check of Ctrl+C with local children; README,
   changelog and validation updated; a fresh review.
+
+## 18. Release 0.2.2
+
+Jadon asked on 2026-10-21 to release Task 17's fixes as 0.2.2 and tag it, as
+0.2.1 was, and to upgrade his own installed tool from the tag. No GitHub
+Release and no visibility change.
+
+Acceptance:
+
+- [x] Record the PR #22 integration, and correct the two Task 10 candidates
+  that Task 17's review found stale.
+- [x] Set version 0.2.2 with `uv lock`, move Unreleased into a dated 0.2.2
+  changelog entry, and update every line that describes the current release.
+- [x] Full checks, a fresh build, an isolated install of the wheel, the package
+  check and an installed-tool smoke test in Windows Terminal pass. See the
+  [Task 18 evidence](validation.md#task-18-022-release-2026-10-21).
+- [ ] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
+  tested head, and an annotated `v0.2.2` tag on the merge commit that installs
+  from GitHub.
+- [ ] Jadon's own uv tool is upgraded to 0.2.2 from the tag.
 
 ## 0.1.x candidates
 
@@ -727,13 +751,13 @@ Task 17 took Task 10's overlapping rounds, Task 12's large RSA keys, both Task
   network share would pause the screen.
 - Task 9: `test_actions_wait_for_the_rebuilt_list` collects the active bindings
   without asserting them.
-- Task 10: a save or timer round during a resolving round drops that round's
-  `ssh -G` answers, so an alias shows "press R" until the next R.
+- Task 10: a save during a resolving round drops that round's `ssh -G`
+  answers, so an alias shows "press R" until the next R.
 - Task 10: a `Match exec` command could open the terminal and draw over the
   screen; proposal: `start_new_session=True` on POSIX and `CREATE_NO_WINDOW` on
   Windows for `ssh -G`.
-- Task 10: the "the check failed" and "the check could not start" paths have no
-  test; the stale-round test asserts nothing for its removed-machine message.
+- Task 10: the "the check failed" path has no test; the stale-round test
+  asserts nothing for its removed-machine message.
 - Task 10: the spinner test depends on real time, nothing tests the Online
   pulse, and the O label test checks only that "Link" appears in the label.
 - Task 10: a thread starts only to post "press R to resolve this alias", and the

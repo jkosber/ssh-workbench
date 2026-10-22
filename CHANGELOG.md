@@ -5,6 +5,11 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.2.2 - 2026-10-21
+
+Ctrl+C, large-key and status fixes, and security updates for development and
+CI. Tagged privately.
+
 ### Security
 
 - CI uses uv 0.13.4, and builds require `uv_build` 0.13.4 or later. uv 0.13.4
