@@ -1,5 +1,20 @@
 # Validation
 
+## Task 18: 0.2.2 release, 2026-10-21
+
+Branch `feat/task18-release-0.2.2`. Environment as in Task 17. Jadon asked to
+release 0.2.2 and tag it, as 0.2.1 was, and to upgrade his own tool from the
+tag.
+
+| Check | Agent-observed result |
+| --- | --- |
+| `uv lock`, `uv sync --locked` | The lockfile changed only in Workbench's own version, 0.2.1 to 0.2.2 |
+| Current-state lines | `pyproject.toml`, `AGENTS.md`, CONTRIBUTING's version table and the README install line name 0.2.2; Unreleased moved into `## 0.2.2 - 2026-10-21` |
+| Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1046 passed |
+| `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.2; the package check passed |
+| Installed tool | `uv tool install` of the wheel into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`), leaving Jadon's installed 0.2.1 alone; `--version` printed `ssh-workbench 0.2.2` |
+| Installed-tool smoke in an owned 80x24 Windows Terminal window | With `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointing at empty ignored folders and a copy of the example machine file, the list, details and footer drew, Down selected the second machine, and Q exited with status 0 |
+
 ## Task 17: 0.2.2 fixes, 2026-10-21
 
 Branch `feat/task17-0.2.2-fixes`. Environment as in Task 14, with Python

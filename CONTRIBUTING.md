@@ -151,6 +151,7 @@ second version file, bump versions per session, or create numbered source folder
 | 0.1.1 | Example later bug-fix release |
 | 0.2.0 | Machines replace projects, tagged privately |
 | 0.2.1 | Key setup fixes from real use, tagged privately |
+| 0.2.2 | Ctrl+C, large-key and status fixes, tagged privately |
 | 1.0.0 | A deliberately chosen stable release later |
 
 Rows 0.1.1 and 1.0.0 describe policy, not promised releases. Until stability is

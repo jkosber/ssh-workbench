@@ -690,10 +690,11 @@ Acceptance:
 
 - [x] Record the PR #22 integration, and correct the two Task 10 candidates
   that Task 17's review found stale.
-- [ ] Set version 0.2.2 with `uv lock`, move Unreleased into a dated 0.2.2
+- [x] Set version 0.2.2 with `uv lock`, move Unreleased into a dated 0.2.2
   changelog entry, and update every line that describes the current release.
-- [ ] Full checks, a fresh build, an isolated install of the wheel, the package
-  check and an installed-tool smoke test in Windows Terminal pass.
+- [x] Full checks, a fresh build, an isolated install of the wheel, the package
+  check and an installed-tool smoke test in Windows Terminal pass. See the
+  [Task 18 evidence](validation.md#task-18-022-release-2026-10-21).
 - [ ] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.2` tag on the merge commit that installs
   from GitHub.
