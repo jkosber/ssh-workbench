@@ -1,4 +1,9 @@
-# Roadmap
+# Roadmap archive: Tasks 1-18
+
+> Archived on 2026-10-22. This is the roadmap as it stood after Task 18,
+> with the full acceptance criteria of every task from the bootstrap to the
+> 0.2.2 release. It is kept as a record and is no longer updated. The live
+> backlog is [the roadmap](../roadmap.md).
 
 This is the single development backlog. Obsidian may link to a task and record
 personal context, but does not maintain another set of acceptance criteria.
@@ -14,8 +19,8 @@ for evidence and remaining verification limits.
 
 **Merged in PR #1** at `84d392f`; final Task 1 head `c08259a`. The standalone
 loader and its tests are complete. No SSH, discovery, network requests, URL opening or project-selection
-UI was added. See the [schema](../README.md#schema), [Python API](architecture.md#python-api) and
-[task 1 evidence](validation.md#task-1-local-project-metadata-2026-10-09).
+UI was added. See the [schema](../guide.md#schema), [Python API](../architecture.md#python-api) and
+[task 1 evidence](validation-tasks-1-18.md#task-1-local-project-metadata-2026-10-09).
 
 Acceptance criteria:
 
@@ -39,7 +44,7 @@ Acceptance criteria:
   the entire file or private values. Choose a small typed record and one clear
   error type; no schema framework is needed.
 - [x] Confirm or revise the supported example (`examples/projects.example.toml`,
-  replaced in Task 8 by [machines.example.toml](../examples/machines.example.toml))
+  replaced in Task 8 by [machines.example.toml](../../examples/machines.example.toml))
   and document the implemented schema. Private files belong outside Git; the
   loader never creates or overwrites them.
 
@@ -58,22 +63,22 @@ a direct test without a file):
 ## 2. Select projects and inspect details
 
 **Merged in [PR #2](https://github.com/jkosber/ssh-workbench/pull/2)** as `4852e1c`.
-The [final local checks](validation.md#task-2-final-local-verification-2026-10-12)
-and [initial Task 2 validation](validation.md#task-2-project-browser-2026-10-09)
-record the local evidence. [Task 2 remote CI](validation.md#task-2-pr-documentation-and-remote-ci-2026-10-12)
+The [final local checks](validation-tasks-1-18.md#task-2-final-local-verification-2026-10-12)
+and [initial Task 2 validation](validation-tasks-1-18.md#task-2-project-browser-2026-10-09)
+record the local evidence. [Task 2 remote CI](validation-tasks-1-18.md#task-2-pr-documentation-and-remote-ci-2026-10-12)
 also passed on Windows and Ubuntu.
 
-The [2026-10-12 console follow-up](validation.md#task-2-interactive-console-follow-up-2026-10-12)
+The [2026-10-12 console follow-up](validation-tasks-1-18.md#task-2-interactive-console-follow-up-2026-10-12)
 also verifies real 80x24 terminal input, scrolling, errors and return to a working
 PowerShell prompt.
 
-The [browser visual follow-up](validation.md#task-2-browser-visual-follow-up-2026-10-12)
+The [browser visual follow-up](validation-tasks-1-18.md#task-2-browser-visual-follow-up-2026-10-12)
 verifies screenshots and live browser resizing through 80x24, 60x20 and 120x40,
 including selection, pane focus, wrapping and scrolling.
 
-The [native terminal follow-up](validation.md#task-2-native-terminal-follow-up-2026-10-12)
+The [native terminal follow-up](validation-tasks-1-18.md#task-2-native-terminal-follow-up-2026-10-12)
 verifies real WezTerm window resizing, navigation, scrolling and both quit keys.
-The later [desktop screenshot follow-up](validation.md#task-2-desktop-screenshot-follow-up-2026-10-12)
+The later [desktop screenshot follow-up](validation-tasks-1-18.md#task-2-desktop-screenshot-follow-up-2026-10-12)
 adds native Windows Terminal startup and WezTerm appearance evidence. Reinspection
 and independent review corrected an earlier mistaken report of missing project
 names; the captures show both names. Human review remains separate from these
@@ -103,7 +108,7 @@ Acceptance criteria:
   temporary data; application tests guard common connection/process/browser
   boundaries. Existing loader coverage is retained.
 - [x] At the user's request, the agent exercises the
-  [Windows terminal checklist](validation.md#task-2-windows-terminal-checklist),
+  [Windows terminal checklist](validation-tasks-1-18.md#task-2-windows-terminal-checklist),
   including real console flows, native screenshots and WezTerm window resizing.
   Windows Terminal live resizing, other DPI settings and screen readers remain
   outside the verified evidence. Jadon reviews the PR before authorizing merge.
@@ -115,11 +120,11 @@ transfer remain outside Task 2. Task 3 adds the SSH action below.
 
 **Merged in [PR #3](https://github.com/jkosber/ssh-workbench/pull/3)** as `eeb6e39`. Based on
 merged PR #2 at `4852e1c`. Version remains 0.0.1 with unchanged dependencies.
-See [Task 3 evidence](validation.md#task-3-native-ssh-2026-10-12) for automated
+See [Task 3 evidence](validation-tasks-1-18.md#task-3-native-ssh-2026-10-12) for automated
 checks and the real Windows terminal fixture results; no real host was contacted.
 Jadon also confirmed navigation works in Microsoft Windows Terminal on
 2026-10-12. That manual report covers navigation only.
-[Task 3 remote CI](validation.md#task-3-pr-and-remote-ci-2026-10-12) passed on
+[Task 3 remote CI](validation-tasks-1-18.md#task-3-pr-and-remote-ci-2026-10-12) passed on
 Windows and Ubuntu for the implementation and documentation commits.
 
 Acceptance criteria:
@@ -167,9 +172,9 @@ authorize a commit, push, PR, merge, tag or release.
 `0fe97d169a59094dbfdce179480d6889efb4dcdb`. The merge tree matches that head.
 Based on Task 3 merge `eeb6e39bf93a8ba1532503a7a2e0e565f9a9d8f2`.
 Version 0.0.1 and dependencies are unchanged.
-See [Task 4 evidence](validation.md#task-4-errors-and-links-2026-10-12) for new
+See [Task 4 evidence](validation-tasks-1-18.md#task-4-errors-and-links-2026-10-12) for new
 local results, native fixture limits and real-world behavior still untested.
-The [Task 5 preparation record](validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
+The [Task 5 preparation record](validation-tasks-1-18.md#task-5-preparation-and-safe-local-verification-2026-10-12)
 verifies the merge and its own Windows/Ubuntu CI separately from PR checks.
 
 Acceptance: missing configuration, missing SSH, failed connections and cancelled
@@ -217,7 +222,7 @@ and release work remain outside Task 4.
 
 **Merged in [PR #5](https://github.com/jkosber/ssh-workbench/pull/5)** as
 `ac4f6e8`, based on Task 4 merge `9b28e86`. The
-[Task 5 status table](validation.md#task-5-preparation-and-safe-local-verification-2026-10-12)
+[Task 5 status table](validation-tasks-1-18.md#task-5-preparation-and-safe-local-verification-2026-10-12)
 links each record. The 0.1.0 review on 2026-10-20 closed the last box below.
 
 Acceptance:
@@ -225,13 +230,13 @@ Acceptance:
 - [x] Obtain approval for named real-world test targets and actions. Jadon chose
   three SSH aliases and the repository/README URLs; alias names stay in the
   ignored configuration.
-- [x] Record observed behavior with [the manual checklist](validation.md#task-5-user-executed-manual-session).
+- [x] Record observed behavior with [the manual checklist](validation-tasks-1-18.md#task-5-user-executed-manual-session).
   Jadon reported the first SSH handoff in Windows Terminal. The
-  [agent Windows Terminal check](validation.md#task-5-authorized-windows-terminal-check-2026-10-20)
+  [agent Windows Terminal check](validation-tasks-1-18.md#task-5-authorized-windows-terminal-check-2026-10-20)
   completed steps A-D: R/D opened the chosen pages in Chrome, SSH returned with
   status 0, and resizing through 60x20, 120x40 and 80x24 and both quit keys kept
-  the shell usable. [Footer clicks](validation.md#task-5-footer-click-check-2026-10-20)
-  and [two more SSH targets](validation.md#task-5-additional-ssh-targets-and-review-fixes-2026-10-20),
+  the shell usable. [Footer clicks](validation-tasks-1-18.md#task-5-footer-click-check-2026-10-20)
+  and [two more SSH targets](validation-tasks-1-18.md#task-5-additional-ssh-targets-and-review-fixes-2026-10-20),
   including a real timeout with status 255, also passed.
 - [x] Fix material usability issues. The manual checks found none. A whole-project
   review found two defects, fixed after failing tests: an `ssh.exe` in the launch
@@ -243,14 +248,14 @@ Acceptance:
   private `v0.1.0` tag, the MIT license and the Task 6 scope below.
 
 A passing test or completed task does not authorize a release. Follow
-[the manual release checklist](../CONTRIBUTING.md) only when requested.
+[the manual release checklist](../../CONTRIBUTING.md) only when requested.
 
 ## 6. Prepare the 0.1.0 release
 
 **Merged in [PR #6](https://github.com/jkosber/ssh-workbench/pull/6)** as
 `54f6a3e`, based on Task 5 merge `ac4f6e8`, and tagged as the annotated, private
 `v0.1.0` on 2026-10-20. See the
-[Task 6 evidence](validation.md#task-6-010-readiness-2026-10-20).
+[Task 6 evidence](validation-tasks-1-18.md#task-6-010-readiness-2026-10-20).
 The 0.1.0 review found the features sufficient but daily use and user
 documentation lacking. This task closes those gaps and tags 0.1.0 privately.
 
@@ -299,7 +304,7 @@ task is one pull request; its acceptance criteria are added when it starts.
 
 **Merged in [PR #8](https://github.com/jkosber/ssh-workbench/pull/8)** as
 `11449aa`, containing tested head `d6f3a61`; the merge tree matches that head.
-See the [Task 7 evidence](validation.md#task-7-tooling-cleanup-2026-10-20).
+See the [Task 7 evidence](validation-tasks-1-18.md#task-7-tooling-cleanup-2026-10-20).
 
 Three development items from the 0.1.x candidates. No user-visible behavior
 changes.
@@ -326,7 +331,7 @@ Acceptance:
 
 **Merged in [PR #9](https://github.com/jkosber/ssh-workbench/pull/9)** as
 `47e7cd4`, containing tested head `3462344`; the merge tree matches that head.
-See the [Task 8 evidence](validation.md#task-8-machines-replace-projects-2026-10-20).
+See the [Task 8 evidence](validation-tasks-1-18.md#task-8-machines-replace-projects-2026-10-20).
 
 Read-only: Workbench still writes nothing. Saving, status checks and SSH config
 reading come in Tasks 9-11.
@@ -373,7 +378,7 @@ Acceptance:
 
 **Merged in [PR #10](https://github.com/jkosber/ssh-workbench/pull/10)** as
 `96338e1`, containing tested head `3d2ad36`; the merge tree matches that head.
-See the [Task 9 evidence](validation.md#task-9-add-edit-and-delete-machines-2026-10-21).
+See the [Task 9 evidence](validation-tasks-1-18.md#task-9-add-edit-and-delete-machines-2026-10-21).
 
 Workbench now writes its own machine file, and reads `Host` and `Include` lines
 of the user's SSH config to suggest aliases. It still never changes the SSH
@@ -409,7 +414,7 @@ Acceptance:
 
 **Merged in [PR #11](https://github.com/jkosber/ssh-workbench/pull/11)** as
 `56c6d47`, containing tested head `4d4d473`; the merge tree matches that head.
-See the [Task 10 evidence](validation.md#task-10-live-status-2026-10-21).
+See the [Task 10 evidence](validation-tasks-1-18.md#task-10-live-status-2026-10-21).
 
 Workbench opens its first network connections of its own: one TCP connection to
 each checked address's SSH port, closed at once, with no login.
@@ -439,7 +444,7 @@ Acceptance:
 
 **Merged in [PR #13](https://github.com/jkosber/ssh-workbench/pull/13)** as
 `56fab1a`, containing tested head `67bdee7`; the merge tree matches that head.
-See the [Task 11 evidence](validation.md#task-11-alias-rename-detection-2026-10-21).
+See the [Task 11 evidence](validation-tasks-1-18.md#task-11-alias-rename-detection-2026-10-21).
 
 Workbench remembers which SSH aliases it saw, so a renamed `Host` entry is
 caught before a connect fails.
@@ -473,7 +478,7 @@ Acceptance:
 
 **Merged in [PR #14](https://github.com/jkosber/ssh-workbench/pull/14)** as
 `5dda419`, containing tested head `43b6448`; the merge tree matches that head.
-See the [Task 12 evidence](validation.md#task-12-key-login-setup-2026-10-21).
+See the [Task 12 evidence](validation-tasks-1-18.md#task-12-key-login-setup-2026-10-21).
 
 K sets up key login for the selected machine: pick or create a key, install
 its public half, and confirm key-only login, all in the handed-off terminal.
@@ -506,13 +511,13 @@ Acceptance:
   with substituted children pass.
 - [x] Install and login test against a real Windows target and a real Linux
   target, with Jadon's approval. Done in
-  [Task 14](validation.md#task-14-020-release-2026-10-21).
+  [Task 14](validation-tasks-1-18.md#task-14-020-release-2026-10-21).
 
 ## 13. Exported aliases
 
 **Merged in [PR #15](https://github.com/jkosber/ssh-workbench/pull/15)** as
 `777d766`, containing tested head `4d77236`; the merge tree matches that head.
-See the [Task 13 evidence](validation.md#task-13-exported-aliases-2026-10-21).
+See the [Task 13 evidence](validation-tasks-1-18.md#task-13-exported-aliases-2026-10-21).
 
 A direct machine can be exported, so `ssh <id>` works in any terminal and for
 agents, through Workbench's own SSH config file and one confirmed `Include`
@@ -543,15 +548,15 @@ Acceptance:
   pass, including `ssh -F` resolving an exported machine from the generated
   file.
 - [x] Inserting the `Include` line into a real `~/.ssh/config`, with Jadon's
-  approval. Done in [Task 14](validation.md#task-14-020-release-2026-10-21).
+  approval. Done in [Task 14](validation-tasks-1-18.md#task-14-020-release-2026-10-21).
 
 ## 14. Prepare the 0.2.0 release
 
 **Merged in [PR #16](https://github.com/jkosber/ssh-workbench/pull/16)** as
 `155808e`, containing tested head `b6e22db`; the merge tree matches that head,
 and the annotated `v0.2.0` tag points at `155808e`. See the
-[Task 14 evidence](validation.md#task-14-020-release-2026-10-21) and the
-[follow-up checks](validation.md#020-follow-up-checks-2026-10-21).
+[Task 14 evidence](validation-tasks-1-18.md#task-14-020-release-2026-10-21) and the
+[follow-up checks](validation-tasks-1-18.md#020-follow-up-checks-2026-10-21).
 
 Supervised release work after Tasks 7-13 merged. On 2026-10-21 Jadon approved
 the real-target checks below, ruled that none of the 0.2.x candidates block
@@ -574,7 +579,7 @@ Acceptance:
   machine's first Connect asks to trust its host key, or, under a matching
   `StrictHostKeyChecking yes`, refuses until the README's one-time command
   records it; a real alias shows live status. macOS is not available and stays untested. See the
-  [Task 14 evidence](validation.md#task-14-020-release-2026-10-21).
+  [Task 14 evidence](validation-tasks-1-18.md#task-14-020-release-2026-10-21).
 - [x] PR, two fresh reviews, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.0` tag on the merge commit.
 
@@ -607,7 +612,7 @@ Acceptance:
   line.
 - [x] A direct machine's key is saved only after its login test passes;
   otherwise the result adds `The key was not saved as this machine's key.`
-  See the [Task 15 evidence](validation.md#task-15-021-real-use-fixes-2026-10-21).
+  See the [Task 15 evidence](validation-tasks-1-18.md#task-15-021-real-use-fixes-2026-10-21).
 - [x] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   real check on the Windows laptop shows no CLIXML record; README, changelog
   and validation updated.
@@ -628,11 +633,11 @@ Acceptance:
   changelog entry, and update every line that describes the current release.
 - [x] Full checks, a fresh build, an isolated install of the wheel and the
   package check pass. See the
-  [Task 16 evidence](validation.md#task-16-021-release-2026-10-21).
+  [Task 16 evidence](validation-tasks-1-18.md#task-16-021-release-2026-10-21).
 - [x] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.1` tag on the merge commit that installs
   from GitHub. See the
-  [Task 16 evidence](validation.md#task-16-021-release-2026-10-21).
+  [Task 16 evidence](validation-tasks-1-18.md#task-16-021-release-2026-10-21).
 
 ## 17. 0.2.2 fixes
 
@@ -653,7 +658,7 @@ Acceptance:
   certifi, and uv 0.13.4 has no Linux build of it. The notes on what was
   inspected on 3.14.7 stay; whatever 3.14.8 changes in `webbrowser`,
   `argparse`, `asyncio` or `subprocess` is inspected again. See the
-  [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
+  [Task 17 evidence](validation-tasks-1-18.md#task-17-022-fixes-2026-10-21).
 - [x] The seven form tests from the Task 16 candidate wait for the condition
   they assert, in a test-only commit. A scratch plugin that removes
   `pilot.pause()`'s CPU-idle wait makes them fail before and pass after.
@@ -675,12 +680,16 @@ Acceptance:
 - [x] No timer round starts while a check of the current round is still
   running. R is dimmed while a review or `ssh -G` of any round is still
   running, so repeated R never starts overlapping `ssh -G` runs. See the
-  [Task 17 evidence](validation.md#task-17-022-fixes-2026-10-21).
+  [Task 17 evidence](validation-tasks-1-18.md#task-17-022-fixes-2026-10-21).
 - [x] Tests first for each fix; full checks and CI on Windows and Ubuntu; a
   native Windows Terminal check of Ctrl+C with local children; README,
   changelog and validation updated; a fresh review.
 
 ## 18. Release 0.2.2
+
+**Merged in [PR #23](https://github.com/jkosber/ssh-workbench/pull/23)** as
+`c88f0f6`, containing tested head `106ea7b`; the merge tree matches that head,
+and the annotated `v0.2.2` tag points at `c88f0f6`.
 
 Jadon asked on 2026-10-21 to release Task 17's fixes as 0.2.2 and tag it, as
 0.2.1 was, and to upgrade his own installed tool from the tag. No GitHub
@@ -694,11 +703,11 @@ Acceptance:
   changelog entry, and update every line that describes the current release.
 - [x] Full checks, a fresh build, an isolated install of the wheel, the package
   check and an installed-tool smoke test in Windows Terminal pass. See the
-  [Task 18 evidence](validation.md#task-18-022-release-2026-10-21).
-- [ ] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
+  [Task 18 evidence](validation-tasks-1-18.md#task-18-022-release-2026-10-21).
+- [x] PR, a fresh review, CI on Windows and Ubuntu, a merge guarded on the
   tested head, and an annotated `v0.2.2` tag on the merge commit that installs
   from GitHub.
-- [ ] Jadon's own uv tool is upgraded to 0.2.2 from the tag.
+- [x] Jadon's own uv tool is upgraded to 0.2.2 from the tag.
 
 ## 0.1.x candidates
 
@@ -797,6 +806,8 @@ Task 17 took Task 10's overlapping rounds, Task 12's large RSA keys, both Task
   SSH config that matches a direct machine's address (documented).
 - Task 15: an error thrown by the Windows script may also reach the terminal as
   CLIXML; unchecked.
+- Task 18: `check_package.py` gives each installed-wheel child 10 s, which a
+  cold Windows runner can exceed; PR #23's first Windows run did.
 
 ## Deferred ideas
 

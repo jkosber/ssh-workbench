@@ -1,4 +1,9 @@
-# Validation
+# Validation log archive: Tasks 1-18
+
+> Archived on 2026-10-22. This is the dated evidence from the bootstrap to
+> the 0.2.2 release, newest first, including CI runs and merges as they were
+> recorded then. It is kept as a record and is no longer updated. New
+> evidence goes in [the validation log](../validation.md).
 
 ## Task 18: 0.2.2 release, 2026-10-21
 
@@ -15,6 +20,18 @@ tag.
 | Installed tool | `uv tool install` of the wheel into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`), leaving Jadon's installed 0.2.1 alone; `--version` printed `ssh-workbench 0.2.2` |
 | Installed-tool smoke in an owned 80x24 Windows Terminal window | With `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointing at empty ignored folders and a copy of the example machine file, the list, details and footer drew, Down selected the second machine, and Q exited with status 0 |
 
+A fresh Opus review of PR #23 found no critical or important issue. Two of its
+three minor findings were fixed; the changelog date stayed 2026-10-21, the
+day the tag landed.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #23](https://github.com/jkosber/ssh-workbench/pull/23) CI on head `106ea7b` | [Push run 39717619068](https://github.com/jkosber/ssh-workbench/actions/runs/39717619068) passed. [PR run 39717622694](https://github.com/jkosber/ssh-workbench/actions/runs/39717622694) failed on Windows in its first attempt: `check_package.py`'s `loader` smoke child timed out after 10 s, with 1046 tests passing. A rerun of the failed job passed. The same code at `d666609` passed [push run 39717123516](https://github.com/jkosber/ssh-workbench/actions/runs/39717123516) and [PR run 39717127447](https://github.com/jkosber/ssh-workbench/actions/runs/39717127447) |
+| Merge | Jadon approved it. Merged as **`c88f0f6`**, guarded on head `106ea7b`; tree identical to the tested head. The branch was deleted locally and on GitHub |
+| Tag | Annotated `v0.2.2` on `c88f0f6`. `uv tool install` from the tag into ignored folders printed `ssh-workbench 0.2.2` |
+| Merged `main` and tag CI | [Push run 39718654283](https://github.com/jkosber/ssh-workbench/actions/runs/39718654283) on `main` and [push run 39718667753](https://github.com/jkosber/ssh-workbench/actions/runs/39718667753) on the tag passed on Windows and Ubuntu, 1046 tests each |
+| Jadon's tool | Upgraded from the tag; `ssh-workbench --version` prints 0.2.2, on Python 3.14.8 |
+
 ## Task 17: 0.2.2 fixes, 2026-10-21
 
 Branch `feat/task17-0.2.2-fixes`. Environment as in Task 14, with Python
@@ -27,7 +44,7 @@ environment had run 3.14.9 from a system install; it now runs uv's 3.14.8.
 | --- | --- |
 | uv 0.13.4 downloads | 3.14.8 has Linux x86-64 and Windows builds; 3.14.9 has neither |
 | `uv python install 3.14.8 --no-bin`, `uv sync --locked` | The environment was recreated on 3.14.8 with the locked packages; `ssl.OPENSSL_VERSION` is OpenSSL 3.5.9 |
-| Re-inspection | The changelog and the CPython `v3.14.7..v3.14.8` diff change no code that the 3.14.7 notes rely on; see [architecture](architecture.md#references-checked-for-task-17) |
+| Re-inspection | The changelog and the CPython `v3.14.7..v3.14.8` diff change no code that the 3.14.7 notes rely on; see [architecture](../architecture.md#sources) |
 | Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1021 passed |
 | `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.1; the package check passed |
 
@@ -1280,8 +1297,8 @@ cleanup, waits for no blocked daemon and uses no forced interpreter exit.
 Importing the script installs no guards. Production application, SSH/SIGINT,
 version 0.0.1, dependencies, build requirements and CI tooling are unchanged.
 
-[Fixture regressions](../tests/test_link_fixture.py) run the actual entry point
-through a [child-only harness](../tests/link_fixture_process.py). Events pause a
+[Fixture regressions](../../tests/test_link_fixture.py) run the actual entry point
+through a [child-only harness](../../tests/link_fixture_process.py). Events pause a
 real R-triggered application worker inside URL validation, after its shutdown
 check but before dispatch. Q closes the TUI and the entry point returns or raises;
 only then does the harness release validation. Positive dispatch and completion
