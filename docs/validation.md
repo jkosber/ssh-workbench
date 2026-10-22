@@ -1,5 +1,20 @@
 # Validation
 
+## uv 0.13.4 security pin, 2026-10-21
+
+Branch `ci/uv-0.13.4`. Windows 11, Python 3.14.9, uv 0.13.4. Jadon asked for uv
+to be updated wherever it is used, after uv's emSign root-certificate advisory
+GHSA-hq85-5cpj-mr62.
+
+| Check | Agent-observed result |
+| --- | --- |
+| Drift test | Failed after only `pyproject.toml` moved to `uv_build>=0.13.4,<0.14.0`; passed once the CI pin matched `0.13.4` |
+| `uv lock --check`, `uv sync --locked` | Lock unchanged; 17 packages |
+| Ruff check and format, `uv run --locked pytest` | Passed; 53 files already formatted; 1021 passed |
+| `uv build`, `scripts/check_package.py` | Source archive and wheel for 0.2.1 with no `uv_build` range warning; package check passed |
+
+No native terminal check was needed: no application code changed.
+
 ## Task 16: 0.2.1 release, 2026-10-21
 
 Branch `feat/task16-release-0.2.1`. Environment as in Task 14. Jadon asked to
