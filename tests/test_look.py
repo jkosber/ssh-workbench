@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from textual.containers import VerticalScroll
-from textual.widgets import ListView, Static
+from textual.widgets import Footer, ListView, Static
 
 from ssh_workbench.app import SSHWorkbenchApp, StatusSymbol
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
@@ -239,6 +239,39 @@ async def test_short_terminals_hide_the_help_line(height: int, shown: bool) -> N
         assert app.query_one("#navigation-help").display is shown
         _, pane = panes(app)
         assert pane.region.height >= 5
+
+
+@pytest.mark.parametrize(
+    ("size", "rows"), [((40, 16), 2), ((50, 20), 2), ((60, 20), 1)]
+)
+async def test_narrow_footers_show_every_key_on_two_rows(
+    size: tuple[int, int], rows: int
+) -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=size) as pilot:
+        footer = app.query_one(Footer)
+        await wait_for(
+            pilot,
+            lambda: (
+                len(footer.query("FooterKey")) == 8
+                and all(key.region.width for key in footer.query("FooterKey"))
+            ),
+        )
+        assert footer.region.height == rows
+        for key in footer.query("FooterKey"):
+            assert app.screen.region.contains_region(key.region), key.action
+        machine_list, _ = panes(app)
+        assert machine_list.region.height >= 4
+
+
+@pytest.mark.parametrize(("height", "rows"), [(16, 2), (20, 3)])
+async def test_short_terminals_give_link_results_two_rows(
+    height: int, rows: int
+) -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, height)) as pilot:
+        await pilot.pause()
+        assert app.query_one("#link-status").region.height == rows
 
 
 @pytest.mark.parametrize("path", [None, Path("fictional") / "machines.toml"])
