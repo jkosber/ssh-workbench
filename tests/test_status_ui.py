@@ -361,3 +361,119 @@ async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
         assert status_text(app) == "◇ Can't check: press R to resolve this alias"
         await pilot.press("r")
         await wait_for(pilot, lambda: "new-host" in checker.resolved)
+
+
+class OneSlowHost(FakeChecker):
+    """Holds the port check of one host until released."""
+
+    def __init__(self, host: str, release: threading.Event) -> None:
+        super().__init__()
+        self.host = host
+        self.release = release
+
+    def port_open(self, host: str, port: int) -> bool:
+        if host == self.host:
+            self.release.wait(30)
+        return super().port_open(host, port)
+
+
+async def test_a_timer_round_waits_for_a_check_still_running() -> None:
+    release = threading.Event()
+    app = SSHWorkbenchApp(MACHINES, checker=OneSlowHost("192.0.2.50", release))
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(pilot, lambda: symbols(app).count(State.CHECKING) == 1)
+            assert symbols(app)[2] is State.CHECKING
+            started = app._round
+            app._timer_round()
+            assert app._round == started
+            release.set()
+            # The slow check's own result arrives instead of being replaced.
+            await wait_for(pilot, lambda: symbols(app)[2] is State.OFFLINE)
+            app._timer_round()
+            assert app._round == started + 1
+    finally:
+        release.set()
+
+
+async def test_r_is_dimmed_until_every_ssh_g_has_answered() -> None:
+    hold = threading.Event()
+    checker = FakeChecker(hold=hold)
+    app = SSHWorkbenchApp(MACHINES, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(
+                pilot, lambda: sorted(checker.resolved) == ["garden-host", "hop-host"]
+            )
+            started = app._round
+            assert app.check_action("refresh", ()) is None
+            await pilot.press("r")
+            assert app._round == started
+            hold.set()
+            await checked(app, pilot)
+            await wait_for(pilot, lambda: app.check_action("refresh", ()) is True)
+            assert sorted(checker.resolved) == ["garden-host", "hop-host"]
+            await pilot.press("r")
+            await wait_for(pilot, lambda: checker.resolved.count("garden-host") == 2)
+            assert app._round == started + 1
+    finally:
+        hold.set()
+
+
+async def test_r_after_a_save_still_waits_for_the_earlier_ssh_g(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "machines.toml"
+    text = format_machines(MACHINES)
+    path.write_text(text, encoding="utf-8")
+    hold = threading.Event()
+    checker = FakeChecker(hold=hold)
+    app = SSHWorkbenchApp(MACHINES, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(
+                pilot, lambda: sorted(checker.resolved) == ["garden-host", "hop-host"]
+            )
+            # A save starts a round without ssh -G while the first ones still run.
+            before = app._round
+            await pilot.press("a")
+            await wait_for(pilot, lambda: showing(app, MachineForm))
+            for field, value in (("id", "new"), ("name", "New"), ("alias", "new-host")):
+                app.screen.query_one(f"#form-{field}", Input).value = value
+            await pilot.press("ctrl+s")
+            await wait_for(pilot, lambda: app._round == before + 1)
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            assert app.check_action("refresh", ()) is None
+            await pilot.press("r")
+            assert app._round == before + 1
+            assert sorted(checker.resolved) == ["garden-host", "hop-host"]
+            hold.set()
+            await wait_for(pilot, lambda: app.check_action("refresh", ()) is True)
+            await pilot.press("r")
+            await wait_for(pilot, lambda: "new-host" in checker.resolved)
+            assert app._round == before + 2
+    finally:
+        hold.set()
+
+
+async def test_checks_that_cannot_start_leave_the_timer_and_r_working(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class NoThread:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(app_module, "Thread", NoThread)
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: symbols(app) == [State.UNKNOWN] * 4)
+        app.query_one(ListView).index = 2
+        await wait_for(pilot, lambda: details_id(app) == "lab")
+        assert status_text(app) == "◇ Can't check: the check could not start"
+        assert app.check_action("refresh", ()) is True
+        started = app._round
+        app._timer_round()
+        assert app._round == started + 1
