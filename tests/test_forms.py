@@ -217,7 +217,9 @@ async def test_inline_error_names_the_field_and_blocks_saving(
         else:
             fill(form, id="new-box", name="New", alias="new-host")
         fill(form, **values)
-        await pilot.pause()
+        # The field shows an error once its Changed message reaches the form,
+        # which a single pause does not guarantee.
+        await wait_for(pilot, lambda: error(form, field) != "")
         assert expected in error(form, field)
         others = {"id", "name", "alias", "addresses", "user", "port", "key", "links"}
         for other in others - {field}:
@@ -582,7 +584,7 @@ async def test_huge_port_is_an_error_not_a_crash(tmp_path: Path) -> None:
         form.query_one("#kind-direct", RadioButton).value = True
         await pilot.pause()
         fill(form, id="big", name="Big", addresses="big.example", port="9" * 5000)
-        await pilot.pause()
+        await wait_for(pilot, lambda: error(form, "port") != "")
         assert app.is_running
         assert error(form, "port") == "expected an integer from 1 to 65535"
 
