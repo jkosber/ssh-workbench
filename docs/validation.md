@@ -81,7 +81,14 @@ test first:
 
 Left as a 0.2.x note: two Task 10 candidate lines are stale; "the check could
 not start" now has a test, and "or timer round" was already guarded before
-this task. Full suite after the fixes: 1046 passed.
+this task. Full suite after the fixes: 1046 passed. Task 18 corrected both
+lines.
+
+| Integration step | Result |
+| --- | --- |
+| [PR #22](https://github.com/jkosber/ssh-workbench/pull/22) CI on head `9cc996b` | [Push run 39714027352](https://github.com/jkosber/ssh-workbench/actions/runs/39714027352) and [PR run 39714032314](https://github.com/jkosber/ssh-workbench/actions/runs/39714032314) passed on Windows and Ubuntu, 1046 tests each |
+| Merge | Jadon approved it. Merged as **`b8e37c6`**, guarded on head `9cc996b`; tree identical to the tested head. Local `main` fast-forwarded; the branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39715258548](https://github.com/jkosber/ssh-workbench/actions/runs/39715258548) passed on Windows and Ubuntu, 1046 tests each |
 
 ## uv 0.13.4 security pin, 2026-10-21
 
