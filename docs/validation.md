@@ -46,7 +46,8 @@ browser.
 | Help line at 51x21 | Wrapped onto two rows in the first run; after hiding it below 60 columns, a restart showed none |
 | Quit | Q, and Ctrl+Q after a restart, returned to a working prompt (`echo` answered) |
 | README image | `.local/task20-session/demo.py` ran the app at 110x22 on five fictional machines with a stand-in checker (no network, no `ssh -G`); the window was cropped to the terminal area |
-| Ruff check and format, `uv run --locked pytest` | Passed; 1075 passed |
+| Fresh review | An Opus reviewer found no critical issue and one important one: the no-file screen's box took its longest line's width, so at 60 columns and below a long path and the format sentence ran off the screen. Fixed test first; at 50x20 in Windows Terminal the box then fit the width and scrolled down for the rest. Five minor findings were fixed in code comments and docs; sharing the three copies of the status colors was left as optional |
+| Ruff check and format, `uv run --locked pytest` | Passed; 1077 passed |
 
 Not checked: 200x50 natively (the screen fits 46 rows; the headless test
 covers 200x50), Linux and macOS terminals, light terminal themes (Workbench

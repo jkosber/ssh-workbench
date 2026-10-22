@@ -40,7 +40,7 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 
 | Part | Shows |
 | --- | --- |
-| Header | The name, and your machines counted by [status](#status), such as `5 machines   ● 3 online   ○ 1 offline`. When the words don't fit, the counts shrink to symbols: `5  ●3 ○1` |
+| Header | The app's name, and your machines counted by [status](#status), such as `5 machines   ● 3 online   ○ 1 offline`. When the words don't fit, the counts shrink to symbols: `5  ●3 ○1` |
 | Machines | The list, with each machine's status symbol. The highlighted row is the selected machine; a bright border marks the focused pane |
 | Machine details | One row per field for the selected machine. The status takes its color |
 | Help line | The keys for moving around |
@@ -212,7 +212,8 @@ over, such as Textual Web, show a message instead of starting SSH.
 ## Status
 
 Each machine shows its status as a symbol in the list and as a word in the
-details, with color on top; the header counts each status:
+details, with color on top; the header counts each status except Not
+checked:
 
 | Symbol | Status | Meaning |
 | --- | --- | --- |

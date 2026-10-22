@@ -15,7 +15,7 @@ Changes by release, newest first. Version numbers follow the policy in
 - The layout follows the terminal's size: under 60 columns the list sits above
   the details and the footer wraps onto two rows; from 110 columns each row
   shows where the machine connects; under 60 columns or 20 rows the help line
-  hides.
+  hides; under 20 rows the link result takes two rows instead of three.
 - The no-file screen points to the user guide for the file's format.
 
 ### Documentation

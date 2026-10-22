@@ -146,7 +146,7 @@ through `store`.
 
 | Part | Rule |
 | --- | --- |
-| Theme | `WORKBENCH_THEME`, registered and selected in the app's constructor. Its design variables color the focus border, the list highlight and the footer keys. Status colors come from `$success`, `$error`, `$warning` and `$accent`, always on top of a symbol and a word |
+| Theme | `WORKBENCH_THEME`, registered and selected in the app's constructor. Its design variables color the focus border, the list highlight and the footer keys. Status colors come from `$success`, `$error`, `$warning` and `$accent`, always on top of a distinct symbol |
 | Header | One row: the title and `#app-summary`, which counts machines by state (Not checked left out) in words when they fit beside the title, else as symbols. `_update_summary` runs after every status change, rebuild and resize. Only app-generated counts carry styles; no machine data reaches it |
 | List | A Textual `ListView` starts focused on the first machine. Rows shorten long names. Selection uses the list's highlight; focus uses the primary-colored border. Each row is a `StatusSymbol`, the name's `Static` and a `RowTarget` (the alias or first address), both small widgets rather than `Static`s so the name stays the row's only one |
 | Details | The list's `Highlighted` event updates literal `Static` values in a `VerticalScroll` and resets it to the top, one `.field-row` per field: ID, name, status, connection kind, the alias or the addresses (one per line, under a label that changes with the kind), user, port, key and links (`name: URL` per line). Unset direct fields read `Not set`; alias machines read `From your SSH config`. Values wrap. `#machine-status` carries a `state-<name>` class for its color |
