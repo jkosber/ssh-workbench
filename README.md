@@ -11,12 +11,18 @@ Keep a short list of machines, see at a glance which are online, and press
 back in the list with the same machine selected. Passwords, keys, the SSH
 agent and host-key checks all stay with OpenSSH.
 
+![SSH Workbench in Windows Terminal: five machines with their status, and the selected machine's details](docs/images/workbench.png)
+
+*Windows Terminal at 110x22 with fictional machines; the statuses come from a
+stand-in checker.*
+
 ## Features
 
 | Feature | What it does |
 | --- | --- |
 | Connect | **C** hands the terminal to `ssh` and takes it back when the session ends |
-| Live status | Each machine shows Online, Offline or Checking. Checks are TCP port checks, never logins, at startup, on **R** and every 30 seconds |
+| Live status | Each machine shows Online, Offline or Checking, and the header counts them. Checks are TCP port checks, never logins, at startup, on **R** and every 30 seconds |
+| Any terminal size | The layout rearranges itself for narrow and wide terminals, from 40 columns up |
 | Manage machines | **A**, **E** and **X** add, edit and delete machines in a form that checks every value. Saves keep a backup |
 | Key login setup | **K** picks or creates a key, installs it on a Linux, macOS or Windows target, and tests key-only login |
 | Web links | **O** opens a machine's dashboard or docs in your browser |

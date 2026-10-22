@@ -6,32 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-### 20. UI makeover
-
-Jadon asked on 2026-10-22 to make the UI less bland and to have it work at
-any terminal size. pixel (pixelgui.com) was considered and set aside: it is a
-TypeScript toolkit that runs on Windows only through WSL. The makeover uses
-Textual's own themes, CSS and size breakpoints, with the same keys, actions
-and safety rules.
-
-- [ ] A `workbench` color theme, registered with Textual's theme system. Every
-  status stays readable without color (symbol and word) and still without
-  motion when `TEXTUAL_ANIMATIONS=none`.
-- [ ] A one-row header: the app name and a count of machines by status, in
-  words when the terminal is wide enough and in symbols when it is not.
-- [ ] A compact details pane, one row per field, so a machine's key and links
-  fit at 80x24 without scrolling (a 0.2.x candidate); the status value takes
-  its state's color.
-- [ ] Responsive layout from 40x16 up: below 60 columns the list stacks above
-  the details; from 110 columns each row also shows where the machine
-  connects; below 20 rows the help line hides. Resizing while a form is open
-  leaves the browser in the right layout.
-- [ ] Forms, pickers and questions share the same look.
-- [ ] The no-file screen names the user guide, not the README, for the
-  machine file's format (found by the Task 19 review).
-- [ ] Every existing test passes unchanged. New tests first; full checks; a
-  native Windows Terminal check at 40x16, 60x20, 80x24, 120x40 and 200x50; a
-  README screenshot from a run on fictional machines.
+No task is in progress.
 
 ## Next
 
@@ -47,7 +22,6 @@ needs its own task before work starts.
 
 | Item | From |
 | --- | --- |
-| At 80x24 the details pane needs scrolling to show a machine's key and links; alias machines spend three rows on "From your SSH config" (planned in Task 20) | 8 |
 | An empty schema 1 file is told to add `[[machines]]` entries, which that schema rejects; the hint should name `schema_version = 2` | 8 |
 | Duplicate messages show internal locations such as `machine.links[1].name` | 9 |
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
@@ -149,6 +123,7 @@ in the pull request description.
 | 17 | Ctrl+C, large-key and status fixes; Python 3.14.8 | [#22](https://github.com/jkosber/ssh-workbench/pull/22) | 0.2.2 |
 | 18 | Release 0.2.2 | [#23](https://github.com/jkosber/ssh-workbench/pull/23) | 0.2.2 |
 | 19 | Documentation and workflow guides; Tasks 1-18 archived | [#24](https://github.com/jkosber/ssh-workbench/pull/24) | Unreleased |
+| 20 | UI makeover: theme, status header, responsive layout | pending | Unreleased |
 
 ## Deferred ideas
 

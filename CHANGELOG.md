@@ -5,6 +5,19 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Changed
+
+- A new look: Workbench's own color theme, rounded panes and dialogs, and a
+  header that counts machines by status. Every status keeps its symbol and
+  word, so nothing depends on color.
+- The details show one row per field, so a machine's key and links fit at
+  80x24 without scrolling. The status takes its color.
+- The layout follows the terminal's size: under 60 columns the list sits above
+  the details and the footer wraps onto two rows; from 110 columns each row
+  shows where the machine connects; under 60 columns or 20 rows the help line
+  hides.
+- The no-file screen points to the user guide for the file's format.
+
 ### Documentation
 
 - The README is now a short landing page; the full reference moved to
