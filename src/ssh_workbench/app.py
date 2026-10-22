@@ -357,9 +357,9 @@ class MachinePanes(Vertical):
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     ENABLE_COMMAND_PALETTE = False
-    # Screen classes for the layout: the list stacks above the details when
-    # narrow, rows show their target when wide, and the help line hides when
-    # short.
+    # Screen classes for the layout: the list stacks above the details and the
+    # footer wraps when narrow, rows show their target when wide, and the help
+    # line hides when narrow or short.
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (60, "-normal"), (110, "-wide")]
     VERTICAL_BREAKPOINTS = [(0, "-short"), (20, "-tall")]
     BINDINGS = [
@@ -511,7 +511,7 @@ class SSHWorkbenchApp(App[None]):
         grid-columns: 1fr;
         height: 2;
     }
-    Screen.-short #navigation-help {
+    Screen.-narrow #navigation-help, Screen.-short #navigation-help {
         display: none;
     }
     Screen.-short #link-status {
