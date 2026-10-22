@@ -15,6 +15,12 @@ GHSA-hq85-5cpj-mr62.
 
 No native terminal check was needed: no application code changed.
 
+| Integration step | Result |
+| --- | --- |
+| [PR #21](https://github.com/jkosber/ssh-workbench/pull/21) CI on head `6f8a18f` | [Push run 39699491885](https://github.com/jkosber/ssh-workbench/actions/runs/39699491885) and [PR run 39699497858](https://github.com/jkosber/ssh-workbench/actions/runs/39699497858) passed on Windows and Ubuntu with uv 0.13.4, 1021 tests each |
+| Merge | Merged as **`9429020`**, from another session; tree identical to the tested head. The branch was deleted locally and on GitHub |
+| Merged `main` CI | [Run 39702270514](https://github.com/jkosber/ssh-workbench/actions/runs/39702270514) passed on Windows and Ubuntu, 1021 tests each |
+
 ## Task 16: 0.2.1 release, 2026-10-21
 
 Branch `feat/task16-release-0.2.1`. Environment as in Task 14. Jadon asked to
@@ -43,6 +49,13 @@ passed with 1021 tests on each system.
 | Reproduction | A scratch plugin replaced that heuristic with one yield. The test then failed every time, three out of three, reading the previous machine's status |
 | Fix (tests only) | The loop waits until the details show the selected machine's ID, then asserts the status text exactly. It passed three times out of three under the plugin; the full suite passed, 1021 tests |
 | Other latent cases | Under the plugin, seven `tests/test_forms.py` cases fail the same way; they are in the roadmap's 0.2.x candidates |
+
+| Integration step | Result |
+| --- | --- |
+| [PR #20](https://github.com/jkosber/ssh-workbench/pull/20) CI on head `e4057ac` | [Push run 39653184964](https://github.com/jkosber/ssh-workbench/actions/runs/39653184964) and [PR run 39653193959](https://github.com/jkosber/ssh-workbench/actions/runs/39653193959) passed on Windows and Ubuntu, 1021 tests each |
+| Merge | Merged as **`bfb3789`**, guarded on head `e4057ac`; tree identical to the tested head |
+| Tag | Annotated `v0.2.1` on `bfb3789`; installing from the tag on GitHub prints `ssh-workbench 0.2.1` |
+| Merged `main` and tag CI | [Main push run 39653931297](https://github.com/jkosber/ssh-workbench/actions/runs/39653931297) and [tag push run 39653940685](https://github.com/jkosber/ssh-workbench/actions/runs/39653940685) passed on Windows and Ubuntu, 1021 tests each |
 
 ## Task 15: 0.2.1 real-use fixes, 2026-10-21
 
