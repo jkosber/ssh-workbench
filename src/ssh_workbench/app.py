@@ -125,7 +125,6 @@ WORKBENCH_THEME = Theme(
         "block-cursor-blurred-text-style": "none",
     },
 )
-HEADER_TITLE = "SSH Workbench"
 # The header counts these states, in this order. Not checked means status
 # checks are off, so it is left out.
 SUMMARY_STYLES = {
@@ -474,7 +473,7 @@ class SSHWorkbenchApp(App[None]):
         padding: 1 2;
     }
     #empty-state {
-        width: auto;
+        width: 1fr;
         max-width: 76;
         height: auto;
         padding: 1 2;
@@ -581,7 +580,7 @@ class SSHWorkbenchApp(App[None]):
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="app-header"):
-            yield Static(HEADER_TITLE, id="app-title", markup=False)
+            yield Static(self.title, id="app-title", markup=False)
             yield Static(id="app-summary", markup=False)
         yield MachinePanes(id="panes")
         yield Static(
@@ -771,8 +770,9 @@ class SSHWorkbenchApp(App[None]):
                 )
             ),
         )
-        # The title and both paddings take the rest of the row.
-        if not counts or words.cell_length + len(HEADER_TITLE) + 4 <= width:
+        # The words must fit beside the title, with one cell of padding on each
+        # side of both.
+        if not counts or words.cell_length + len(self.title) + 4 <= width:
             return words
         return Content.assemble(
             f"{count} ",
