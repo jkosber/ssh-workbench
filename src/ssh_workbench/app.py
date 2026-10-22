@@ -336,6 +336,16 @@ class LinkPicker(ModalScreen[Link | None]):
             self.dismiss(link)
 
 
+class KeyFooter(Footer):
+    """The compact footer. On narrow screens it becomes a grid of four columns,
+    so every key stays on screen, on two rows."""
+
+    def compose(self) -> ComposeResult:
+        yield from super().compose()
+        # Footer sets one grid column per key; the grid applies only when narrow.
+        self.styles.grid_size_columns = 4
+
+
 class MachinePanes(Vertical):
     """The browser panes. A save rebuilds them in place: `App.recompose` would
     rebuild whichever screen is active, which can be an open form."""
@@ -496,8 +506,16 @@ class SSHWorkbenchApp(App[None]):
     Screen.-wide RowTarget {
         display: block;
     }
+    Screen.-narrow KeyFooter {
+        layout: grid;
+        grid-columns: 1fr;
+        height: 2;
+    }
     Screen.-short #navigation-help {
         display: none;
+    }
+    Screen.-short #link-status {
+        height: 2;
     }
     """
 
@@ -578,7 +596,7 @@ class SSHWorkbenchApp(App[None]):
             id="link-status",
             markup=False,
         )
-        yield Footer(compact=True)
+        yield KeyFooter(compact=True)
 
     def compose_panes(self) -> ComposeResult:
         """The list and details, or the empty screen; rebuilt after each save."""
