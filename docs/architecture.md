@@ -24,9 +24,11 @@ decisions behind them.
 
 ## Overview
 
-Workbench is one Textual application. Everything that reaches outside the
-process goes through a small boundary module, so tests can substitute each
-one and nothing else touches the outside world.
+Workbench is one Textual application. Every action with an effect outside the
+process (starting a process, opening a connection, opening the browser,
+writing a file) goes through a small boundary module, so tests can substitute
+each one. Reading the SSH folder is limited to `sshconfig`, `keys` and
+`aliases`.
 
 ```mermaid
 flowchart LR
@@ -42,8 +44,9 @@ flowchart LR
     app --> links[links.py]
     app --> store[store.py]
     aliases --> store
-    status -- "TCP port checks, ssh -G" --> net((Network))
-    ssh -- "ssh, ssh-keygen" --> proc((Native client))
+    status -- "TCP port checks" --> net((Network))
+    status -- "ssh -G" --> proc((Native client))
+    ssh -- "ssh, ssh-keygen" --> proc
     links -- "startfile, gio open" --> browser((Browser))
     store -- "machine file, .bak, state" --> files((Files))
     exports -- "ssh-workbench.config, Include" --> files
@@ -78,9 +81,9 @@ flowchart LR
 | `.github/` | CI and the pull-request template |
 
 `cli` imports `config` and, after argument parsing, `app`. `app` uses `forms`,
-`store`, `sshconfig`, `status`, `aliases`, `ssh` and `links`, which reuse
-validation from `config`; `aliases` writes through `store`. Only `__main__`
-imports `cli`.
+`store`, `sshconfig`, `status`, `aliases`, `keys`, `exports`, `display`, `ssh`
+and `links`, which reuse validation from `config`; `aliases` writes through
+`store`. Only `__main__` imports `cli`.
 
 ## Decisions
 

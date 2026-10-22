@@ -2,6 +2,11 @@
 
 Which roadmap task this is, and what changes for the user.
 
+## Acceptance
+
+The task's acceptance criteria from the roadmap, ticked. This copy is their
+record once the task leaves the roadmap.
+
 ## Checks
 
 - [ ] `ruff check`, `ruff format --check`, `pytest`, `uv build` and `check_package.py` pass

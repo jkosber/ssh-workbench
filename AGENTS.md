@@ -71,9 +71,11 @@ Never break these. The [architecture](docs/architecture.md) explains each.
 
 ## Approvals
 
-Commits on the task's branch are part of the task. Pushes, pull requests,
-merges, version changes, tags, releases, publication, visibility changes and
-infrastructure changes each need Jadon's authorization for that action; see
+Commits, pushes, pull requests, merges, version changes, tags, releases,
+publication, visibility changes and infrastructure changes each need Jadon's
+authorization for that action. He may give several at once when starting a
+task, such as commits, a push and a pull request; merges, versions, tags and
+real targets are always asked separately. See
 [who decides what](docs/workflow.md#who-decides-what). Releases follow
 [the release checklist](docs/workflow.md#releasing).
 

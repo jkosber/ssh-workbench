@@ -28,7 +28,7 @@ agent and host-key checks all stay with OpenSSH.
 | Platform | Status |
 | --- | --- |
 | Windows 11 | Tested in Windows Terminal with real SSH hosts and browser links |
-| Linux | Tested on Linux Mint 22.3 with a real SSH host; CI runs the tests on Ubuntu. Opening links needs a desktop with `gio` and is untested on a real desktop |
+| Linux | Tested on Linux Mint 22.3 with a real SSH host, in a terminal reached over SSH; CI runs the tests on Ubuntu. Opening links needs a desktop with `gio` and is untested on a real desktop |
 | macOS | Untested. Links report "browser unavailable" |
 
 ## Install

@@ -248,7 +248,7 @@ Acceptance:
   private `v0.1.0` tag, the MIT license and the Task 6 scope below.
 
 A passing test or completed task does not authorize a release. Follow
-[the manual release checklist](../../CONTRIBUTING.md) only when requested.
+[the manual release checklist](../workflow.md#releasing) only when requested.
 
 ## 6. Prepare the 0.1.0 release
 

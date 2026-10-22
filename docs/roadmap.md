@@ -6,24 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-### 19. Documentation and workflow
-
-Make every document short and easy to scan, for people and for coding agents,
-and replace the growing workflow ritual with one plain guide.
-
-- [x] Tasks 1-18's roadmap and validation log move unchanged to
-  [the archive](archive/), after recording PR #23 and ticking Task 18.
-- [x] One home per fact: README (what it is and how to start),
-  [user guide](guide.md), [workflow](workflow.md), [testing](testing.md),
-  [architecture](architecture.md), this roadmap and
-  [the validation log](validation.md).
-- [x] The workflow guide replaces the after-merge bookkeeping: GitHub keeps
-  PRs, merges and CI runs; a task's own PR moves its row to Done.
-- [x] AGENTS.md keeps every safety rule, as tables.
-- [x] Test procedures move from the log into the testing guide (a 0.1.x
-  candidate).
-- [ ] Every relative link and anchor resolves; full checks pass; a fresh
-  review.
+No task is in progress.
 
 ## Next
 
@@ -42,6 +25,8 @@ actions and safety rules. Acceptance (proposed, refined when the task starts):
   width breakpoints instead of squeezing; checked at 60x20, 80x24, 120x40 and
   200x50.
 - [ ] Forms, pickers and questions share the same look.
+- [ ] The no-file screen names the user guide, not the README, for the
+  machine file's format (found by the Task 19 review).
 - [ ] Tests first for each behavior change; full checks; a native Windows
   Terminal check at each size; a README screenshot from a real run.
 
@@ -126,9 +111,10 @@ needs its own task before work starts.
 ## Done
 
 Each finished task, the pull request that merged it and the release that
-shipped it. The full acceptance criteria are in
-[the archive](archive/roadmap-tasks-1-18.md); the evidence is in
-[the archived log](archive/validation-tasks-1-18.md).
+shipped it. The full acceptance criteria of Tasks 1-18 are in
+[the archive](archive/roadmap-tasks-1-18.md), with their evidence in
+[the archived log](archive/validation-tasks-1-18.md); later tasks keep theirs
+in the pull request description.
 
 | Task | Delivered | PR | Release |
 | --- | --- | --- | --- |
@@ -138,7 +124,8 @@ shipped it. The full acceptance criteria are in
 | 3 | Launch native SSH and return cleanly | [#3](https://github.com/jkosber/ssh-workbench/pull/3) | 0.1.0 |
 | 4 | Error messages and opening links | [#4](https://github.com/jkosber/ssh-workbench/pull/4) | 0.1.0 |
 | 5 | Usability checks and the 0.1.0 review | [#5](https://github.com/jkosber/ssh-workbench/pull/5) | 0.1.0 |
-| 6 | Default machine file, user README, MIT license, release | [#6](https://github.com/jkosber/ssh-workbench/pull/6), [#7](https://github.com/jkosber/ssh-workbench/pull/7) | 0.1.0 |
+| 6 | Default machine file, user README, MIT license, release | [#6](https://github.com/jkosber/ssh-workbench/pull/6) | 0.1.0 |
+| - | Record the 0.1.0 release | [#7](https://github.com/jkosber/ssh-workbench/pull/7) | 0.2.0 |
 | 7 | Tooling cleanup | [#8](https://github.com/jkosber/ssh-workbench/pull/8) | 0.2.0 |
 | 8 | Machines replace projects | [#9](https://github.com/jkosber/ssh-workbench/pull/9) | 0.2.0 |
 | 9 | Add, edit and delete machines | [#10](https://github.com/jkosber/ssh-workbench/pull/10) | 0.2.0 |
@@ -146,13 +133,15 @@ shipped it. The full acceptance criteria are in
 | 11 | Alias rename detection | [#13](https://github.com/jkosber/ssh-workbench/pull/13) | 0.2.0 |
 | 12 | Key login setup | [#14](https://github.com/jkosber/ssh-workbench/pull/14) | 0.2.0 |
 | 13 | Exported aliases | [#15](https://github.com/jkosber/ssh-workbench/pull/15) | 0.2.0 |
-| 14 | Release 0.2.0, with real-target checks | [#16](https://github.com/jkosber/ssh-workbench/pull/16), [#17](https://github.com/jkosber/ssh-workbench/pull/17) | 0.2.0 |
+| 14 | Release 0.2.0, with real-target checks | [#16](https://github.com/jkosber/ssh-workbench/pull/16) | 0.2.0 |
+| - | Record the 0.2.0 release and follow-up checks | [#17](https://github.com/jkosber/ssh-workbench/pull/17) | 0.2.1 |
 | - | UI tests wait for pushed screens to mount | [#18](https://github.com/jkosber/ssh-workbench/pull/18) | 0.2.1 |
 | 15 | Key setup fixes from real use | [#19](https://github.com/jkosber/ssh-workbench/pull/19) | 0.2.1 |
 | 16 | Release 0.2.1 | [#20](https://github.com/jkosber/ssh-workbench/pull/20) | 0.2.1 |
 | - | uv 0.13.4 security pin | [#21](https://github.com/jkosber/ssh-workbench/pull/21) | 0.2.2 |
 | 17 | Ctrl+C, large-key and status fixes; Python 3.14.8 | [#22](https://github.com/jkosber/ssh-workbench/pull/22) | 0.2.2 |
 | 18 | Release 0.2.2 | [#23](https://github.com/jkosber/ssh-workbench/pull/23) | 0.2.2 |
+| 19 | Documentation and workflow guides; Tasks 1-18 archived | pending | Unreleased |
 
 ## Deferred ideas
 

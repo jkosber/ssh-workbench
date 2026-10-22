@@ -18,7 +18,8 @@ flowchart LR
 ```
 
 1. **Pick a task** from the [roadmap](roadmap.md). One task is one branch and
-   one pull request.
+   one pull request. A small fix outside the roadmap, such as a CI pin, may
+   go without a task number; it gets a "-" row in Done.
 2. **Branch** from an up-to-date `main`.
 3. **Write the tests first** and commit them failing, then commit the code
    that makes them pass.
@@ -54,7 +55,7 @@ Jadon decides; coding agents ask before every step marked "ask".
 | Action | Rule |
 | --- | --- |
 | Choose or start a task | Jadon decides |
-| Commit on the task's branch | Allowed once the task has started |
+| Commit on the task's branch | Ask, unless Jadon said so when starting the task |
 | Push and open a pull request | Ask, unless Jadon said so when starting the task |
 | Merge a pull request | Ask |
 | Change the version, tag or release | Ask, each one separately |
@@ -114,16 +115,24 @@ task with several steps, a coding agent writes a short plan in `.local/plans/`
   structure or boundaries, [AGENTS.md](../AGENTS.md) for rules.
 - [ ] A line under **Unreleased** in the [changelog](../CHANGELOG.md) for
   every change a user would notice.
-- [ ] The task's roadmap row moved to **Done**, with the PR link once the PR
-  exists.
+- [ ] The task moved from **Now** to a row in **Done**.
 - [ ] `git diff` read once more for leftovers and accidental changes.
 
-Then push, open the pull request (the template asks for purpose, checks and
-docs), wait for CI on both systems and get a fresh review. Fix every critical
-and important finding before merging. Merge on the tested commit only:
+Then push and open the pull request; the template asks for the acceptance
+criteria, the checks and the docs:
 
 ```text
-gh pr merge <number> --merge --match-head-commit <full head SHA>
+git push -u origin <branch>
+gh pr create --fill
+```
+
+Put the new PR's number in the task's Done row, commit and push that one
+line before the review starts. Wait for CI on both systems and get a fresh
+review; fix every critical and important finding. Merge on the tested commit
+only, which also deletes the branch on GitHub:
+
+```text
+gh pr merge <number> --merge --delete-branch --match-head-commit <full head SHA>
 ```
 
 After the merge:
@@ -153,10 +162,11 @@ installed package. It changes only at a release, never per edit or session.
 | 0.2.0 | Machines replace projects, tagged privately |
 | 0.2.1 | Key setup fixes from real use, tagged privately |
 | 0.2.2 | Ctrl+C, large-key and status fixes, tagged privately |
-| 0.2.x | Planned: further fixes only |
-| 0.3.0 | Planned: the next release with new features |
-| 1.0.0 | A deliberately chosen stable release, later |
+| 0.2.x | Policy: a release of fixes only |
+| 0.3.0 | Policy: the next release with new features |
+| 1.0.0 | Policy: a deliberately chosen stable release, later |
 
+Rows marked Policy describe how versions are chosen, not promised releases.
 Until 1.0.0, the changelog states every compatibility change.
 
 ### Checklist
@@ -167,8 +177,10 @@ Until 1.0.0, the changelog states every compatibility change.
 3. Set `version` in `pyproject.toml`, run `uv lock`, then `uv sync --locked`.
    The lockfile should change only in Workbench's own version.
 4. Update every line that names the current release:
-   `git grep -n "<previous version>"` finds AGENTS.md, the install commands in
-   the README and the user guide, and the version table above.
+   `git grep -n "<previous version>" -- . ":!CHANGELOG.md" ":!docs/archive"`
+   finds AGENTS.md and the install commands in the README and the user guide.
+   Add a row for the new version to the table above, and check that the
+   `pyproject.toml` description still fits.
 5. In the changelog, rename **Unreleased** to `## X.Y.Z - YYYY-MM-DD` (the
    day the tag will be made) and add an empty **Unreleased** above it.
 6. Run the full checks, a fresh `uv build` and the package check. Install the
@@ -183,9 +195,12 @@ Until 1.0.0, the changelog states every compatibility change.
    git push origin vX.Y.Z
    ```
 
-9. Check that `uv tool install git+https://github.com/jkosber/ssh-workbench@vX.Y.Z`
-   prints the new version and that the tag's CI passed.
-10. Upgrade your own tool with the same command plus `--reinstall`.
+9. With `UV_TOOL_DIR` and `UV_TOOL_BIN_DIR` set to ignored folders under
+   `.local/`, run `uv tool install git+https://github.com/jkosber/ssh-workbench@vX.Y.Z`
+   and check that `ssh-workbench --version` prints the new version. Check
+   that the tag's CI passed.
+10. In a fresh terminal without those variables, upgrade your own tool:
+    `uv tool install --reinstall git+https://github.com/jkosber/ssh-workbench@vX.Y.Z`.
 
 A GitHub Release or a package upload happens only when Jadon asks for one.
 
@@ -213,4 +228,4 @@ Task 19 simplified the workflow that had grown through Tasks 1-18:
 | Each task's first commit recorded the previous PR's merge, CI run numbers and ticked its boxes | A task's own PR moves its row to Done. GitHub keeps merges and CI runs |
 | Releases were numbered tasks (14, 16, 18) | Releases follow the checklist above and get no task number |
 | The validation log recorded CI runs, merges and every local command | It records only what CI cannot show |
-| The roadmap kept full acceptance criteria for every finished task | It keeps one Done row per task; the criteria are in the archive and the PRs |
+| The roadmap kept full acceptance criteria for every finished task | It keeps one Done row per task. The criteria of Tasks 1-18 are in the archive; later tasks copy theirs into the PR description |
