@@ -39,8 +39,8 @@ connection and no browser.
 
 | Check | Observed |
 | --- | --- |
-| Installed tool | `ssh-workbench` resolved to the ignored tool folder; `--version` printed `ssh-workbench 0.3.0` |
-| 80x24 | The header read `2 machines   ○ 1 offline   ◇ 1 can't check`; list, details and footer drew. Down selected Studio box and its details; Up went back; Tab, Page Down and Page Up left the screen intact; R showed `◐ 1 checking` |
+| Installed tool | `ssh-workbench` resolved to the ignored tool folder; `--version` printed `ssh-workbench 0.3.0`. Jadon's own tool still printed `ssh-workbench 0.2.2` |
+| 80x24 | The header read `2 machines   ○ 1 offline   ◇ 1 can't check`; list, details and footer drew. Down showed Studio box's details, Up Garden demo's again; Tab moved the highlighted border from the list to the details and back; Page Down and Page Up changed nothing, as the details fit; R showed `◐ 1 checking` |
 | 50x24 | The list above the details, the header as symbols, the footer on two rows, the help line hidden |
 | 120x30 | Each row showed its alias or address on the right |
 | 80x18 | The help line hidden, side by side |

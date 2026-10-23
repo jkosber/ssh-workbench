@@ -184,8 +184,9 @@ Until 1.0.0, the changelog states every compatibility change.
 4. Update every line that names the current release:
    `git grep -n "<previous version>" -- . ":!CHANGELOG.md" ":!docs/archive"`
    finds AGENTS.md and the install commands in the README and the user guide.
-   Add a row for the new version to the table above and move the Policy rows
-   past it, change **Unreleased** in the roadmap's Done table to the new
+   Add a row for the new version to the table above; a new minor version
+   also renumbers the Policy rows after it (0.3.0 made them 0.3.x and
+   0.4.0). Change **Unreleased** in the roadmap's Done table to the new
    version, and check that the `pyproject.toml` description still fits.
 5. In the changelog, rename **Unreleased** to `## X.Y.Z - YYYY-MM-DD` (the
    day the tag will be made) and add an empty **Unreleased** above it.
