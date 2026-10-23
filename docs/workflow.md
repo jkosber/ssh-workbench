@@ -135,6 +135,10 @@ only, which also deletes the branch on GitHub:
 gh pr merge <number> --merge --delete-branch --match-head-commit <full head SHA>
 ```
 
+If another pull request is based on this branch, point it at `main` first
+with `gh pr edit <its number> --base main`; deleting the branch it is based on
+closes it instead.
+
 After the merge:
 
 ```text
