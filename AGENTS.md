@@ -1,7 +1,7 @@
 # SSH Workbench: agent guide
 
 SSH Workbench is a Python 3.14 / Textual terminal app for the machines a user
-connects to with SSH. 0.2.2 is its current release, tagged privately. These
+connects to with SSH. 0.3.0 is its current release, tagged privately. These
 rules bind every coding agent working here; when they and a task disagree,
 stop and ask Jadon.
 

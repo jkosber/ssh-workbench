@@ -5,6 +5,11 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.3.0 - 2026-10-23
+
+A new look, a status header and a layout that follows the terminal's size,
+with rewritten documentation. Tagged privately.
+
 ### Changed
 
 - A new look: Workbench's own color theme, rounded panes and dialogs, and a

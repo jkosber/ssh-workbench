@@ -162,8 +162,9 @@ installed package. It changes only at a release, never per edit or session.
 | 0.2.0 | Machines replace projects, tagged privately |
 | 0.2.1 | Key setup fixes from real use, tagged privately |
 | 0.2.2 | Ctrl+C, large-key and status fixes, tagged privately |
-| 0.2.x | Policy: a release of fixes only |
-| 0.3.0 | Policy: the next release with new features |
+| 0.3.0 | New look, status header and responsive layout, tagged privately |
+| 0.3.x | Policy: a release of fixes only |
+| 0.4.0 | Policy: the next release with new features |
 | 1.0.0 | Policy: a deliberately chosen stable release, later |
 
 Rows marked Policy describe how versions are chosen, not promised releases.
@@ -179,15 +180,17 @@ Until 1.0.0, the changelog states every compatibility change.
 4. Update every line that names the current release:
    `git grep -n "<previous version>" -- . ":!CHANGELOG.md" ":!docs/archive"`
    finds AGENTS.md and the install commands in the README and the user guide.
-   Add a row for the new version to the table above, and check that the
-   `pyproject.toml` description still fits.
+   Add a row for the new version to the table above and move the Policy rows
+   past it, change **Unreleased** in the roadmap's Done table to the new
+   version, and check that the `pyproject.toml` description still fits.
 5. In the changelog, rename **Unreleased** to `## X.Y.Z - YYYY-MM-DD` (the
    day the tag will be made) and add an empty **Unreleased** above it.
 6. Run the full checks, a fresh `uv build` and the package check. Install the
    wheel as a tool in ignored folders (set `UV_TOOL_DIR` and
    `UV_TOOL_BIN_DIR` under `.local/`) and run the
    [app smoke check](testing.md#app-smoke-check) with it in Windows Terminal.
-7. Pull request, CI, review and merge, as for a task.
+7. Pull request, CI, review and merge, as for a task. The release gets a "-"
+   row in Done with its PR.
 8. Tag the merge commit and push the tag (ask first):
 
    ```text
