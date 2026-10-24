@@ -273,6 +273,23 @@ async def test_results_from_an_older_round_are_ignored() -> None:
         )
         await pilot.pause()
         assert symbols(app) == before
+        assert "removed" not in app._statuses
+
+
+class FailingChecker(FakeChecker):
+    def port_open(self, host: str, port: int) -> bool:
+        if host == "192.0.2.50":
+            raise RuntimeError("fictional")
+        return super().port_open(host, port)
+
+
+async def test_a_check_that_fails_says_so() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FailingChecker())
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        app.query_one(ListView).index = 2
+        await wait_for(pilot, lambda: details_id(app) == "lab")
+        assert status_text(app) == "◇ Can't check: the check failed"
 
 
 @pytest.mark.parametrize("key", ["q", "ctrl+q"])

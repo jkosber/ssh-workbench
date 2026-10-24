@@ -134,6 +134,18 @@ async def checked(app, pilot) -> None:
     )
 
 
+def tracked_threads(monkeypatch: pytest.MonkeyPatch) -> list[threading.Thread]:
+    """Record every thread the app starts, so a test can wait for all of them."""
+    started: list[threading.Thread] = []
+
+    def thread(*args, **kwargs) -> threading.Thread:
+        started.append(threading.Thread(*args, **kwargs))
+        return started[-1]
+
+    monkeypatch.setattr(app_module, "Thread", thread)
+    return started
+
+
 def allow_connect(monkeypatch: pytest.MonkeyPatch) -> Mock:
     launcher = Mock(return_value=0)
     monkeypatch.setattr(app_module, "launch_ssh", launcher)
@@ -308,6 +320,82 @@ async def test_update_asks_again_before_dropping_comments(
         )
 
 
+async def test_moving_away_between_two_u_presses_asks_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    text = "# Fictional notes kept by hand\n" + format_machines(machines)
+    path, text = workspace(
+        tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS, text=text
+    )
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        await pilot.press("u")
+        await pilot.pause()
+        assert connection_status(app) == WARNING
+        app.query_one(ListView).index = 1
+        await wait_for(pilot, lambda: field(app, "id") == "lab")
+        app.query_one(ListView).index = 0
+        await wait_for(pilot, lambda: field(app, "id") == "garden")
+        await pilot.press("u")
+        await pilot.pause()
+        assert connection_status(app) == WARNING
+        assert path.read_text(encoding="utf-8") == text
+        await pilot.press("u")
+        await wait_for(pilot, lambda: read_machines(path)[0][0].alias == "new-host")
+
+
+async def test_r_save_and_reload_never_resolve_a_missing_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["hop-host"], PREVIOUS)
+    checker = FakeChecker({"old-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+
+    def still_missing() -> None:
+        assert symbols(app)[0] is State.NOT_FOUND
+        assert "old-host" not in checker.resolved
+
+    async def save_lab() -> None:
+        app.query_one(ListView).index = 1
+        await wait_for(pilot, lambda: field(app, "id") == "lab")
+        await pilot.press("e")
+        await wait_for(pilot, lambda: showing(app, MachineForm))
+        started = app._round
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app._round > started)
+
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        still_missing()
+
+        started = app._round
+        await pilot.press("r")
+        await wait_for(
+            pilot,
+            lambda: app._round > started and app.check_action("refresh", ()) is True,
+        )
+        await checked(app, pilot)
+        still_missing()
+
+        await save_lab()
+        await wait_for(pilot, lambda: not showing(app, MachineForm))
+        await checked(app, pilot)
+        still_missing()
+
+        # The reload path: the form stays open with the reload message.
+        path.write_text(format_machines(machines) + "\n# outside\n", encoding="utf-8")
+        await save_lab()
+        assert showing(app, MachineForm)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not showing(app, MachineForm))
+        await checked(app, pilot)
+        still_missing()
+
+
 async def test_an_alias_that_returns_clears_alias_not_found_on_r(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -416,6 +504,7 @@ async def test_a_review_while_the_screens_close_starts_nothing(
 ) -> None:
     machines = (GARDEN, LAB)
     path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    threads = tracked_threads(monkeypatch)
     checker = FakeChecker({"new-host": SAME})
     app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
     late = Review(
@@ -437,7 +526,9 @@ async def test_a_review_while_the_screens_close_starts_nothing(
 
     async with app.run_test(message_hook=during_shutdown) as pilot:
         await checked(app, pilot)
-    await asyncio.sleep(0.2)
+    # Any check the late review started has finished once its thread has.
+    for thread in threads:
+        thread.join(5)
     assert errors == []
     assert calls
     assert (len(checker.resolved), len(checker.checked)) == calls[0]
