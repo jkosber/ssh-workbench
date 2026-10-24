@@ -40,7 +40,7 @@ connection and no browser.
 | Check | Observed |
 | --- | --- |
 | Installed tool | Before the release folder was on `PATH`, Jadon's own tool printed `ssh-workbench 0.3.1`. Then `ssh-workbench` resolved to the ignored tool folder and `--version` printed `ssh-workbench 0.3.2` |
-| 80x24 | The header read `2 machines   ○ 1 offline   ◇ 1 can't check`; Garden demo read `◇ Can't check: SSH could not resolve` (the empty SSH config has no alias), with the help line and the footer's eight keys. Down showed Studio box's details and Up Garden demo's again; Tab, Page Down and Page Up left the details as they were; R showed `◐ 1 checking` |
+| 80x24 | The header read `2 machines   ○ 1 offline   ◇ 1 can't check`; Garden demo read `◇ Can't check: SSH could not resolve the alias` (the empty SSH folder has no config file, so `ssh -G -F` fails), with the help line and the footer's eight keys. Down showed Studio box's details and Up Garden demo's again; Tab, Page Down and Page Up left the details as they were, as they fit without scrolling; R showed `◐ 1 checking` |
 | 50x24 | The list above the details, the header as symbols (`2  ◐1 ◇1` during R's check), the footer on two rows, the help line hidden |
 | 120x30 | Each row showed its alias or address on the right |
 | 80x18 | The help line hidden, side by side |
@@ -49,7 +49,8 @@ connection and no browser.
 | Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1112 passed |
 
 Not checked: Linux and macOS terminals; which pane Tab focused (only the
-screen text was read); the install from the tag, which needs the tag.
+screen text was read); scrolling the details, which fit at 80x24; the
+install from the tag, which needs the tag.
 
 ## Task 22: key setup fixes, 2026-10-24
 
