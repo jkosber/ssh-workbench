@@ -5,6 +5,12 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.3.2 - 2026-10-24
+
+Key setup fixes: K no longer opens an empty key list and names keys it can't
+offer, Ctrl+C says which step it stopped, and a Windows install error prints
+as plain text. Tagged privately.
+
 ### Fixed
 
 - K no longer opens an empty key list: with no key to offer it says so. A
