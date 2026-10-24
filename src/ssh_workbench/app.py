@@ -1740,6 +1740,8 @@ class SSHWorkbenchApp(App[None]):
             except (SSHLaunchError, KeySetupError) as error:
                 return str(error), False
             except KeyboardInterrupt:
+                # A safety net: the shield turns Ctrl+C into a count, and a
+                # step's own KeyboardInterrupt names that step.
                 return "Key setup interrupted.", False
 
         with ssh_handoff():
@@ -1774,7 +1776,10 @@ class SSHWorkbenchApp(App[None]):
             # ssh can exit 0 after it, and no later step may start.
             if ctrl_c_count() != pressed:
                 return None
-            status = run_native(arguments, name)
+            try:
+                status = run_native(arguments, name)
+            except KeyboardInterrupt:
+                return None
             if interrupted(status) or ctrl_c_count() != pressed:
                 return None
             return status
@@ -1783,7 +1788,10 @@ class SSHWorkbenchApp(App[None]):
             print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
             status = run(keygen_arguments(choice.private, machine.id), "ssh-keygen")
             if status is None:
-                return "Key setup interrupted.", False
+                return (
+                    "Key setup interrupted while creating the key; "
+                    "nothing was installed."
+                ), False
             if status != 0:
                 return (
                     f"ssh-keygen exited with status {status}; nothing was installed.",
@@ -1795,10 +1803,18 @@ class SSHWorkbenchApp(App[None]):
             windows_install_command(key) if plan.windows else posix_install_command(key)
         )
         ssh = find_ssh()
+        if ctrl_c_count() != pressed:
+            return (
+                "Key setup interrupted before the install; nothing was installed.",
+                False,
+            )
         print("SSH Workbench: installing the key; SSH may ask for the password.")
         status = run([ssh, *install_arguments(machine, address, command)])
         if status is None:
-            return "Key setup interrupted.", False
+            return (
+                "Key setup interrupted during the install; login was not tested.",
+                False,
+            )
         if status != 0:
             return (
                 f"Installing the key failed (SSH exited with status {status}); "
