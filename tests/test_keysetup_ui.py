@@ -16,7 +16,7 @@ from unittest.mock import Mock
 
 import pytest
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, ListView, OptionList, RadioButton, Static
+from textual.widgets import Footer, Input, ListView, OptionList, RadioButton, Static
 
 from ssh_workbench import app as app_module
 from ssh_workbench import keys
@@ -926,6 +926,66 @@ async def test_k_after_a_dropped_wait_looks_up_again(
             assert len(app.screen_stack) == 2
     finally:
         hold.set()
+
+
+class HeldPerAlias(FakeChecker):
+    """Each alias's ssh -G waits for its own event."""
+
+    def __init__(
+        self, targets: dict[str, AliasTarget], holds: dict[str, threading.Event]
+    ) -> None:
+        super().__init__(None)
+        self.targets = targets
+        self.holds = holds
+
+    def resolve_alias(self, alias: str) -> AliasTarget | None:
+        self.resolved.append(alias)
+        self.holds[alias].wait(30)
+        return self.targets[alias]
+
+
+def offering(*keys: str) -> AliasTarget:
+    return AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=keys, identities_only=True
+    )
+
+
+async def test_an_earlier_k_lookup_never_opens_the_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    holds = {"garden-host": threading.Event(), "other-host": threading.Event()}
+    targets = {
+        "garden-host": offering("~/ssh/id_a"),
+        "other-host": offering("~/ssh/id_b"),
+    }
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    threads = tracked_threads(monkeypatch)
+    checker = HeldPerAlias(targets, holds)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("e")
+            await wait_for(pilot, lambda: showing(app, MachineForm))
+            app.screen.query_one("#form-alias", Input).value = "other-host"
+            await pilot.press("ctrl+s")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            await pilot.press("k")
+            await wait_for(pilot, lambda: checker.resolved.count("other-host") == 1)
+            # garden-host answers first: startup's and the first K's lookup.
+            holds["garden-host"].set()
+            for thread in threads[:-1]:
+                thread.join(5)
+            await pilot.pause()
+            assert not isinstance(app.screen, KeySetup)
+            holds["other-host"].set()
+            await wait_for(pilot, lambda: showing(app, KeySetup))
+            assert option_labels(app.screen)[0] == (
+                "id_b.pub (your SSH config offers this)"
+            )
+    finally:
+        for hold in holds.values():
+            hold.set()
 
 
 async def test_without_a_terminal_handoff_nothing_runs(
