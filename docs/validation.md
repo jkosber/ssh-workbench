@@ -49,7 +49,8 @@ connection and no browser.
 | Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1122 passed |
 
 Not checked: Linux and macOS terminals; which pane Tab focused (only the
-screen text was read); scrolling the details, which fit at 80x24; the
+screen text was read); scrolling the details, which fit at 80x24; whether
+typed input echoed after each exit (each snapshot follows a `cls`); the
 install from the tag, which needs the tag.
 
 ## Task 23: key setup follow-ups, 2026-10-24

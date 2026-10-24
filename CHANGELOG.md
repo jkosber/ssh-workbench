@@ -8,9 +8,10 @@ Changes by release, newest first. Version numbers follow the policy in
 ## 0.3.3 - 2026-10-24
 
 Key setup follow-ups: a config that names a key by its `.pub` counts as
-naming that key, the key list fits 60x20, and a Windows install reports its
-result only after setting permissions, with errors on one line. Tagged
-privately.
+naming that key, the key picker uses the whole height so a note and a "Not
+listed" line fit at 60x20, and an administrator's Windows install reports
+its result only after setting the key file's permissions, with errors on one
+line. Tagged privately.
 
 ### Fixed
 
