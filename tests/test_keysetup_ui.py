@@ -364,6 +364,11 @@ async def test_a_machine_with_a_key_uses_only_that_key(
     assert path.read_text(encoding="utf-8") == text
 
 
+CREATING = "Key setup interrupted while creating the key; nothing was installed."
+BEFORE_INSTALL = "Key setup interrupted before the install; nothing was installed."
+DURING_INSTALL = "Key setup interrupted during the install; login was not tested."
+
+
 @pytest.mark.parametrize(
     ("choice", "native", "steps", "message"),
     [
@@ -391,19 +396,19 @@ async def test_a_machine_with_a_key_uses_only_that_key(
             [],
             Native(interrupt="install"),
             ["install"],
-            "Key setup interrupted.",
+            DURING_INSTALL,
         ),
         (
             ["down", "down"],
             Native(statuses={"keygen": -signal.SIGINT}),
             ["keygen"],
-            "Key setup interrupted.",
+            CREATING,
         ),
         (
             [],
             Native(statuses={"install": 0xC000013A}),
             ["install"],
-            "Key setup interrupted.",
+            DURING_INSTALL,
         ),
         (
             [],
@@ -443,10 +448,10 @@ INTERRUPTED_TEST = (
 @pytest.mark.parametrize(
     ("step", "status", "steps", "message"),
     [
-        ("keygen", 0, ["keygen"], "Key setup interrupted."),
-        ("keygen", 255, ["keygen"], "Key setup interrupted."),
-        ("install", 0, ["install"], "Key setup interrupted."),
-        ("install", 255, ["install"], "Key setup interrupted."),
+        ("keygen", 0, ["keygen"], CREATING),
+        ("keygen", 255, ["keygen"], CREATING),
+        ("install", 0, ["install"], DURING_INSTALL),
+        ("install", 255, ["install"], DURING_INSTALL),
         ("test", 0, ["install", "test"], INTERRUPTED_TEST),
         ("test", 255, ["install", "test"], INTERRUPTED_TEST),
     ],
@@ -488,7 +493,7 @@ async def test_ctrl_c_between_steps_stops_the_later_ones(
         await picker(app, pilot)
         await pilot.press("down", "down", "enter")
         await finished(app, pilot)
-        assert connection_status(app) == "Key setup interrupted. Machine 1: box"
+        assert connection_status(app) == f"{BEFORE_INSTALL} Machine 1: box"
     assert [Native.step(call) for call in native.calls] == ["keygen"]
     assert path.read_text(encoding="utf-8") == text
 
@@ -527,8 +532,27 @@ async def test_ctrl_c_while_the_terminal_is_handed_over_stops_every_step(
         await picker(app, pilot)
         await pilot.press("enter")
         await finished(app, pilot)
-        assert connection_status(app) == "Key setup interrupted. Machine 1: box"
+        assert connection_status(app) == f"{BEFORE_INSTALL} Machine 1: box"
     assert native.calls == []
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_ctrl_c_while_the_terminal_is_handed_over_before_a_new_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    monkeypatch.setattr(
+        HeadlessDriver, "suspend_application_mode", lambda self: press_ctrl_c()
+    )
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("down", "down", "enter")
+        await finished(app, pilot)
+        assert connection_status(app) == f"{CREATING} Machine 1: box"
+    assert native.calls == []
+    assert not (folder / "id_ed25519_box").exists()
     assert path.read_text(encoding="utf-8") == text
 
 
