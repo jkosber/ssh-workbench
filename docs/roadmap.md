@@ -29,6 +29,14 @@ needs its own task before work starts.
 | The details pane does not show key-login state | 12 |
 | Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
 
+### Status and aliases
+
+| Item | From |
+| --- | --- |
+| A save during an R review can show Alias not found for an alias that review finds listed again, until its `ssh -G` answers | 21 |
+| After a failed startup review, keeping a missing alias with a form save does not reach the state file, so the next R marks it missing again | 21 |
+| A `Match exec` command that hangs outlives `ssh -G`'s 10 s timeout and, now that `ssh -G` runs detached, the terminal too; one can pile up per startup, R or K | 21 |
+
 ### Key setup
 
 | Item | From |
@@ -74,6 +82,7 @@ needs its own task before work starts.
 | The 60x20 many-links picker test does not press Escape; the 80x24 test covers Escape restoring selection and focus | 8 |
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
+| `test_return_preserves_scroll_and_literal_details` checks the scroll right after a key press; a cold Windows runner failed it once (PR #27) | 21 |
 
 ## Done
 
