@@ -5,6 +5,12 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.3.1 - 2026-10-23
+
+Status and alias fixes: saves keep the alias checks in progress, `Match exec`
+commands stay off the screen, and K opens its key list only when nothing
+happened in between. Tagged privately.
+
 ### Fixed
 
 - Saving a machine while Workbench was still checking aliases at startup or
