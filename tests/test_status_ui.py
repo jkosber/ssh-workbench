@@ -313,15 +313,54 @@ async def test_spinner_moves_only_when_animations_are_on() -> None:
             app.animation_level = level
             async with app.run_test() as pilot:
                 widget = app.query_one(StatusSymbol)
-                seen = set()
-                for _ in range(8):
-                    seen.add(widget.render().plain)
-                    await asyncio.sleep(0.12)
-                    await pilot.pause()
+                seen = {widget.render().plain}
+                if moves:
+                    # The interval timer drives the spinner.
+                    async with asyncio.timeout(5):
+                        while len(seen) < 2:
+                            await pilot.pause()
+                            seen.add(widget.render().plain)
+                else:
+                    for _ in range(8):
+                        app._tick_animation()
+                        seen.add(widget.render().plain)
                 assert (len(seen) > 1) is moves
                 assert seen <= {"◐", "◓", "◑", "◒"}
     finally:
         hold.set()
+
+
+async def test_online_symbols_dim_for_half_of_each_pulse() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        widgets = list(app.query(StatusSymbol))
+        dimmed: list[list[bool]] = [[] for _ in widgets]
+        for frame in range(8):
+            for widget, seen in zip(widgets, dimmed, strict=True):
+                widget.frame = frame
+                seen.append(widget.has_class("-dim"))
+        pulse = [False] * 4 + [True] * 4
+        assert dimmed == [pulse, pulse, [False] * 8, [False] * 8]
+
+
+async def test_the_animation_moves_only_checking_and_online_symbols() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    app.animation_level = "full"
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        assert symbols(app) == [
+            State.ONLINE,
+            State.ONLINE,
+            State.OFFLINE,
+            State.UNKNOWN,
+        ]
+        widgets = list(app.query(StatusSymbol))
+        before = [widget.frame for widget in widgets]
+        app._tick_animation()
+        app._tick_animation()
+        moved = [w.frame - b for w, b in zip(widgets, before, strict=True)]
+        assert moved == [2, 2, 0, 0]
 
 
 async def test_without_a_checker_nothing_is_checked(
@@ -378,6 +417,28 @@ async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
         assert status_text(app) == "◇ Can't check: press R to resolve this alias"
         await pilot.press("r")
         await wait_for(pilot, lambda: "new-host" in checker.resolved)
+
+
+async def test_an_alias_waiting_for_r_needs_no_thread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "machines.toml"
+    text = format_machines(MACHINES)
+    path.write_text(text, encoding="utf-8")
+    app = SSHWorkbenchApp(
+        MACHINES, config_path=path, file_text=text, checker=FakeChecker()
+    )
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        monkeypatch.setattr(app_module, "Thread", NoThread)
+        await pilot.press("a")
+        await wait_for(pilot, lambda: showing(app, MachineForm))
+        for field, value in (("id", "new"), ("name", "New"), ("alias", "new-host")):
+            app.screen.query_one(f"#form-{field}", Input).value = value
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: len(app.query(StatusSymbol)) == 5)
+        await wait_for(pilot, lambda: details_id(app) == "new")
+        assert status_text(app) == "◇ Can't check: press R to resolve this alias"
 
 
 class OneSlowHost(FakeChecker):
@@ -473,16 +534,17 @@ async def test_r_after_a_save_still_waits_for_the_earlier_ssh_g(
         hold.set()
 
 
+class NoThread:
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+    def start(self) -> None:
+        raise RuntimeError("can't start new thread")
+
+
 async def test_checks_that_cannot_start_leave_the_timer_and_r_working(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    class NoThread:
-        def __init__(self, *args: object, **kwargs: object) -> None:
-            pass
-
-        def start(self) -> None:
-            raise RuntimeError("can't start new thread")
-
     monkeypatch.setattr(app_module, "Thread", NoThread)
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test() as pilot:
