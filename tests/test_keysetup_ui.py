@@ -23,7 +23,7 @@ from ssh_workbench import keys
 from ssh_workbench.aliases import AliasMemory, AliasRecord, format_state, state_path
 from ssh_workbench.app import SSHWorkbenchApp, StatusSymbol
 from ssh_workbench.config import Machine, format_machines, read_machines
-from ssh_workbench.forms import KeySetup, MachineForm
+from ssh_workbench.forms import KeyChoice, KeySetup, MachineForm
 from ssh_workbench.keys import (
     PublicKey,
     posix_install_command,
@@ -1418,3 +1418,50 @@ async def test_the_picker_shows_its_unlisted_keys_whole(
             region = screen.query_one(widget).region
             assert region.height > 0, widget
             assert box.region.contains_region(region), widget
+
+
+async def test_the_picker_fits_60x20_with_a_real_note_and_the_not_listed_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The choices a real ~/.ssh folder gives; a test folder's absolute path
+    # would make every note several rows longer.
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    note_text = (
+        "Your SSH config doesn't name this key for garden-host. Add this line "
+        "under Host garden-host; Workbench never edits the config: "
+        "IdentityFile ~/.ssh/id_a"
+    )
+    ssh = Path("~/.ssh")
+    choices = [
+        KeyChoice(ssh / "id_lab", "id_lab.pub (your SSH config offers this)"),
+        KeyChoice(ssh / "id_a", "id_a.pub", note=note_text),
+        KeyChoice(ssh / "id_b", "id_b.pub", note=note_text),
+        KeyChoice(
+            ssh / "id_ed25519_garden",
+            "Create a new key: id_ed25519_garden",
+            True,
+            note_text,
+        ),
+    ]
+    line = (
+        "Not listed: id_work and id_old, which your SSH config offers, have no "
+        "valid .pub file."
+    )
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text)
+    async with app.run_test(size=(60, 20)) as pilot:
+        app.push_screen(KeySetup(GARDEN, choices, None, line))
+        await wait_for(pilot, lambda: showing(app, KeySetup))
+        screen = app.screen
+        await pilot.press("down")
+        await wait_for(pilot, lambda: note(screen) == note_text)
+        await pilot.pause()
+        box = screen.query_one("#key-setup")
+        assert box.max_scroll_y == 0
+        for widget in (
+            "#key-note",
+            "#key-choices",
+            "#key-unlisted",
+            "#key-system",
+            "#key-help",
+        ):
+            assert box.region.contains_region(screen.query_one(widget).region), widget
