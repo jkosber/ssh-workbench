@@ -13,6 +13,7 @@ import argparse
 import base64
 import re
 import struct
+import sys
 
 from ssh_workbench.keys import PublicKey, posix_install_command
 
@@ -84,6 +85,8 @@ def main() -> int:
         help=f"shells to run the command from (default: {' '.join(SHELLS)})",
     )
     args = parser.parse_args()
+    # sh on the other machine reads a CR as part of a word, so no CRLF.
+    sys.stdout.reconfigure(newline="\n")
     print(shell_script(args.shells), end="")
     return 0
 
