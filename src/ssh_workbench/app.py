@@ -165,6 +165,8 @@ class AliasesReviewed(Message):
     # None when the review failed; the round then checks every alias that is
     # not already missing.
     review: Review | None
+    # After a failed review, the aliases the saved state lists as missing.
+    known_missing: tuple[str, ...] = ()
 
 
 class StatusSymbol(Widget):
@@ -945,6 +947,7 @@ class SSHWorkbenchApp(App[None]):
     ) -> None:
         if self._status_closed.is_set():
             return
+        known_missing: tuple[str, ...] = ()
         try:
             if machine_file is not None:
                 path = state_path(machine_file, self._computer)
@@ -959,10 +962,18 @@ class SSHWorkbenchApp(App[None]):
             result = review(memory, aliases, names, self.checker.resolve_alias)
         except Exception:
             # Without a review the round still checks the aliases not missing.
+            # Those the saved state lists as missing stay so; one that vanished
+            # since the last run can't be told apart and is still checked.
             names, result = (), None
+            if memory is not None:
+                known_missing = tuple(
+                    alias for alias in aliases if alias in memory.baselines
+                )
         if not self._status_closed.is_set():
             try:
-                self.post_message(AliasesReviewed(round_id, names, result))
+                self.post_message(
+                    AliasesReviewed(round_id, names, result, known_missing)
+                )
             except RuntimeError:
                 # The event loop may close between the guard and enqueue.
                 pass
@@ -980,6 +991,9 @@ class SSHWorkbenchApp(App[None]):
             self._host_names = frozenset(message.names)
             self._missing = message.review.missing
             self._targets.update(message.review.resolved)
+        else:
+            for alias in message.known_missing:
+                self._missing.setdefault(alias, None)
         for alias in self._kept_during_review:
             self._missing.pop(alias, None)
             if self._memory is not None:
