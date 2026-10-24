@@ -581,8 +581,9 @@ class SSHWorkbenchApp(App[None]):
         self._resolves_running = 0
         # The machine and new alias a first U warned about.
         self._update_armed: tuple[str, str] | None = None
-        # The machine whose alias K is resolving, if any.
-        self._key_resolving: str | None = None
+        # The machine K is looking up an alias for. Anything the user does in
+        # between drops the wait, and the answer then opens nothing.
+        self._key_waiting: Machine | None = None
         # Exported aliases: a problem writing Workbench's SSH config file, shown
         # after the rebuild, and whether to offer the Include line then.
         self._export_problem: str | None = None
@@ -685,6 +686,11 @@ class SSHWorkbenchApp(App[None]):
         )
 
     def on_mount(self) -> None:
+        # Any screen (a form, a question, the picker) and any terminal handoff
+        # (C, key setup) drop K's wait. Immediate, so the wait is gone before
+        # the action that opened the screen or handed off the terminal ends.
+        self.screen_change_signal.subscribe(self, self._drop_key_wait, immediate=True)
+        self.app_suspend_signal.subscribe(self, self._drop_key_wait, immediate=True)
         self._update_summary()
         if self.machines:
             self.query_one("#machine-list", ListView).focus()
@@ -697,6 +703,14 @@ class SSHWorkbenchApp(App[None]):
         self._update_armed = None
         self.refresh_bindings()
         index = event.list_view.index
+        # Moving to another machine drops K's wait; the list reporting the
+        # same machine again does not.
+        if (
+            index is None
+            or index >= len(self.machines)
+            or self.machines[index] != self._key_waiting
+        ):
+            self._drop_key_wait()
         # An old list can still report a highlight while the panes rebuild.
         if index is not None and not self._rebuilding:
             self._show_details(index)
@@ -1584,13 +1598,16 @@ class SSHWorkbenchApp(App[None]):
         if machine.alias is None or self.checker is None:
             self._open_key_setup(machine, None)
             return
-        if self._key_resolving is not None:
+        if self._key_waiting == machine:
+            self._show_key_result(
+                machine, f"Still looking up {machine.alias} in your SSH config."
+            )
             return
         # Key setup is one of the moments ssh -G may run: it names the keys
         # the alias offers.
-        self._key_resolving = machine.id
+        self._key_waiting = machine
         if not self._start_thread(self._resolve_key_target, (machine,)):
-            self._key_resolving = None
+            self._key_waiting = None
             self._open_key_setup(machine, None)
 
     def _resolve_key_target(self, machine: Machine) -> None:
@@ -1610,11 +1627,18 @@ class SSHWorkbenchApp(App[None]):
     def on_key_target_resolved(self, message: KeyTargetResolved) -> None:
         if self._status_closed.is_set() or not self.is_running:
             return
-        self._key_resolving = None
-        ids = [machine.id for machine in self.machines]
-        if message.machine_id in ids and self._browsing():
-            machine = self.machines[ids.index(message.machine_id)]
-            self._open_key_setup(machine, message.target)
+        waiting = self._key_waiting
+        if waiting is None or waiting.id != message.machine_id:
+            # The user moved on, or this is an earlier lookup's answer.
+            return
+        self._key_waiting = None
+        # U saves without opening a screen, so the machine may have changed.
+        index = self._selected_index()
+        if index is not None and self.machines[index] == waiting:
+            self._open_key_setup(waiting, message.target)
+
+    def _drop_key_wait(self, _: object = None) -> None:
+        self._key_waiting = None
 
     def _open_key_setup(self, machine: Machine, target: AliasTarget | None) -> None:
         folder = ssh_folder()
