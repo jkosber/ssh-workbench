@@ -120,7 +120,7 @@ in the pull request description.
 | - | Release 0.3.1 | [#28](https://github.com/jkosber/ssh-workbench/pull/28) | 0.3.1 |
 | 22 | Key setup fixes: no empty key list, keys without a `.pub` named, Ctrl+C naming its step, plain-text Windows errors, a login shell check | [#29](https://github.com/jkosber/ssh-workbench/pull/29) | 0.3.2 |
 | - | Release 0.3.2 | [#30](https://github.com/jkosber/ssh-workbench/pull/30) | 0.3.2 |
-| 23 | Key setup follow-ups: a configured `.pub` names its key, the picker at 60x20, the Windows script's result order and one-line errors | - | Unreleased |
+| 23 | Key setup follow-ups: a configured `.pub` names its key, the picker at 60x20, the Windows script's result order and one-line errors | [#31](https://github.com/jkosber/ssh-workbench/pull/31) | Unreleased |
 
 ## Deferred ideas
 
