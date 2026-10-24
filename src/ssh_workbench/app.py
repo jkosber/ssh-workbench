@@ -1898,10 +1898,7 @@ def _unlisted_keys(target: AliasTarget | None, folder: Path) -> list[str]:
     return [
         private.name
         for private in identity_paths(target.identity_files, folder)
-        # A config may name the .pub itself; that is a public key, not missing.
-        if not private.name.endswith(".pub")
-        and private.is_file()
-        and not _has_public_key(private)
+        if private.is_file() and not _has_public_key(private)
     ]
 
 

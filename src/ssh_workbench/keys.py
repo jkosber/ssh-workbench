@@ -165,7 +165,11 @@ def key_setting(path: Path, home: Path | None) -> str:
 
 
 def identity_paths(values: Iterable[str], folder: Path) -> list[Path]:
-    """Key paths from `ssh -G`; `~` is the SSH folder's parent, as for `Include`."""
+    """Key paths from `ssh -G`; `~` is the SSH folder's parent, as for `Include`.
+
+    A named `x.pub` stands for key `x`: OpenSSH uses a public key file to pick
+    the agent's private key, as some agents' setup guides suggest.
+    """
     paths: list[Path] = []
     for value in values:
         # Workbench does not expand SSH's own % and ${} tokens.
@@ -177,6 +181,7 @@ def identity_paths(values: Iterable[str], folder: Path) -> list[Path]:
             path = Path(value)
         else:
             continue
+        path = path.with_name(path.name.removesuffix(".pub"))
         if path not in paths:
             paths.append(path)
     return paths
