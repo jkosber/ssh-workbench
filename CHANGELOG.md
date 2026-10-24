@@ -9,8 +9,9 @@ Changes by release, newest first. Version numbers follow the policy in
 
 - A config that names the public key (`IdentityFile ~/.ssh/x.pub`, as some
   SSH agents' guides suggest) counts as naming key x: K lists it as the key
-  the config offers, without a "doesn't name this key" note or an
-  `IdentityFile` hint.
+  the config offers, without a "doesn't name this key" note. SSH uses such
+  a line only through an agent that holds the key, so a failed login test
+  says so and gives the `IdentityFile` line for the key itself.
 - The key picker uses the whole terminal height before it scrolls, so at
   60x20 a note and a "Not listed" line fit.
 - On a Windows target, an administrator's install says the key is installed
