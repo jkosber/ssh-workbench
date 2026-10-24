@@ -1,6 +1,7 @@
 """Live status in the app, driven by a fake checker; nothing touches the network."""
 
 import asyncio
+import platform
 import threading
 from pathlib import Path
 from unittest.mock import Mock
@@ -8,9 +9,10 @@ from unittest.mock import Mock
 import pytest
 from textual import events
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, Input, ListView, Static
+from textual.widgets import Footer, Input, ListView, RadioButton, Static
 
 from ssh_workbench import app as app_module
+from ssh_workbench.aliases import state_path
 from ssh_workbench.app import SSHWorkbenchApp, StatusFinished, StatusSymbol
 from ssh_workbench.config import Machine, format_machines
 from ssh_workbench.forms import MachineForm
@@ -417,6 +419,105 @@ async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
         assert status_text(app) == "◇ Can't check: press R to resolve this alias"
         await pilot.press("r")
         await wait_for(pilot, lambda: "new-host" in checker.resolved)
+
+
+async def save_in_form(
+    app, pilot, key: str, values: dict[str, str], direct: bool = False
+) -> None:
+    """Open the form with `key`, fill it in and save; returns once it closed."""
+    await pilot.press(key)
+    await wait_for(pilot, lambda: showing(app, MachineForm))
+    if direct:
+        app.screen.query_one("#kind-direct", RadioButton).value = True
+        await pilot.pause()
+    for field, value in values.items():
+        app.screen.query_one(f"#form-{field}", Input).value = value
+    await pilot.press("ctrl+s")
+    await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+
+
+def saved_file(tmp_path: Path) -> tuple[Path, str]:
+    path = tmp_path / "machines.toml"
+    text = format_machines(MACHINES)
+    path.write_text(text, encoding="utf-8")
+    return path, text
+
+
+NEW_DIRECT = {"id": "new", "name": "New", "addresses": "192.0.2.60"}
+
+
+async def test_a_save_while_ssh_g_runs_keeps_its_answers(tmp_path: Path) -> None:
+    path, text = saved_file(tmp_path)
+    hold = threading.Event()
+    checker = FakeChecker(hold=hold)
+    app = SSHWorkbenchApp(MACHINES, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(
+                pilot, lambda: sorted(checker.resolved) == ["garden-host", "hop-host"]
+            )
+            await save_in_form(app, pilot, "a", NEW_DIRECT, direct=True)
+            await wait_for(pilot, lambda: len(app.query(StatusSymbol)) == 5)
+            hold.set()
+            await checked(app, pilot)
+            assert symbols(app)[0] is State.ONLINE
+            app.query_one(ListView).index = 0
+            await wait_for(pilot, lambda: details_id(app) == "garden")
+            assert status_text(app) == "● Online via alias"
+            assert symbols(app)[3] is State.UNKNOWN
+            assert sorted(checker.resolved) == ["garden-host", "hop-host"]
+            assert state_path(path, platform.node()).exists()
+    finally:
+        hold.set()
+
+
+async def test_two_saves_while_ssh_g_runs_still_use_its_answer(
+    tmp_path: Path,
+) -> None:
+    path, text = saved_file(tmp_path)
+    hold = threading.Event()
+    checker = FakeChecker(hold=hold)
+    app = SSHWorkbenchApp(MACHINES, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(
+                pilot, lambda: sorted(checker.resolved) == ["garden-host", "hop-host"]
+            )
+            await save_in_form(app, pilot, "a", NEW_DIRECT, direct=True)
+            await wait_for(pilot, lambda: details_id(app) == "new")
+            await save_in_form(app, pilot, "e", {"name": "Newer"})
+            await wait_for(pilot, lambda: len(app.query(StatusSymbol)) == 5)
+            hold.set()
+            await checked(app, pilot)
+            assert symbols(app)[0] is State.ONLINE
+            assert checker.resolved.count("garden-host") == 1
+    finally:
+        hold.set()
+
+
+async def test_changing_an_alias_while_ssh_g_runs_waits_for_r(
+    tmp_path: Path,
+) -> None:
+    path, text = saved_file(tmp_path)
+    hold = threading.Event()
+    checker = FakeChecker(hold=hold)
+    app = SSHWorkbenchApp(MACHINES, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(
+                pilot, lambda: sorted(checker.resolved) == ["garden-host", "hop-host"]
+            )
+            await save_in_form(app, pilot, "e", {"alias": "other-host"})
+            hold.set()
+            # Every late answer has reported once R is offered again.
+            await wait_for(pilot, lambda: app.check_action("refresh", ()) is True)
+            await checked(app, pilot)
+            app.query_one(ListView).index = 0
+            await wait_for(pilot, lambda: details_id(app) == "garden")
+            assert status_text(app) == "◇ Can't check: press R to resolve this alias"
+            assert "other-host" not in checker.resolved
+    finally:
+        hold.set()
 
 
 async def test_an_alias_waiting_for_r_needs_no_thread(
