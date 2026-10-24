@@ -60,7 +60,8 @@ def child(step: str, status: int, target: str | None) -> int:
 
 
 class FictionalChecker:
-    """Every port is closed; the alias names one fictional key."""
+    """Every port is closed; the alias names two fictional keys, and only
+    id_lab has a .pub, so the picker lists it and names id_work below."""
 
     def resolve_alias(self, alias: str) -> AliasTarget | None:
         return AliasTarget(
@@ -68,7 +69,7 @@ class FictionalChecker:
             22,
             proxied=False,
             user="dev",
-            identity_files=("~/ssh/id_lab",),
+            identity_files=("~/ssh/id_lab", "~/ssh/id_work"),
             identities_only=True,
         )
 
@@ -84,6 +85,7 @@ def prepare(folder: Path) -> Path:
         (ssh / f"{name}.pub").write_text(
             fictional_public_key(seed, name) + "\n", encoding="ascii"
         )
+    (ssh / "id_work").write_text("fictional private half\n", encoding="ascii")
     path = folder / "machines.toml"
     # A second run in the same folder shows the key the first one saved.
     if not path.exists():
