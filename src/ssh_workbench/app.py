@@ -97,6 +97,7 @@ from ssh_workbench.store import (
 STATUS_INTERVAL = 30.0
 ANIMATION_TICK = 0.2
 SPINNER = "◐◓◑◒"
+_NO_HANDOFF = "Cannot hand off this terminal. Run SSH Workbench in a local terminal."
 
 # Workbench's own colors; Textual derives every shade from these.
 WORKBENCH_THEME = Theme(
@@ -1552,46 +1553,55 @@ class SSHWorkbenchApp(App[None]):
         if index is None or self.check_action("connect", ()) is not True:
             return
         machine = self.machines[index]
-        machine_list = self.query_one(ListView)
-        self._connecting = True
-        self.refresh_bindings()
-        with ssh_handoff():
+
+        def connect() -> str:
             try:
-                with self.suspend():
-                    # Textual 8.2.8 resumes only on a normal context exit. Handle
-                    # launch errors here so they cannot skip terminal restoration.
-                    try:
-                        address = self._online_address(machine)
-                        status = (
-                            launch_ssh(machine, address)
-                            if address is not None
-                            else launch_ssh(machine)
-                        )
-                    except SSHLaunchError as error:
-                        message = str(error)
-                    except KeyboardInterrupt:
-                        message = "SSH interrupted. Press C to retry or Q to quit."
-                    else:
-                        message = f"SSH exited with status {status}."
-                        if status != 0:
-                            message += (
-                                " Check the SSH client's message and alias; C retries."
-                                if machine.alias is not None
-                                else " Check the SSH client's message and the "
-                                "machine's settings; C retries."
-                            )
-            except SuspendNotSupported:
-                message = (
-                    "Cannot hand off this terminal. "
-                    "Run SSH Workbench in a local terminal."
+                address = self._online_address(machine)
+                status = (
+                    launch_ssh(machine, address)
+                    if address is not None
+                    else launch_ssh(machine)
                 )
-            finally:
-                self._connecting = False
-                machine_list.focus()
-                self.refresh_bindings()
+            except SSHLaunchError as error:
+                return str(error)
+            except KeyboardInterrupt:
+                return "SSH interrupted. Press C to retry or Q to quit."
+            message = f"SSH exited with status {status}."
+            if status != 0:
+                message += (
+                    " Check the SSH client's message and alias; C retries."
+                    if machine.alias is not None
+                    else " Check the SSH client's message and the "
+                    "machine's settings; C retries."
+                )
+            return message
+
+        with ssh_handoff():
+            message = self._hand_off(connect, _NO_HANDOFF)
             self.query_one("#connection-status", Static).update(
                 f"{message} Machine {index + 1}: {_display_text(machine.id)}"
             )
+
+    def _hand_off[T](self, steps: Callable[[], T], unsupported: T) -> T:
+        """Run `steps` with the terminal handed to native tools; `unsupported`
+        is the result when this terminal can't be handed off.
+
+        Textual 8.2.8 resumes only when its suspend block exits normally, so
+        `steps` handles its own expected errors: one that escapes would leave
+        the terminal unrestored.
+        """
+        machine_list = self.query_one(ListView)
+        self._connecting = True
+        self.refresh_bindings()
+        try:
+            with self.suspend():
+                return steps()
+        except SuspendNotSupported:
+            return unsupported
+        finally:
+            self._connecting = False
+            machine_list.focus()
+            self.refresh_bindings()
 
     def action_key_setup(self) -> None:
         index = self._selected_index()
@@ -1720,35 +1730,20 @@ class SSHWorkbenchApp(App[None]):
             except KeySetupError as error:
                 self._show_key_result(machine, str(error))
                 return
-        machine_list = self.query_one(ListView)
-        works = False
-        self._connecting = True
-        self.refresh_bindings()
         # Counted from here, so a Ctrl+C while the terminal is handed over
         # stops the first step too.
         pressed = ctrl_c_count()
-        with ssh_handoff():
+
+        def steps() -> tuple[str, bool]:
             try:
-                with self.suspend():
-                    # As for C: errors stay inside the suspension block, so
-                    # the terminal is always handed back.
-                    try:
-                        message, works = self._key_steps(
-                            machine, plan, setting, pressed
-                        )
-                    except (SSHLaunchError, KeySetupError) as error:
-                        message = str(error)
-                    except KeyboardInterrupt:
-                        message = "Key setup interrupted."
-            except SuspendNotSupported:
-                message = (
-                    "Cannot hand off this terminal. "
-                    "Run SSH Workbench in a local terminal."
-                )
-            finally:
-                self._connecting = False
-                machine_list.focus()
-                self.refresh_bindings()
+                return self._key_steps(machine, plan, setting, pressed)
+            except (SSHLaunchError, KeySetupError) as error:
+                return str(error), False
+            except KeyboardInterrupt:
+                return "Key setup interrupted.", False
+
+        with ssh_handoff():
+            message, works = self._hand_off(steps, (_NO_HANDOFF, False))
             # Windows runs Workbench's Ctrl+C handler on a thread of its own,
             # which can lose the race with a test that exits 0; handing the
             # terminal back gives it time to arrive.
