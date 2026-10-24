@@ -181,8 +181,10 @@ def identity_paths(values: Iterable[str], folder: Path) -> list[Path]:
             path = Path(value)
         else:
             continue
-        path = path.with_name(path.name.removesuffix(".pub"))
-        if path not in paths:
+        if path.suffix == ".pub":
+            path = path.with_suffix("")
+        # A folder's root names no key; ".pub" alone has no suffix.
+        if path.name and path not in paths:
             paths.append(path)
     return paths
 

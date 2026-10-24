@@ -453,8 +453,11 @@ class KeyChoice:
     create: bool = False
     # Shown while the choice is highlighted.
     note: str | None = None
-    # Added to the result when key-only login fails.
+    # Added to the result when key-only login fails, or passes perhaps with
+    # another key.
     hint: str | None = None
+    # Added to the result only when key-only login fails.
+    failed_hint: str | None = None
 
 
 @dataclass(frozen=True)

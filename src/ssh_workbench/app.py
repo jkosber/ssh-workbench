@@ -1702,10 +1702,24 @@ class SSHWorkbenchApp(App[None]):
         home = _home() if ssh_folder_override() is None else None
         choices: list[KeyChoice] = []
         if target is not None:
+            # SSH reads a key named only by its .pub through an agent alone.
+            by_key = identity_paths(
+                [
+                    value
+                    for value in target.identity_files
+                    if not value.endswith(".pub")
+                ],
+                folder,
+            )
             for private in identity_paths(target.identity_files, folder):
                 if _has_public_key(private):
                     label = f"{private.name}.pub (your SSH config offers this)"
-                    choices.append(KeyChoice(private, label))
+                    failed_hint = (
+                        None
+                        if private in by_key
+                        else _agent_hint(machine.alias, private, home)
+                    )
+                    choices.append(KeyChoice(private, label, failed_hint=failed_hint))
         offered = {choice.private for choice in choices}
         for public in public_key_files(folder):
             private = public.with_name(public.name.removesuffix(".pub"))
@@ -1846,7 +1860,9 @@ class SSHWorkbenchApp(App[None]):
                     f"{choice.hint}"
                 ), True
             return "Key login works.", True
-        return _test_failed(machine, setting, status, choice.hint), False
+        return _test_failed(
+            machine, setting, status, choice.hint or choice.failed_hint
+        ), False
 
     def _show_key_result(self, machine: Machine, message: str) -> None:
         ids = [item.id for item in self.machines]
@@ -1921,6 +1937,14 @@ def _identity_value(private: Path, home: Path | None) -> str:
         return f"~/.ssh/{private.name}"
     value = str(private)
     return f'"{value}"' if " " in value else value
+
+
+def _agent_hint(alias: str, private: Path, home: Path | None) -> str:
+    return (
+        f"Your SSH config names {private.name}.pub for {alias}, which SSH uses "
+        "only through an agent that holds the key; without one, add this line "
+        f"under Host {alias}: IdentityFile {_identity_value(private, home)}"
+    )
 
 
 def _key_choice(
