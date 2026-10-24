@@ -1,6 +1,11 @@
 name: CI
 
-on: [push, pull_request]
+# A push to a branch with a pull request runs once, as that pull request.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
 
 permissions:
   contents: read

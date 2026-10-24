@@ -76,3 +76,17 @@ def test_ci_uv_pin_matches_build_backend_range() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     pins = re.findall(r'^\s+version: "([^"]+)"$', workflow, re.MULTILINE)
     assert pins == [f"{major}.{minor}.{patch}"]
+
+
+def test_ci_runs_once_for_a_push_to_a_pull_request() -> None:
+    # A branch push runs only as its pull request; `main` and version tags,
+    # which the release checklist checks, run as pushes.
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    triggers = re.search(r"^on:\n((?:[ \t]+.*\n)+)", workflow, re.MULTILINE)
+    assert triggers is not None, "on: should list each event with its filters"
+    assert triggers.group(1).splitlines() == [
+        "  push:",
+        "    branches: [main]",
+        '    tags: ["v*"]',
+        "  pull_request:",
+    ]

@@ -40,7 +40,7 @@ flowchart LR
 | Branch | A separate line of commits for one task, such as `feat/task20-ui-makeover` |
 | Commit | One saved change on a branch, with a short message |
 | Pull request (PR) | A request to merge a branch into `main`. It shows the changes, the CI results and the review |
-| CI | The GitHub Actions checks that run on every push, on Windows and Ubuntu |
+| CI | The GitHub Actions checks that run on Windows and Ubuntu for every pull request and every push to `main` or a version tag |
 | Review | A fresh read of the whole branch, by a person or a new agent session, before merging |
 | Merge | Putting a pull request's commits into `main` |
 | Release | A version number given to `main` at a moment, such as 0.2.2, with a changelog entry |
