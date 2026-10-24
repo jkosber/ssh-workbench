@@ -260,6 +260,27 @@ async def test_no_state_file_without_a_machine_file(
     assert not (tmp_path / "later").exists()
 
 
+async def test_no_state_file_once_the_machine_file_is_deleted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    machines = (Machine("garden", "Garden", alias="garden-host"),)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["garden-host"])
+    checker = FakeChecker({"garden-host": SAME}, hold=hold)
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+            path.unlink()
+            hold.set()
+            # The answer that turns it Online is the one that writes the state.
+            await wait_for(pilot, lambda: symbols(app) == [State.ONLINE])
+            await pilot.pause()
+            assert not state_path(path, platform.node()).exists()
+    finally:
+        hold.set()
+
+
 async def test_timer_rounds_keep_alias_not_found(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
