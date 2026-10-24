@@ -1043,6 +1043,9 @@ class SSHWorkbenchApp(App[None]):
         """Save what the review and ssh -G found, next to an existing machine file."""
         if self._memory is None or self.config_path is None or self.file_text is None:
             return
+        # The machine file may have been deleted outside Workbench since.
+        if not self.config_path.is_file():
+            return
         text = format_state(self._memory, self._computer)
         if text == self._state_text:
             return
