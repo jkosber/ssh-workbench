@@ -479,7 +479,9 @@ class KeySetup(ModalScreen[KeyPlan | None]):
         width: 90%;
         max-width: 100;
         height: auto;
-        max-height: 90%;
+        /* The whole height before it scrolls: at 60x20 a note and a
+           "Not listed" line need every row. */
+        max-height: 100%;
         border: round $primary;
         border-title-color: $primary;
         border-title-style: bold;
