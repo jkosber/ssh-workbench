@@ -1346,9 +1346,8 @@ async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
     assert suspended == []
 
 
-# A note names the test's temporary folder in full, several rows longer than
-# the "~/.ssh/..." of a real SSH folder, so at 60x20 the configured key, which
-# has no note, stays highlighted.
+# At 60x20 the picker fits this line only while the highlighted key has no
+# note; with a note, even a short "~/.ssh/..." one, it scrolls (a backlog row).
 @pytest.mark.parametrize(("size", "with_note"), [((80, 24), True), ((60, 20), False)])
 async def test_the_picker_shows_its_unlisted_keys_whole(
     tmp_path: Path,
@@ -1368,6 +1367,9 @@ async def test_the_picker_shows_its_unlisted_keys_whole(
         await pilot.pause()
         box = screen.query_one("#key-setup")
         assert box.region.bottom <= size[1]
+        # The box's region includes its border, so only this catches a row
+        # hidden behind it.
+        assert box.max_scroll_y == 0
         for widget in (
             "#key-note",
             "#key-choices",
