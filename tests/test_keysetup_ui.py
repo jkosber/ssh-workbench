@@ -1325,9 +1325,15 @@ async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
     assert suspended == []
 
 
-@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+# A note names the test's temporary folder in full, several rows longer than
+# the "~/.ssh/..." of a real SSH folder, so at 60x20 the configured key, which
+# has no note, stays highlighted.
+@pytest.mark.parametrize(("size", "with_note"), [((80, 24), True), ((60, 20), False)])
 async def test_the_picker_shows_its_unlisted_keys_whole(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size: tuple[int, int]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    size: tuple[int, int],
+    with_note: bool,
 ) -> None:
     folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
     checker = FakeChecker(keys_without_pub(folder, ("id_work", "my key")))
@@ -1335,8 +1341,9 @@ async def test_the_picker_shows_its_unlisted_keys_whole(
     async with app.run_test(size=size) as pilot:
         await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
         screen = await picker(app, pilot)
-        await pilot.press("down")
-        await wait_for(pilot, lambda: note(screen).startswith("Your SSH config"))
+        if with_note:
+            await pilot.press("down")
+            await wait_for(pilot, lambda: note(screen).startswith("Your SSH config"))
         await pilot.pause()
         box = screen.query_one("#key-setup")
         assert box.region.bottom <= size[1]
