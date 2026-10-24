@@ -6,7 +6,36 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+### 22. Key setup fixes
+
+Jadon started this task on 2026-10-24 with four of the Key setup backlog
+rows. The fifth, the login test accepting a `Host` entry's keys for a direct
+machine's address, stays: the only fix, `-F none`, would drop the user's SSH
+config for that address.
+
+- [ ] K never opens an empty key list. With nothing to offer, the status line
+  says "No key to offer: your SSH folder has no valid .pub file, and a key
+  named id_ed25519_<id> already exists; nothing was installed." A direct
+  machine's own key without a valid `.pub` is reported when K is pressed,
+  before any list or handoff.
+- [ ] For an alias, keys its SSH config offers whose private file exists but
+  whose `.pub` is missing or not valid are named under the list ("Not
+  listed: id_work, which your SSH config offers, has no valid .pub file.").
+  Workbench only checks that the private file exists.
+- [ ] Ctrl+C names the step: "Key setup interrupted while creating the key;
+  nothing was installed.", "Key setup interrupted before the install;
+  nothing was installed." or "Key setup interrupted during the install;
+  login was not tested." The login test's message does not change.
+- [ ] C and K share one terminal handoff, with no change in either one's
+  behavior; checked natively with `check_terminal.py` and `check_keys.py`.
+- [ ] An error in the Windows install script reaches the terminal as one
+  plain line, "SSH Workbench: the install stopped with an error: ...", not
+  CLIXML, and SSH exits 1. The command-length tests pass unchanged.
+- [ ] The POSIX install command works the same from bash, dash, zsh, fish and
+  tcsh: `scripts/check_shells.py`, run on an approved Linux machine.
+- [ ] Tests first for each fix; full checks; docs, changelog and validation;
+  a fresh review. Optional, approved: K on the approved Windows target with
+  its installed key.
 
 ## Next
 
