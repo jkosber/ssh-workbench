@@ -42,11 +42,6 @@ needs its own task before work starts.
 | Item | From |
 | --- | --- |
 | The login test also accepts keys from a `Host` entry in the user's SSH config that matches a direct machine's address (documented); the only fix, `-F none`, would drop the user's config for that address | 14 |
-| At 60x20 the key picker scrolls when a "Not listed" line and a note show together, even with a short `~/.ssh/...` note and an ordinary alias: the help line's last row sits behind the border. A longer path or alias makes it worse | 22 |
-| A config that names the `.pub` itself (`IdentityFile ~/.ssh/x.pub`) is not read as naming key x: x.pub's choice gets the "doesn't name this key" note and `IdentityFile` hint | 22 |
-| As an administrator, the Windows script prints "key installed." before it sets the file's ACL; if that fails, the error line follows and Workbench reports the install failed | 22 |
-| The "no comment lines" rule for the Windows script has no test; the length tests catch only a comment of about 38 characters or more | 22 |
-| A PowerShell error message with line breaks prints as several lines after "the install stopped with an error:" | 22 |
 
 ### Machine file and forms
 
@@ -125,6 +120,7 @@ in the pull request description.
 | - | Release 0.3.1 | [#28](https://github.com/jkosber/ssh-workbench/pull/28) | 0.3.1 |
 | 22 | Key setup fixes: no empty key list, keys without a `.pub` named, Ctrl+C naming its step, plain-text Windows errors, a login shell check | [#29](https://github.com/jkosber/ssh-workbench/pull/29) | 0.3.2 |
 | - | Release 0.3.2 | [#30](https://github.com/jkosber/ssh-workbench/pull/30) | 0.3.2 |
+| 23 | Key setup follow-ups: a configured `.pub` names its key, the picker at 60x20, the Windows script's result order and one-line errors | [#31](https://github.com/jkosber/ssh-workbench/pull/31) | Unreleased |
 
 ## Deferred ideas
 

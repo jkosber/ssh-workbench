@@ -196,6 +196,25 @@ def test_key_setting(tmp_path: Path) -> None:
     )
 
 
+def test_identity_paths_reads_a_pub_file_as_its_key(tmp_path: Path) -> None:
+    # OpenSSH uses a named public key to pick the agent's private key.
+    folder = tmp_path / "home" / ".ssh"
+
+    assert identity_paths(
+        ["~/.ssh/id_op.pub", "~/.ssh/id_op", "~/.ssh/id_lab.pub"], folder
+    ) == [folder / "id_op", folder / "id_lab"]
+
+
+def test_identity_paths_skips_names_that_cannot_hold_a_key(tmp_path: Path) -> None:
+    # ".pub" alone has no suffix, and a folder's root has no name; neither
+    # names a key, and both used to raise from Path.with_name.
+    folder = tmp_path / "home" / ".ssh"
+
+    assert identity_paths(
+        ["~/.ssh/.pub", tmp_path.anchor, "~/.ssh/id_x.pub.pub"], folder
+    ) == [folder / ".pub", folder / "id_x.pub"]
+
+
 def test_identity_paths(tmp_path: Path) -> None:
     folder = tmp_path / "home" / ".ssh"
     absolute = tmp_path / "keys" / "id_abs"
@@ -525,11 +544,19 @@ def test_windows_command_is_refused_only_past_what_cmd_accepts() -> None:
     assert CMD_BUDGET - 3 <= max(lengths) <= CMD_BUDGET
 
 
-def run_windows_script(home: Path, key: PublicKey) -> subprocess.CompletedProcess[str]:
-    """Run the Windows script's standard-user branch with USERPROFILE in `home`.
+def run_windows_script(
+    home: Path,
+    key: PublicKey,
+    admin: bool = False,
+    replace: tuple[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run the Windows script with USERPROFILE and ProgramData in `home`.
 
-    The administrator lines are replaced: that branch would change real ACLs.
-    Output is captured, as under sshd without a terminal.
+    The administrator detection is replaced. The administrator branch would
+    change a real file's ACL, so it runs only with its ACL step replaced
+    through `replace`, one exact line and its substitute, and with its file
+    named inside `home` rather than found through ProgramData. Output is
+    captured, as under sshd without a terminal.
     """
     script = windows_script(key)
     lines = script.splitlines(keepends=True)
@@ -537,14 +564,25 @@ def run_windows_script(home: Path, key: PublicKey) -> subprocess.CompletedProces
     assert len(detect) == 2
     for line in detect:
         script = script.replace(line, "")
-    script = "$admin = $false\n" + script
+    script = f"$admin = ${str(admin).lower()}\n" + script
+    if admin:
+        assert replace is not None, "the administrator branch needs its ACL replaced"
+        found = "  $file = Join-Path (Join-Path $env:ProgramData 'ssh') "
+        found += "'administrators_authorized_keys'\n"
+        assert script.count(found) == 1
+        target = home / "ssh" / "administrators_authorized_keys"
+        script = script.replace(found, f"  $file = '{target}'\n")
+    if replace is not None:
+        old, new = replace
+        assert script.count(f"{old}\n") == 1, old
+        script = script.replace(f"{old}\n", f"{new}\n")
     # Windows targets run Windows PowerShell 5.1; elsewhere pwsh runs the script.
     shell = shutil.which("powershell") or shutil.which("pwsh")
     assert shell is not None, "PowerShell is needed to run the Windows script"
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
     return subprocess.run(
         [shell, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
-        env={**os.environ, "USERPROFILE": str(home)},
+        env={**os.environ, "USERPROFILE": str(home), "ProgramData": str(home)},
         capture_output=True,
         text=True,
         timeout=60,
@@ -574,6 +612,54 @@ def test_windows_install_error_reaches_the_terminal_as_plain_text(
     ), result.stdout
     assert result.stdout.count("\n") == 1
     assert "CLIXML" not in result.stdout
+
+
+def test_windows_admin_install_reports_only_the_error_when_its_acl_fails(
+    tmp_path: Path,
+) -> None:
+    # sshd ignores the administrator file unless its ACL is set, so a key
+    # appended before a failed ACL step is not installed.
+    (tmp_path / "ssh").mkdir()
+
+    result = run_windows_script(
+        tmp_path,
+        ED_KEY,
+        admin=True,
+        replace=(
+            "  $acl = New-Object Security.AccessControl.FileSecurity",
+            "  throw 'fictional ACL failure'",
+        ),
+    )
+
+    assert (result.returncode, result.stderr) == (1, "")
+    assert result.stdout == (
+        "SSH Workbench: the install stopped with an error: fictional ACL failure\n"
+    )
+    keys_file = tmp_path / "ssh" / "administrators_authorized_keys"
+    assert keys_file.read_bytes() == (ED_LINE + "\r\n").encode()
+
+
+def test_windows_install_error_with_line_breaks_prints_one_line(
+    tmp_path: Path,
+) -> None:
+    result = run_windows_script(
+        tmp_path,
+        ED_KEY,
+        replace=("$found = $false", 'throw "first line`nsecond line"'),
+    )
+
+    assert (result.returncode, result.stderr) == (1, "")
+    assert result.stdout == (
+        "SSH Workbench: the install stopped with an error: first line second line\n"
+    )
+
+
+def test_windows_install_script_has_no_comment_lines() -> None:
+    # Every character counts against cmd.exe's limit; a comment would refuse
+    # keys that fit today.
+    lines = windows_script(ED_KEY).splitlines()
+
+    assert [line for line in lines if line.lstrip().startswith("#")] == []
 
 
 def test_windows_install_adds_the_key_once_for_a_standard_user(

@@ -453,8 +453,11 @@ class KeyChoice:
     create: bool = False
     # Shown while the choice is highlighted.
     note: str | None = None
-    # Added to the result when key-only login fails.
+    # Added to the result when key-only login fails, or passes perhaps with
+    # another key.
     hint: str | None = None
+    # Added to the result only when key-only login fails.
+    failed_hint: str | None = None
 
 
 @dataclass(frozen=True)
@@ -479,7 +482,9 @@ class KeySetup(ModalScreen[KeyPlan | None]):
         width: 90%;
         max-width: 100;
         height: auto;
-        max-height: 90%;
+        /* The whole height before it scrolls: at 60x20 a note and a
+           "Not listed" line need every row. */
+        max-height: 100%;
         border: round $primary;
         border-title-color: $primary;
         border-title-style: bold;

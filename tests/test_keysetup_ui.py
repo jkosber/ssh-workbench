@@ -23,7 +23,7 @@ from ssh_workbench import keys
 from ssh_workbench.aliases import AliasMemory, AliasRecord, format_state, state_path
 from ssh_workbench.app import SSHWorkbenchApp, StatusSymbol
 from ssh_workbench.config import Machine, format_machines, read_machines
-from ssh_workbench.forms import KeySetup, MachineForm
+from ssh_workbench.forms import KeyChoice, KeySetup, MachineForm
 from ssh_workbench.keys import (
     PublicKey,
     posix_install_command,
@@ -1312,11 +1312,85 @@ async def test_a_config_naming_the_pub_file_gets_no_not_listed_line(
         await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
         screen = await picker(app, pilot)
         assert option_labels(screen) == [
-            "id_a.pub",
+            "id_a.pub (your SSH config offers this)",
             "id_b.pub",
             "Create a new key: id_ed25519_garden",
         ]
+        assert note(screen) == ""
         assert not screen.query("#key-unlisted")
+
+
+async def test_a_config_naming_the_pub_file_tests_without_a_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_a.pub",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == "Key login works. Machine 1: garden"
+    assert native.calls[0][-1] == posix_install_command(public_key(1, "a"))
+
+
+@pytest.mark.parametrize(
+    ("identity_files", "hint"),
+    [
+        (
+            ("~/ssh/id_a.pub",),
+            " Your SSH config names id_a.pub for garden-host, which SSH uses only "
+            "through an agent that holds the key; without one, add this line under "
+            "Host garden-host: IdentityFile {folder}",
+        ),
+        # The private key is named too, so SSH can load it without an agent.
+        (("~/ssh/id_a.pub", "~/ssh/id_a"), ""),
+    ],
+    ids=["pub-only", "pub-and-key"],
+)
+async def test_a_failed_test_of_a_named_pub_explains_the_agent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    identity_files: tuple[str, ...],
+    hint: str,
+) -> None:
+    native = Native(statuses={"test": 255})
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    target = AliasTarget("192.0.2.10", 22, proxied=False, identity_files=identity_files)
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "The key was installed, but key-only login failed (SSH exited with "
+            f"status 255).{hint.format(folder=folder / 'id_a')} Machine 1: garden"
+        )
+
+
+async def test_a_named_pub_that_is_missing_lists_its_key_as_not_listed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    (folder / "id_work").write_text("fictional private half\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_work.pub",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        assert unlisted(screen) == (
+            "Not listed: id_work, which your SSH config offers, has no valid .pub file."
+        )
 
 
 async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
@@ -1346,8 +1420,9 @@ async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
     assert suspended == []
 
 
-# At 60x20 the picker fits this line only while the highlighted key has no
-# note; with a note, even a short "~/.ssh/..." one, it scrolls (a backlog row).
+# The test folder's notes name it in full, which can scroll at 60x20, so the
+# configured key, which has no note, stays highlighted there; a real
+# "~/.ssh/..." note is measured in the 60x20 real-note test below.
 @pytest.mark.parametrize(("size", "with_note"), [((80, 24), True), ((60, 20), False)])
 async def test_the_picker_shows_its_unlisted_keys_whole(
     tmp_path: Path,
@@ -1380,3 +1455,50 @@ async def test_the_picker_shows_its_unlisted_keys_whole(
             region = screen.query_one(widget).region
             assert region.height > 0, widget
             assert box.region.contains_region(region), widget
+
+
+async def test_the_picker_fits_60x20_with_a_real_note_and_the_not_listed_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The choices a real ~/.ssh folder gives; a test folder's absolute path
+    # would make every note several rows longer.
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    note_text = (
+        "Your SSH config doesn't name this key for garden-host. Add this line "
+        "under Host garden-host; Workbench never edits the config: "
+        "IdentityFile ~/.ssh/id_a"
+    )
+    ssh = Path("~/.ssh")
+    choices = [
+        KeyChoice(ssh / "id_lab", "id_lab.pub (your SSH config offers this)"),
+        KeyChoice(ssh / "id_a", "id_a.pub", note=note_text),
+        KeyChoice(ssh / "id_b", "id_b.pub", note=note_text),
+        KeyChoice(
+            ssh / "id_ed25519_garden",
+            "Create a new key: id_ed25519_garden",
+            True,
+            note_text,
+        ),
+    ]
+    line = (
+        "Not listed: id_work and id_old, which your SSH config offers, have no "
+        "valid .pub file."
+    )
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text)
+    async with app.run_test(size=(60, 20)) as pilot:
+        app.push_screen(KeySetup(GARDEN, choices, None, line))
+        await wait_for(pilot, lambda: showing(app, KeySetup))
+        screen = app.screen
+        await pilot.press("down")
+        await wait_for(pilot, lambda: note(screen) == note_text)
+        await pilot.pause()
+        box = screen.query_one("#key-setup")
+        assert box.max_scroll_y == 0
+        for widget in (
+            "#key-note",
+            "#key-choices",
+            "#key-unlisted",
+            "#key-system",
+            "#key-help",
+        ):
+            assert box.region.contains_region(screen.query_one(widget).region), widget

@@ -165,7 +165,11 @@ def key_setting(path: Path, home: Path | None) -> str:
 
 
 def identity_paths(values: Iterable[str], folder: Path) -> list[Path]:
-    """Key paths from `ssh -G`; `~` is the SSH folder's parent, as for `Include`."""
+    """Key paths from `ssh -G`; `~` is the SSH folder's parent, as for `Include`.
+
+    A named `x.pub` stands for key `x`: OpenSSH uses a public key file to pick
+    the agent's private key, as some agents' setup guides suggest.
+    """
     paths: list[Path] = []
     for value in values:
         # Workbench does not expand SSH's own % and ${} tokens.
@@ -177,7 +181,10 @@ def identity_paths(values: Iterable[str], folder: Path) -> list[Path]:
             path = Path(value)
         else:
             continue
-        if path not in paths:
+        if path.suffix == ".pub":
+            path = path.with_suffix("")
+        # A folder's root names no key; ".pub" alone has no suffix.
+        if path.name and path not in paths:
             paths.append(path)
     return paths
 
@@ -209,13 +216,18 @@ def posix_install_command(key: PublicKey) -> str:
 # unless only SYSTEM and Administrators may access it; group claims include
 # deny-only groups, so a filtered token still counts. Without a console,
 # progress records and errors reach the terminal as CLIXML, so progress is
-# switched off and the trap prints an error as one line and exits 1.
+# switched off and the trap prints an error as one line and exits 1. The
+# result is printed last: a key appended before a failed ACL step is not
+# installed, since sshd ignores the file.
 # sshd skips comment lines, so a commented-out copy of the key does not count.
 # Comments stay out of the script: every character counts against cmd.exe's
 # 8191-character limit.
 _WINDOWS_SCRIPT = """$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-trap { "SSH Workbench: the install stopped with an error: $_"; exit 1 }
+trap {
+  "SSH Workbench: the install stopped with an error: $($_ -replace '\\s+', ' ')"
+  exit 1
+}
 $key = '@KEY@'
 $blob = $key.Split(' ')[1]
 $me = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -234,19 +246,18 @@ if (Test-Path -LiteralPath $file) {
     Select-String -SimpleMatch -Quiet -Pattern $blob)
 }
 if ($found) {
-  'SSH Workbench: the key was already installed.'
+  $said = 'SSH Workbench: the key was already installed.'
 } else {
   if ((Test-Path -LiteralPath $file) -and (Get-Item -LiteralPath $file).Length -gt 0) {
     $bytes = [IO.File]::ReadAllBytes($file)
     if ($bytes[-1] -ne 10) { [IO.File]::AppendAllText($file, "`r`n") }
   }
   [IO.File]::AppendAllText($file, $key + "`r`n")
-  'SSH Workbench: key installed.'
+  $said = 'SSH Workbench: key installed.'
 }
 if ($admin) {
   $acl = New-Object Security.AccessControl.FileSecurity
   $acl.SetAccessRuleProtection($true, $false)
-  $sidType = [Security.Principal.SecurityIdentifier]
   foreach ($sid in 'S-1-5-32-544', 'S-1-5-18') {
     $who = New-Object Security.Principal.SecurityIdentifier $sid
     $rule = New-Object Security.AccessControl.FileSystemAccessRule(
@@ -255,12 +266,15 @@ if ($admin) {
   }
   Set-Acl -LiteralPath $file -AclObject $acl
   $sids = (Get-Acl -LiteralPath $file).Access |
-    ForEach-Object { $_.IdentityReference.Translate($sidType).Value } |
+    ForEach-Object {
+      $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
+    } |
     Sort-Object -Unique
   if (($sids -join ',') -ne 'S-1-5-18,S-1-5-32-544') {
     throw 'The administrator key file kept other permissions.'
   }
 }
+$said
 """
 
 

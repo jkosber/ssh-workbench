@@ -28,6 +28,25 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 23: key setup follow-ups, 2026-10-24
+
+Windows 11, Windows Terminal, Python 3.14.8, Textual 8.2.8. An owned window
+with `NO_COLOR` removed and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointing at ignored folders, except where the real
+target needed the real SSH config. Jadon approved the Windows target by name
+on 2026-10-24.
+
+| Check | Observed |
+| --- | --- |
+| Command length, measured before the change | The script could change by about -10 to +38 characters and keep the three length tests passing. Printing the result last cost +22; folding error lines another +23, more than the room left, so the one-use `$sidType` variable was inlined. With Ruff's line length, the 6144-bit key with a 40-character comment comes to 8150 of 8156 characters |
+| `check_keys.py` at 60x20 | Garden's picker with the configured key highlighted: the list, "Not listed: id_work, which your SSH config offers, has no valid .pub file.", both target systems and the two-row help line, inside the box. With `id_a.pub` highlighted, its note named the session folder in full (five rows): the picker took the whole height, covering the header row, and still showed everything down to "Escape: cancel" |
+| K on the approved Windows target | Windows OpenSSH with an administrator account, the branch's Workbench with the real SSH config. Status Online; the picker's first choice was the key the config offers, with no "Not listed" line. Windows target, Enter: "the key was already installed.", which the script now prints only after the ACL step and its read-back with the inlined type, then "testing key-only login." and "Key login works.", with no prompt and no CLIXML. `administrators_authorized_keys` was copied first; afterwards its hash, ACL (SDDL) and size matched, and the copy was deleted (separate SSH commands, results kept with the session evidence). A read-only check afterwards: the account passes the script's own administrator test over SSH |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1122 passed |
+
+Not checked: the administrator branch's failure path on a real target, which
+the tests cover with the ACL step replaced by a `throw`; a real agent that
+holds a key named by its `.pub`.
+
 ## Release 0.3.2, 2026-10-24
 
 Windows 11, Windows Terminal, Python 3.14.8, Textual 8.2.8. The built wheel
