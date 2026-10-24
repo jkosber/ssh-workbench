@@ -5,6 +5,18 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Fixed
+
+- A config that names the public key (`IdentityFile ~/.ssh/x.pub`, as some
+  SSH agents' guides suggest) counts as naming key x: K lists it as the key
+  the config offers, without a "doesn't name this key" note or an
+  `IdentityFile` hint.
+- The key picker uses the whole terminal height before it scrolls, so at
+  60x20 a note and a "Not listed" line fit.
+- On a Windows target, an administrator's install says the key is installed
+  only once the key file's permissions are set; if that step fails, only the
+  error shows. An error message with line breaks prints on one line.
+
 ## 0.3.2 - 2026-10-24
 
 Key setup fixes: K no longer opens an empty key list and names keys it can't
