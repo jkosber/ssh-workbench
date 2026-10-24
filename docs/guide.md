@@ -284,7 +284,10 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    Enter starts; Escape cancels. For an alias the list opens once SSH has
    read your config; if you connect, open a form or select another machine
    first, it doesn't open, and **K** again while it waits says it is still
-   looking up the alias.
+   looking up the alias. A key that has no valid `.pub` file can't be
+   installed: a machine's own key is reported when you press **K**, and keys
+   an alias's config offers are named under the list as "Not listed". With
+   no key to offer at all, Workbench says so instead of opening the list.
 2. **Install it.** SSH logs in, asking for the account's password if needed,
    and runs one fixed command that adds the public key once:
 
@@ -295,9 +298,10 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    | Windows, other accounts | `%USERPROFILE%\.ssh\authorized_keys` |
 
    On Windows the command starts PowerShell itself, because the default remote
-   shell is cmd.exe. cmd.exe limits the command's length, so Workbench refuses
-   an RSA key larger than about 6000 bits before connecting; Ed25519 keys and
-   4096-bit RSA keys fit.
+   shell is cmd.exe; if it fails, it prints PowerShell's error after "SSH
+   Workbench: the install stopped with an error:". cmd.exe limits the
+   command's length, so Workbench refuses an RSA key larger than about 6000
+   bits before connecting; Ed25519 keys and 4096-bit RSA keys fit.
 3. **Test it.** SSH logs in once more allowing only public-key authentication
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
    with a passphrase works: SSH asks for it.
@@ -307,7 +311,7 @@ What to know about the result:
 | Case | Behavior |
 | --- | --- |
 | Another key passes the test | The test can pass with another key SSH offers: any key `ssh <alias>` would use, or one named in a `Host` entry that matches a direct machine's address. When the alias's config doesn't name the key you picked, a passing test says SSH may have used another key |
-| Ctrl+C | Stops the setup: Workbench reports it as interrupted, whatever the tool's exit status, and starts no later step |
+| Ctrl+C | Stops the setup: Workbench reports it as interrupted, whatever the tool's exit status, says at which step (while creating the key, before the install, during the install or during the login test) and starts no later step |
 | Ctrl+C at ssh-keygen's passphrase prompt on Windows | That prompt takes Ctrl+C as a key, so Workbench never sees it; ssh-keygen then exits 255, which shows as that status. SSH's own password and passphrase prompts have not been checked |
 | Direct machine | The chosen key is saved as its `key` once the login test passes |
 | Alias machine | Its SSH config decides its keys, and Workbench never edits that config: when you pick a key the alias doesn't name, Workbench shows the `IdentityFile` line to add under its `Host` entry |
@@ -450,7 +454,7 @@ status 2.
 | --- | --- |
 | Files it writes | Its machine file, the `.bak` copy and the `machines.state.<computer>.json` state file. For exported machines, `ssh-workbench.config` in your SSH folder and, only after you press **Y**, one `Include` line in your SSH config, keeping a copy first |
 | SSH config | To suggest aliases it reads only the `Host` and `Include` lines. At startup and on **R** it also runs `ssh -G` for each alias, and for new `Host` names that could replace a missing alias; **K** runs it for the alias it sets up. SSH then evaluates your whole SSH config, including any `Match exec` commands, and Workbench reads only the host, user, port, key and proxy settings it prints |
-| Keys | **K** reads the `.pub` files in your SSH folder, and the one next to each key an alias's config names. It never opens a private key |
+| Keys | **K** reads the `.pub` files in your SSH folder, and the one next to each key an alias's config names. It checks that a named key's file exists but never opens a private key |
 | Remote commands | **K** runs two fixed commands on the machine, in the terminal it hands over: the key install, and `exit` for the login test |
 | Network | Its own traffic is the status checks: DNS lookups for host names, and one TCP connection to each checked address's SSH port, closed at once without sending anything. Everything else comes from the SSH sessions and browser requests you start |
 | Never | Changes any other line of your SSH config, reads `known_hosts`, stores credentials, changes host-key settings, collects telemetry or needs an AI service |

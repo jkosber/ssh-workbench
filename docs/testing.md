@@ -150,9 +150,26 @@ step they are, and wait for `return` or Ctrl+C.
 
 Useful runs: all steps with status 0 ("Key login works." and, for the direct
 machine, the key saved); `--test-status 255` (the failure message, no key
-saved); Ctrl+C at the install child ("Key setup interrupted." and no test
-child); `--test-status 0` with Ctrl+C at the test child ("The key was
-installed, but the login test was interrupted.").
+saved); Ctrl+C at the install child ("Key setup interrupted during the
+install; login was not tested." and no test child); Ctrl+C at the keygen
+child ("Key setup interrupted while creating the key; nothing was
+installed."); `--test-status 0` with Ctrl+C at the test child ("The key was
+installed, but the login test was interrupted."). The alias's picker names
+`id_work` under the list: its config offers it, but it has no `.pub`.
+
+### Login shells: `scripts/check_shells.py`
+
+```text
+uv run --locked python scripts/check_shells.py | sh -s
+uv run --locked python scripts/check_shells.py | ssh <approved target> sh -s
+```
+
+sshd runs the install command as `<login shell> -c <command>`. The script
+prints a POSIX sh script that does the same from bash, dash, zsh, fish and
+tcsh (`--shells` names others), twice each, with HOME in a new temporary
+folder and a fictional key, so no real `~/.ssh` is touched. Each shell reads
+PASS, FAIL (with what it printed) or "not installed", and the exit status is
+0 only if every shell passed. A real machine needs Jadon's approval by name.
 
 ## Recording results
 

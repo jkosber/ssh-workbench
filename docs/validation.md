@@ -28,6 +28,27 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 22: key setup fixes, 2026-10-24
+
+Windows 11, Windows Terminal 80x24, Python 3.14.8, Textual 8.2.8. An owned
+window with `NO_COLOR` removed and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointing at ignored folders, except where a real
+target needed the real SSH config. Jadon approved the two real machines below
+by name on 2026-10-24.
+
+| Check | Observed |
+| --- | --- |
+| CLIXML, before the fix | A script that throws, run as `powershell -NoProfile -NonInteractive -EncodedCommand` with output redirected (as under sshd without a terminal), wrote its error to stderr as a `#< CLIXML` block; `-OutputFormat Text` made no difference. With the `trap`, the same failure printed one plain stdout line and exited 1, in Windows PowerShell 5.1 and in pwsh |
+| `check_terminal.py` | Normal exit: the child saw a terminal on stdin, stdout and stderr; status 0, then Down selected the next machine. From the details pane: status 7, then Down still moved the list. Ctrl+C: status 130. SSH unavailable, start failure and launch interrupted each showed their message. Q exited with status 0 to a working prompt |
+| `check_keys.py` | Box: id_a, both children answered: "Key login works. The key is saved as this machine's key." K again offered only that key; Ctrl+C at the install child: "Key setup interrupted during the install; login was not tested.", and no test child started. Garden's picker listed `id_lab.pub (your SSH config offers this)`, `id_a.pub` and Create, with "Not listed: id_work, which your SSH config offers, has no valid .pub file." below in a muted color; Ctrl+C at the keygen child: "Key setup interrupted while creating the key; nothing was installed." Q exited with status 0 |
+| Login shells, on the approved Linux machine | Linux Mint 22.3, with zsh, fish and tcsh installed for this check at Jadon's request (undo: `sudo apt-get remove zsh fish tcsh`). `check_shells.py` piped to `ssh <target> sh -s`: bash 5.2.21, dash 0.5.12, zsh 5.9, fish 3.7.0 and tcsh 6.24.10 each PASS, exit 0; no temporary folder was left. The first attempt failed in dash on CRLF line ends from Windows; fixed test first |
+| K on the approved Windows target | Windows OpenSSH with an administrator account and cmd.exe as its shell, the branch's Workbench with the real SSH config. Status Online; the picker's first choice was the key the config offers, with no "Not listed" line. Windows target, Enter: "the key was already installed.", "testing key-only login.", then "Key login works.", with no prompt and no CLIXML on screen, twice. `administrators_authorized_keys` was copied first; afterwards its hash, ACL (SDDL) and size matched the earlier ones, and the copy was deleted |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1112 passed |
+
+Not checked: the trap's own error path on a real target (that would mean
+breaking a real key file or its ACL); macOS's zsh, which the Linux zsh stands
+in for; Linux and macOS terminals for the handoff.
+
 ## Release 0.3.1, 2026-10-23
 
 Windows 11, Windows Terminal, Python 3.14.8, Textual 8.2.8. The built wheel

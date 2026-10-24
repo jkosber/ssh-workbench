@@ -364,6 +364,11 @@ async def test_a_machine_with_a_key_uses_only_that_key(
     assert path.read_text(encoding="utf-8") == text
 
 
+CREATING = "Key setup interrupted while creating the key; nothing was installed."
+BEFORE_INSTALL = "Key setup interrupted before the install; nothing was installed."
+DURING_INSTALL = "Key setup interrupted during the install; login was not tested."
+
+
 @pytest.mark.parametrize(
     ("choice", "native", "steps", "message"),
     [
@@ -391,19 +396,19 @@ async def test_a_machine_with_a_key_uses_only_that_key(
             [],
             Native(interrupt="install"),
             ["install"],
-            "Key setup interrupted.",
+            DURING_INSTALL,
         ),
         (
             ["down", "down"],
             Native(statuses={"keygen": -signal.SIGINT}),
             ["keygen"],
-            "Key setup interrupted.",
+            CREATING,
         ),
         (
             [],
             Native(statuses={"install": 0xC000013A}),
             ["install"],
-            "Key setup interrupted.",
+            DURING_INSTALL,
         ),
         (
             [],
@@ -443,10 +448,10 @@ INTERRUPTED_TEST = (
 @pytest.mark.parametrize(
     ("step", "status", "steps", "message"),
     [
-        ("keygen", 0, ["keygen"], "Key setup interrupted."),
-        ("keygen", 255, ["keygen"], "Key setup interrupted."),
-        ("install", 0, ["install"], "Key setup interrupted."),
-        ("install", 255, ["install"], "Key setup interrupted."),
+        ("keygen", 0, ["keygen"], CREATING),
+        ("keygen", 255, ["keygen"], CREATING),
+        ("install", 0, ["install"], DURING_INSTALL),
+        ("install", 255, ["install"], DURING_INSTALL),
         ("test", 0, ["install", "test"], INTERRUPTED_TEST),
         ("test", 255, ["install", "test"], INTERRUPTED_TEST),
     ],
@@ -488,7 +493,7 @@ async def test_ctrl_c_between_steps_stops_the_later_ones(
         await picker(app, pilot)
         await pilot.press("down", "down", "enter")
         await finished(app, pilot)
-        assert connection_status(app) == "Key setup interrupted. Machine 1: box"
+        assert connection_status(app) == f"{BEFORE_INSTALL} Machine 1: box"
     assert [Native.step(call) for call in native.calls] == ["keygen"]
     assert path.read_text(encoding="utf-8") == text
 
@@ -527,8 +532,27 @@ async def test_ctrl_c_while_the_terminal_is_handed_over_stops_every_step(
         await picker(app, pilot)
         await pilot.press("enter")
         await finished(app, pilot)
-        assert connection_status(app) == "Key setup interrupted. Machine 1: box"
+        assert connection_status(app) == f"{BEFORE_INSTALL} Machine 1: box"
     assert native.calls == []
+    assert path.read_text(encoding="utf-8") == text
+
+
+async def test_ctrl_c_while_the_terminal_is_handed_over_before_a_new_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    monkeypatch.setattr(
+        HeadlessDriver, "suspend_application_mode", lambda self: press_ctrl_c()
+    )
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await picker(app, pilot)
+        await pilot.press("down", "down", "enter")
+        await finished(app, pilot)
+        assert connection_status(app) == f"{CREATING} Machine 1: box"
+    assert native.calls == []
+    assert not (folder / "id_ed25519_box").exists()
     assert path.read_text(encoding="utf-8") == text
 
 
@@ -1006,6 +1030,54 @@ async def test_without_a_terminal_handoff_nothing_runs(
     assert native.calls == []
 
 
+async def test_key_setup_hands_the_terminal_over_and_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events: list[str] = []
+    seen: list[tuple[bool, bool | None, bool | None]] = []
+
+    class Watched(Native):
+        def __call__(self, arguments: list[str], name: str = "SSH") -> int:
+            seen.append(
+                (
+                    app._connecting,
+                    app.check_action("key_setup", ()),
+                    app.check_action("connect", ()),
+                )
+            )
+            return super().__call__(arguments, name)
+
+    native = Watched()
+    # A machine with its own key: no save afterwards, which would refocus the list.
+    key = tmp_path / "ssh" / "id_keyed"
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key=str(key))
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+    Path(f"{key}.pub").write_text(public_key(3, "keyed").line + "\n", "ascii")
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: events.append("suspend"),
+    )
+    monkeypatch.setattr(
+        HeadlessDriver, "resume_application_mode", lambda self: events.append("resume")
+    )
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await pilot.press("tab")
+        assert app.focused is not app.query_one(ListView)
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert events == ["suspend", "resume"]
+        assert seen == [(True, None, None), (True, None, None)]
+        assert app.focused is app.query_one(ListView)
+        assert not app._connecting
+        assert app.check_action("key_setup", ()) is True
+        assert connection_status(app) == "Key login works. Machine 1: keyed"
+    assert [Native.step(call) for call in native.calls] == ["install", "test"]
+    assert path.read_text(encoding="utf-8") == text
+
+
 async def test_a_key_in_a_missing_home_folder_is_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1085,6 +1157,226 @@ async def test_the_picker_shows_its_note_and_keys_whole(
         box = screen.query_one("#key-setup")
         assert box.region.bottom <= size[1]
         for widget in ("#key-note", "#key-help", "#key-choices", "#key-system"):
+            region = screen.query_one(widget).region
+            assert region.height > 0, widget
+            assert box.region.contains_region(region), widget
+
+
+NO_KEY = (
+    "No key to offer: your SSH folder has no valid .pub file, and a key named "
+    "{} already exists; nothing was installed."
+)
+
+
+def recorded_suspends(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
+    suspended: list[bool] = []
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: suspended.append(True),
+    )
+    return suspended
+
+
+async def k_answered(app: SSHWorkbenchApp, pilot) -> None:
+    """K opened the picker or reported something in the status line."""
+    await pilot.press("k")
+    await wait_for(
+        pilot,
+        lambda: showing(app, KeySetup) or "Machine 1:" in connection_status(app),
+    )
+
+
+def unlisted(screen: KeySetup) -> str:
+    return str(screen.query_one("#key-unlisted", Static).content)
+
+
+async def test_no_key_to_offer_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    (folder / "id_a.pub").unlink()
+    (folder / "id_b.pub").unlink()
+    (folder / "id_ed25519_box").write_text("fictional private half\n", "ascii")
+    suspended = recorded_suspends(monkeypatch)
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await k_answered(app, pilot)
+        assert not isinstance(app.screen, KeySetup)
+        assert connection_status(app) == (
+            f"{NO_KEY.format('id_ed25519_box')} Machine 1: box"
+        )
+    assert native.calls == []
+    assert suspended == []
+    assert path.read_text(encoding="utf-8") == text
+
+
+@pytest.mark.parametrize(
+    ("pub", "message"),
+    [
+        (None, "Could not read id_keyed.pub; nothing was installed."),
+        (
+            "not a key\n",
+            "id_keyed.pub is not a single valid OpenSSH public key; "
+            "nothing was installed.",
+        ),
+    ],
+)
+async def test_a_machines_own_key_without_a_valid_pub_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pub: str | None, message: str
+) -> None:
+    native = Native()
+    key = tmp_path / "ssh" / "id_keyed"
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key=str(key))
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+    key.write_text("fictional private half\n", "ascii")
+    if pub is not None:
+        Path(f"{key}.pub").write_text(pub, "ascii")
+    suspended = recorded_suspends(monkeypatch)
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await k_answered(app, pilot)
+        assert not isinstance(app.screen, KeySetup)
+        assert connection_status(app) == f"{message} Machine 1: keyed"
+    assert native.calls == []
+    assert suspended == []
+
+
+def keys_without_pub(folder: Path, names: tuple[str, ...]) -> AliasTarget:
+    """Garden's config offers these keys, id_lab (with a valid .pub), a key
+    that doesn't exist and a folder; each named key is a private file only."""
+    for name in names:
+        (folder / name).write_text("fictional private half\n", "ascii")
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    (folder / "id_dir").mkdir()
+    files = [f"~/ssh/{name}" for name in names]
+    files[1:1] = ["~/ssh/id_lab", "~/ssh/id_gone", "~/ssh/id_dir"]
+    return AliasTarget(
+        "192.0.2.10", 22, proxied=False, user="dev", identity_files=tuple(files)
+    )
+
+
+@pytest.mark.parametrize(
+    ("names", "line"),
+    [
+        (
+            ("id_work",),
+            "Not listed: id_work, which your SSH config offers, has no valid "
+            ".pub file.",
+        ),
+        (
+            ("id_work", "my key"),
+            "Not listed: id_work and my key, which your SSH config offers, have "
+            "no valid .pub file.",
+        ),
+        (
+            ("id_work", "my key", "id_old"),
+            "Not listed: id_work, my key and id_old, which your SSH config "
+            "offers, have no valid .pub file.",
+        ),
+    ],
+)
+async def test_an_alias_names_its_keys_without_a_pub_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    names: tuple[str, ...],
+    line: str,
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    checker = FakeChecker(keys_without_pub(folder, names))
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        assert option_labels(screen) == [
+            "id_lab.pub (your SSH config offers this)",
+            "id_a.pub",
+            "id_b.pub",
+            "Create a new key: id_ed25519_garden",
+        ]
+        assert unlisted(screen) == line
+
+
+async def test_a_config_naming_the_pub_file_gets_no_not_listed_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Some agents' setup guides say to name the .pub: `IdentityFile ~/.ssh/x.pub`.
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_a.pub",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        assert option_labels(screen) == [
+            "id_a.pub",
+            "id_b.pub",
+            "Create a new key: id_ed25519_garden",
+        ]
+        assert not screen.query("#key-unlisted")
+
+
+async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_a.pub").unlink()
+    (folder / "id_b.pub").unlink()
+    (folder / "id_ed25519_garden").write_text("fictional private half\n", "ascii")
+    (folder / "id_work").write_text("fictional private half\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_work",)
+    )
+    checker = FakeChecker(target)
+    suspended = recorded_suspends(monkeypatch)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await k_answered(app, pilot)
+        assert not isinstance(app.screen, KeySetup)
+        assert connection_status(app) == (
+            f"{NO_KEY.format('id_ed25519_garden')} Not listed: id_work, which your "
+            "SSH config offers, has no valid .pub file. Machine 1: garden"
+        )
+    assert native.calls == []
+    assert suspended == []
+
+
+# At 60x20 the picker fits this line only while the highlighted key has no
+# note; with a note, even a short "~/.ssh/..." one, it scrolls (a backlog row).
+@pytest.mark.parametrize(("size", "with_note"), [((80, 24), True), ((60, 20), False)])
+async def test_the_picker_shows_its_unlisted_keys_whole(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    size: tuple[int, int],
+    with_note: bool,
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    checker = FakeChecker(keys_without_pub(folder, ("id_work", "my key")))
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test(size=size) as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        if with_note:
+            await pilot.press("down")
+            await wait_for(pilot, lambda: note(screen).startswith("Your SSH config"))
+        await pilot.pause()
+        box = screen.query_one("#key-setup")
+        assert box.region.bottom <= size[1]
+        # The box's region includes its border, so only this catches a row
+        # hidden behind it.
+        assert box.max_scroll_y == 0
+        for widget in (
+            "#key-note",
+            "#key-choices",
+            "#key-unlisted",
+            "#key-system",
+            "#key-help",
+        ):
             region = screen.query_one(widget).region
             assert region.height > 0, widget
             assert box.region.contains_region(region), widget

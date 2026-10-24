@@ -503,16 +503,26 @@ class KeySetup(ModalScreen[KeyPlan | None]):
         height: auto;
         color: $warning;
     }
+    #key-unlisted {
+        height: auto;
+        color: $text-muted;
+    }
     """
 
     def __init__(
-        self, machine: Machine, choices: Sequence[KeyChoice], warning: str | None
+        self,
+        machine: Machine,
+        choices: Sequence[KeyChoice],
+        warning: str | None,
+        unlisted: str | None = None,
     ) -> None:
         super().__init__()
         self.machine = machine
         self.choices = tuple(choices)
         # The rewrite warning, shown unless a choice has its own note.
         self.warning = warning
+        # Names the configured keys the list leaves out, if any.
+        self.unlisted = unlisted
         self._answered = False
 
     def compose(self) -> ComposeResult:
@@ -533,6 +543,10 @@ class KeySetup(ModalScreen[KeyPlan | None]):
                 ),
                 id="key-choices",
             )
+            if self.unlisted is not None:
+                yield Static(
+                    display_text(self.unlisted), id="key-unlisted", markup=False
+                )
             yield Static("Target system", classes="key-label", markup=False)
             with RadioSet(id="key-system"):
                 yield RadioButton(
