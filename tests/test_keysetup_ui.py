@@ -1006,6 +1006,54 @@ async def test_without_a_terminal_handoff_nothing_runs(
     assert native.calls == []
 
 
+async def test_key_setup_hands_the_terminal_over_and_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events: list[str] = []
+    seen: list[tuple[bool, bool | None, bool | None]] = []
+
+    class Watched(Native):
+        def __call__(self, arguments: list[str], name: str = "SSH") -> int:
+            seen.append(
+                (
+                    app._connecting,
+                    app.check_action("key_setup", ()),
+                    app.check_action("connect", ()),
+                )
+            )
+            return super().__call__(arguments, name)
+
+    native = Watched()
+    # A machine with its own key: no save afterwards, which would refocus the list.
+    key = tmp_path / "ssh" / "id_keyed"
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key=str(key))
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+    Path(f"{key}.pub").write_text(public_key(3, "keyed").line + "\n", "ascii")
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: events.append("suspend"),
+    )
+    monkeypatch.setattr(
+        HeadlessDriver, "resume_application_mode", lambda self: events.append("resume")
+    )
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await pilot.press("tab")
+        assert app.focused is not app.query_one(ListView)
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert events == ["suspend", "resume"]
+        assert seen == [(True, None, None), (True, None, None)]
+        assert app.focused is app.query_one(ListView)
+        assert not app._connecting
+        assert app.check_action("key_setup", ()) is True
+        assert connection_status(app) == "Key login works. Machine 1: keyed"
+    assert [Native.step(call) for call in native.calls] == ["install", "test"]
+    assert path.read_text(encoding="utf-8") == text
+
+
 async def test_a_key_in_a_missing_home_folder_is_reported(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
