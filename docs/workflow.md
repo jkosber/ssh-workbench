@@ -169,6 +169,7 @@ installed package. It changes only at a release, never per edit or session.
 | 0.3.0 | New look, status header and responsive layout, tagged privately |
 | 0.3.1 | Status and alias fixes, tagged privately |
 | 0.3.2 | Key setup fixes, tagged privately |
+| 0.3.3 | Key setup follow-ups, tagged privately |
 | 0.3.x | Policy: a release of fixes only |
 | 0.4.0 | Policy: the next release with new features |
 | 1.0.0 | Policy: a deliberately chosen stable release, later |
