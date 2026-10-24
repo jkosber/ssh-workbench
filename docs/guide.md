@@ -29,7 +29,7 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 
 | Task | Command |
 | --- | --- |
-| Install from GitHub | `uv tool install git+https://github.com/jkosber/ssh-workbench@v0.3.1` (needs access to the private repository) |
+| Install from GitHub | `uv tool install git+https://github.com/jkosber/ssh-workbench@v0.3.2` (needs access to the private repository) |
 | Install from a clone | `uv tool install .` in the clone |
 | Upgrade a GitHub install | The same `uv tool install` command with `--reinstall` and the new tag |
 | Upgrade a clone install | `git pull`, then `uv tool install --reinstall .` |
