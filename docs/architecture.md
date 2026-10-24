@@ -294,9 +294,10 @@ and on R that also resolves aliases, and a round without resolving every
 
 | Step | Detail |
 | --- | --- |
-| Round | Each machine becomes Checking and gets one daemon thread, as the link worker does (in a resolving round, alias machines only after the [rename review](#rename-detection)), so quitting never waits for a check stuck on DNS or a dropped connection. Results come back through `post_message` as `StatusFinished`; a result from an older round, or for a machine no longer listed, is dropped |
+| Round | Each machine becomes Checking and gets one daemon thread, as the link worker does (in a resolving round, alias machines only after the [rename review](#rename-detection)), so quitting never waits for a check stuck on DNS or a dropped connection. In a round without resolving, an alias with no `ssh -G` answer gets no thread and reads Can't check: press R. Results come back through `post_message` as `StatusFinished`; a status from an older round, or for a machine no longer listed, is dropped |
+| Save during a resolving round | The round a save starts leaves the aliases that the startup or R review, or its `ssh -G`, still has to answer Checking, with no check of their own. The review and every `ssh -G` answer still apply whatever their round: R waits for all of them, so they always belong to the latest startup or R round. A late answer starts the port check of the machines still waiting for that alias; an alias the save added or changed waits for R |
 | Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
-| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, standard output captured, standard error discarded and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. Only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read; the host and user are never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
+| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, standard output captured, standard error discarded and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. It runs detached from the terminal (`CREATE_NO_WINDOW` on Windows, a new session on POSIX), so a `Match exec` command cannot draw over the screen. Only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read; the host and user are never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
 | Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
 | Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R. A timer round is skipped while the current round still reviews aliases or has a check that hasn't reported, so a check slower than the interval still shows its result |
 | R | Dimmed while a review or resolving check of any round, one a save replaced included, is still running, so R never starts a second set of `ssh -G` runs beside them; K's own `ssh -G` is not counted |
@@ -306,8 +307,9 @@ and on R that also resolves aliases, and a round without resolving every
 `StatusSymbol` is a small widget, not a `Static`, so the name `Static` in a
 row stays the first one. Each state has its own shape (`◐`, `●`, `○`, `◇`,
 `×`, `·`) and a word in the details pane; color classes come on top. A 0.2 s
-timer turns the Checking symbol and dims Online every other 0.8 s, and does
-nothing when `App.animation_level` is `none` (`TEXTUAL_ANIMATIONS=none`).
+timer turns the Checking symbol and dims Online every other 0.8 s, leaves the
+other symbols alone, and does nothing when `App.animation_level` is `none`
+(`TEXTUAL_ANIMATIONS=none`).
 
 ## Rename detection
 
@@ -318,8 +320,11 @@ review, reads `sshconfig.host_names` and runs `aliases.review`, which needs
 `AliasesReviewed` and starts a resolving check for every alias that is not
 missing. Missing ones become `State.NOT_FOUND` (`×`) with no `ssh -G` or port
 check, and timer rounds keep them so. A failed review lets the round check
-every alias not already missing. Timer rounds wait while a startup or R round
-is still reviewing or resolving, so they never drop its answers.
+every alias not already missing; an alias the state file lists as missing
+(`baselines`) stays missing, while one that vanished since the last run
+cannot be told apart and is still checked. Timer rounds wait while a startup
+or R round is still reviewing or resolving, and a save in that time keeps its
+answers (see [Live status](#live-status)).
 
 | Item | Rule |
 | --- | --- |
@@ -327,7 +332,7 @@ is still reviewing or resolving, so they never drop its answers.
 | Reading | More than 1 MB, undecodable or invalid JSON, another version or computer, an invalid alias name, an empty host, a port outside 1-65535 or a bool, or any missing or extra key means no state. A machine file in a synced folder is shared by computers with different SSH configs, so one computer's names must not mark another's aliases missing |
 | Missing | An alias recorded while it was a literal `Host` name and not listed now. Matching is exact: OpenSSH 10.5p1 and Windows OpenSSH 9.5p2 apply `Host lab-box` to `lab-box` but not to `LAB-BOX`. The record stays while the alias is missing, so Alias not found survives restarts |
 | Offer | The first review that misses an alias stores the `Host` names of the review before it, when the alias was still listed, as its baseline. Each review then resolves the names not in the baseline, and the one that resolves to the same host, user and port is offered, so an offer can appear after an ambiguous or unresolved review. A name offered to two missing aliases is offered to neither |
-| Form save | Saving a machine from the form (A or E) with a missing alias forgets that alias's record and baseline: the user kept it on purpose, for example after moving it into a pattern. Its status then waits for R |
+| Form save | Saving a machine from the form (A or E) with a missing alias forgets that alias's record and baseline: the user kept it on purpose, for example after moving it into a pattern. Its status then waits for R. Saved while an R review runs, it stays kept when that review reports, and that R round resolves it |
 | Keys | `check_action` hides C for a missing alias and hides U unless the selected machine has an offer, so the footer keeps at most seven keys. U saves only the selected machine, through `_save` with the forms' rewrite warning (a second U) and outside-change reload |
 | Marker | After a review, an alias that is neither listed nor missing reads "(not in your SSH config)" in the details; it still connects |
 
@@ -356,7 +361,12 @@ would resolve against the real `~/.ssh`, so checks never pass one.
 K opens `forms.KeySetup` with `KeyChoice` entries and returns a `KeyPlan`. For
 an alias the app first runs `ssh -G` in a daemon thread, the one moment
 besides startup and R that it may, to learn the alias's `identityfile` and
-`identitiesonly`. The three steps then run in one `ssh_handoff` and
+`identitiesonly`. The answer opens the picker only if nothing happened since
+K: any screen change (`screen_change_signal`), terminal handoff
+(`app_suspend_signal`) or move to another machine drops the wait, and the
+selected machine must still equal the one K was pressed on. A second K on
+that machine while it waits says so in the status line; K after a dropped
+wait looks up again. The three steps then run in one `ssh_handoff` and
 `suspend`, each through `ssh.run_native` with the terminal's own input and
 output, and a printed `SSH Workbench:` line before each. A nonzero status
 stops the steps.

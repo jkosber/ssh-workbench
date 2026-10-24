@@ -232,11 +232,13 @@ quitting never wait for them.
 For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
 startup and on **R** only. `ssh -G` reads your whole SSH config, including any
 `Match exec` lines that run commands, so the 30-second timer reuses the last
-answer. The details show "via alias" rather than the host.
+answer. Those commands run without Workbench's terminal, so they cannot draw
+on its screen. The details show "via alias" rather than the host.
 
 | Timing rule | Why |
 | --- | --- |
 | **R** stays dimmed until the alias checks of the last startup or **R** have all reported | It never starts a second set of `ssh -G` runs beside them |
+| Saving a machine while those alias checks run keeps their answers; an alias you add or change in that save waits for **R** | `ssh -G` runs only at startup, on **R** and for **K** |
 | A 30-second check waits for any check still running | A slow check still shows its result |
 
 The symbols turn and pulse only while animations are on; set
@@ -279,7 +281,10 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    key**, an Ed25519 key named for the machine, such as `id_ed25519_box`. For
    an alias, the keys its SSH config offers come first. Choose the target
    system too: Linux, macOS or other POSIX, or Windows (OpenSSH Server).
-   Enter starts; Escape cancels.
+   Enter starts; Escape cancels. For an alias the list opens once SSH has
+   read your config; if you connect, open a form or select another machine
+   first, it doesn't open, and **K** again while it waits says it is still
+   looking up the alias.
 2. **Install it.** SSH logs in, asking for the account's password if needed,
    and runs one fixed command that adds the public key once:
 

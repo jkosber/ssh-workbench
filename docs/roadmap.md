@@ -27,23 +27,12 @@ needs its own task before work starts.
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
-
-### Status and aliases
-
-| Item | From |
-| --- | --- |
-| A save during a resolving round drops that round's `ssh -G` answers, so an alias shows "press R" until the next R | 10 |
-| A `Match exec` command could open the terminal and draw over the screen. Proposal: `start_new_session=True` on POSIX and `CREATE_NO_WINDOW` on Windows for `ssh -G` | 10 |
-| A thread starts only to post "press R to resolve this alias", and the animation timer also updates symbols that never move | 10 |
-| When the review itself fails at startup, every alias is resolved and checked, a vanished one included | 11 |
-| A save during the startup or R review still drops that review until the next R | 11 |
-| A machine file deleted outside Workbench during a session still gets a state file written next to it | 11 |
+| Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
 
 ### Key setup
 
 | Item | From |
 | --- | --- |
-| A late `ssh -G` answer for K opens the picker even after C or an edit in between; a second K while it resolves is ignored without a hint | 12 |
 | The "doesn't name this key" note ignores configured keys whose `.pub` is missing | 12 |
 | The picker can open with no choices; "Key setup interrupted." names no step; the handoff block repeats Connect's | 12 |
 | zsh, fish and tcsh login shells are untested | 12 |
@@ -84,9 +73,6 @@ needs its own task before work starts.
 | A few schema tests match message prefixes instead of exact strings | 8 |
 | The 60x20 many-links picker test does not press Escape; the 80x24 test covers Escape restoring selection and focus | 8 |
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
-| The "the check failed" path has no test; the stale-round test asserts nothing for its removed-machine message | 10 |
-| The spinner test depends on real time, nothing tests the Online pulse, and the O label test checks only that "Link" appears in the label | 10 |
-| Missing tests: R, a save or a reload while an alias is missing, then a check that it was never resolved; moving the selection between two U presses. One test waits 0.2 s of real time for a negative result | 11 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
 
 ## Done

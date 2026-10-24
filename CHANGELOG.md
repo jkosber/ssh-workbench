@@ -5,6 +5,23 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Fixed
+
+- Saving a machine while Workbench was still checking aliases at startup or
+  after R no longer throws those checks away: alias machines show their
+  status, Alias not found where it applies, and the state file is written,
+  without pressing R again. Keeping a missing alias with a save during R
+  also sticks.
+- A `Match exec` command in the SSH config can no longer draw over
+  Workbench's screen: `ssh -G` runs without the terminal.
+- When reading the SSH config fails, aliases that were already missing at the
+  last run stay Alias not found and are not checked.
+- No state file is written next to a machine file deleted while Workbench
+  runs.
+- K's key list opens only if nothing happened since K: connecting, opening a
+  form or selecting another machine first cancels it, and K again while it
+  waits says it is still looking up the alias.
+
 ## 0.3.0 - 2026-10-23
 
 A new look, a status header and a layout that follows the terminal's size,
