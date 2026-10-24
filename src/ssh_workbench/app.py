@@ -1668,12 +1668,24 @@ class SSHWorkbenchApp(App[None]):
         )
         try:
             choices = self._key_choices(machine, target, folder)
-        except SSHLaunchError as error:
-            # A machine key under "~" needs the home folder.
+        except (SSHLaunchError, KeySetupError) as error:
+            # A machine key under "~" needs the home folder, and a valid .pub.
             self._show_key_result(machine, str(error))
             return
+        unlisted = _unlisted_text(_unlisted_keys(target, folder))
+        if not choices:
+            # Without a choice, Create would be offered unless its name is taken.
+            message = (
+                "No key to offer: your SSH folder has no valid .pub file, and a "
+                f"key named {new_key_path(folder, machine.id).name} already "
+                "exists; nothing was installed."
+            )
+            if unlisted:
+                message += f" {unlisted}"
+            self._show_key_result(machine, message)
+            return
         self.push_screen(
-            KeySetup(machine, choices, warning),
+            KeySetup(machine, choices, warning, unlisted),
             lambda plan: self._key_plan_chosen(machine.id, plan),
         )
 
@@ -1683,6 +1695,8 @@ class SSHWorkbenchApp(App[None]):
         """The machine's own key; else the alias's keys, the folder's and a new one."""
         if machine.alias is None and machine.key is not None:
             private = Path(key_argument(machine.key))
+            # Raises KeySetupError when its .pub is missing or not valid.
+            read_public_key(private.with_name(f"{private.name}.pub"))
             label = f"{machine.key} (this machine's key)"
             return [KeyChoice(private, label)]
         home = _home() if ssh_folder_override() is None else None
@@ -1874,6 +1888,32 @@ def _has_public_key(private: Path) -> bool:
     except KeySetupError:
         return False
     return True
+
+
+def _unlisted_keys(target: AliasTarget | None, folder: Path) -> list[str]:
+    """Keys an alias's config offers that exist but have no valid `.pub`; the
+    private file is only checked to exist, never opened."""
+    if target is None:
+        return []
+    return [
+        private.name
+        for private in identity_paths(target.identity_files, folder)
+        if private.is_file() and not _has_public_key(private)
+    ]
+
+
+def _unlisted_text(names: Sequence[str]) -> str | None:
+    if not names:
+        return None
+    if len(names) == 1:
+        return (
+            f"Not listed: {names[0]}, which your SSH config offers, has no valid "
+            ".pub file."
+        )
+    listed = f"{', '.join(names[:-1])} and {names[-1]}"
+    return (
+        f"Not listed: {listed}, which your SSH config offers, have no valid .pub file."
+    )
 
 
 def _identity_value(private: Path, home: Path | None) -> str:
