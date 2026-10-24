@@ -1312,11 +1312,49 @@ async def test_a_config_naming_the_pub_file_gets_no_not_listed_line(
         await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
         screen = await picker(app, pilot)
         assert option_labels(screen) == [
-            "id_a.pub",
+            "id_a.pub (your SSH config offers this)",
             "id_b.pub",
             "Create a new key: id_ed25519_garden",
         ]
+        assert note(screen) == ""
         assert not screen.query("#key-unlisted")
+
+
+async def test_a_config_naming_the_pub_file_tests_without_a_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_a.pub",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == "Key login works. Machine 1: garden"
+    assert native.calls[0][-1] == posix_install_command(public_key(1, "a"))
+
+
+async def test_a_named_pub_that_is_missing_lists_its_key_as_not_listed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    (folder / "id_work").write_text("fictional private half\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_work.pub",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        assert unlisted(screen) == (
+            "Not listed: id_work, which your SSH config offers, has no valid .pub file."
+        )
 
 
 async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(

@@ -196,6 +196,15 @@ def test_key_setting(tmp_path: Path) -> None:
     )
 
 
+def test_identity_paths_reads_a_pub_file_as_its_key(tmp_path: Path) -> None:
+    # OpenSSH uses a named public key to pick the agent's private key.
+    folder = tmp_path / "home" / ".ssh"
+
+    assert identity_paths(
+        ["~/.ssh/id_op.pub", "~/.ssh/id_op", "~/.ssh/id_lab.pub"], folder
+    ) == [folder / "id_op", folder / "id_lab"]
+
+
 def test_identity_paths(tmp_path: Path) -> None:
     folder = tmp_path / "home" / ".ssh"
     absolute = tmp_path / "keys" / "id_abs"
