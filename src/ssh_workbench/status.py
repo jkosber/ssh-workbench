@@ -27,6 +27,7 @@ _DETACHED: dict[str, object] = (
     else {"start_new_session": True}
 )
 
+
 class State(Enum):
     """Each state has a word and a distinct symbol, so color is never needed."""
 
