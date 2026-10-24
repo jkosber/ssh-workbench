@@ -28,6 +28,25 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Repository made public, 2026-10-24
+
+Windows 11, uv 0.13.4, Git for Windows. Scans used `gh` signed in as Jadon;
+the checks after the change used `curl`, `git` and `uv` without credentials.
+Jadon approved the change after the checks before it.
+
+| Check | Observed |
+| --- | --- |
+| Secrets in every commit reachable from a branch, a tag or a pull request | No private keys or GitHub tokens: 304 commits before the change, and 311 when rechecked during PR #34 |
+| Personal details in history | No home-folder paths or personal email. Three docs commits from 2026-10-21 name a Windows computer and an SSH alias, without addresses; Jadon chose to keep them rather than rewrite history |
+| Addresses in fixtures and examples | Jadon confirmed they are made up |
+| Pull requests | The text and comments of all 33 were clean; every pull request's head is in `main` or a tag, and none was force-pushed |
+| Repository contents beyond Git | No Actions artifacts, releases, secrets or environments; the workflow token is read-only |
+| After the change | `gh repo view` reported `PUBLIC`; the page and the API answered without signing in; `git ls-remote` with no credential helper listed `v0.3.3` |
+| Install as anyone | `uv tool install git+https://github.com/jkosber/ssh-workbench@v0.3.3`, with Git's global and system configuration and credential helpers switched off, installed into ignored folders; `ssh-workbench --version` then printed `ssh-workbench 0.3.3` |
+
+Not checked: commits that exist on GitHub but no longer belong to any branch,
+tag or pull request, which no listing shows.
+
 ## Release 0.3.3, 2026-10-24
 
 Windows 11, Windows Terminal, Python 3.14.8, Textual 8.2.8. The built wheel

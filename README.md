@@ -46,7 +46,7 @@ You need:
 - The OpenSSH client: `ssh.exe` on Windows (the built-in "OpenSSH Client"
   optional feature), `ssh` elsewhere.
 
-Install from GitHub (needs access to the private repository):
+Install from GitHub:
 
 ```text
 uv tool install git+https://github.com/jkosber/ssh-workbench@v0.3.3

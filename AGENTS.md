@@ -1,9 +1,9 @@
 # SSH Workbench: agent guide
 
 SSH Workbench is a Python 3.14 / Textual terminal app for the machines a user
-connects to with SSH. 0.3.3 is its current release, tagged privately. These
-rules bind every coding agent working here; when they and a task disagree,
-stop and ask Jadon.
+connects to with SSH. 0.3.3 is its current release, and the repository is
+public on GitHub. These rules bind every coding agent working here; when they
+and a task disagree, stop and ask Jadon.
 
 ## Start here
 
@@ -47,8 +47,8 @@ with `uv add` or `uv add --dev` and commit the generated `uv.lock`.
 | Docs | Update the docs a behavior or command change touches, a changelog line under Unreleased for user-visible changes, and observed manual evidence in [validation](docs/validation.md). Label proposals and untested claims |
 | Backlog | Acceptance criteria live in the roadmap. Obsidian holds personal context and links, not a second backlog |
 | Version | `pyproject.toml` holds the only version; the CLI reads installed metadata. Never bump it per edit or session |
-| Privacy | Keep private paths, real infrastructure details, credentials and workspace notes out of Git; `.local/` is ignored. No AI service is needed at runtime |
-| License | MIT, in `LICENSE`. Publication needs [the publishing checklist](docs/publishing.md) and Jadon's approval |
+| Privacy | The repository is public: everything pushed, branches and pull requests included, can be read by anyone. Keep private paths, real infrastructure details, credentials and workspace notes out of Git; `.local/` is ignored. No AI service is needed at runtime |
+| License | MIT, in `LICENSE`. Publishing anything drawn from the repository, such as a case study or a guide, needs [the publishing checklist](docs/publishing.md) and Jadon's approval |
 
 ## Safety boundaries
 

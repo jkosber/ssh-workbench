@@ -5,6 +5,11 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Changed
+
+- The GitHub repository is public, so installing from it needs no GitHub
+  account or invitation.
+
 ## 0.3.3 - 2026-10-24
 
 Key setup follow-ups: a config that names a key by its `.pub` counts as
