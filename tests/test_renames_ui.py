@@ -499,6 +499,27 @@ async def test_a_failed_review_still_checks_every_alias(
         assert field(app, "target") == "garden-host"
 
 
+async def test_a_failed_review_keeps_an_alias_missing_from_the_last_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(folder: Path, skip: Path | None = None) -> list[str]:
+        raise RuntimeError("fictional failure")
+
+    monkeypatch.setattr(app_module, "host_names", broken)
+    machines = (GARDEN, LAB)
+    missing = AliasMemory(
+        ("old-host",), {"old-host": RECORD}, {"old-host": ("old-host",)}
+    )
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], missing)
+    checker = FakeChecker({"old-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        assert symbols(app) == [State.NOT_FOUND, State.OFFLINE]
+        assert field(app, "status") == NO_OFFER
+        assert checker.resolved == []
+
+
 async def test_a_review_while_the_screens_close_starts_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
