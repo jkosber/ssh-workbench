@@ -9,6 +9,7 @@ import os
 import shutil
 import struct
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -359,6 +360,43 @@ def test_posix_install_counts_a_key_whose_options_hold_a_hash(
         "SSH Workbench: the key was already installed.\n"
     )
     assert keys_file.read_bytes() == existing.encode()
+
+
+CHECK_SHELLS = Path(__file__).resolve().parents[1] / "scripts" / "check_shells.py"
+
+
+def shell_check(*shells: str) -> subprocess.CompletedProcess[str]:
+    """The script check_shells.py prints, run by this computer's POSIX sh."""
+    script = subprocess.run(
+        [sys.executable, str(CHECK_SHELLS), "--shells", *shells],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    ).stdout
+    return subprocess.run(
+        [posix_shell(), "-s"],
+        input=script,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+
+
+def test_shell_check_passes_from_sh() -> None:
+    result = shell_check("sh")
+
+    assert (result.stdout, result.returncode) == ("sh: PASS\n", 0), result.stderr
+
+
+def test_shell_check_reports_a_missing_shell() -> None:
+    result = shell_check("sh", "no-such-shell-for-workbench")
+
+    assert (result.stdout, result.returncode) == (
+        "sh: PASS\nno-such-shell-for-workbench: not installed\n",
+        1,
+    ), result.stderr
 
 
 PREFIX = "powershell -NoProfile -NonInteractive -EncodedCommand "
