@@ -7,7 +7,8 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ### Changed
 
-- The GitHub repository is public, so installing from it needs no access.
+- The GitHub repository is public, so installing from it needs no GitHub
+  account or invitation.
 
 ## 0.3.3 - 2026-10-24
 

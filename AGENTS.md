@@ -48,7 +48,7 @@ with `uv add` or `uv add --dev` and commit the generated `uv.lock`.
 | Backlog | Acceptance criteria live in the roadmap. Obsidian holds personal context and links, not a second backlog |
 | Version | `pyproject.toml` holds the only version; the CLI reads installed metadata. Never bump it per edit or session |
 | Privacy | The repository is public: everything pushed, branches and pull requests included, can be read by anyone. Keep private paths, real infrastructure details, credentials and workspace notes out of Git; `.local/` is ignored. No AI service is needed at runtime |
-| License | MIT, in `LICENSE`. Publication needs [the publishing checklist](docs/publishing.md) and Jadon's approval |
+| License | MIT, in `LICENSE`. Publishing anything drawn from the repository, such as a case study or a guide, needs [the publishing checklist](docs/publishing.md) and Jadon's approval |
 
 ## Safety boundaries
 

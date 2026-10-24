@@ -60,7 +60,8 @@ Jadon decides; coding agents ask before every step marked "ask".
 | Merge a pull request | Ask |
 | Change the version, tag or release | Ask, each one separately |
 | Use a real SSH target or open a real URL | Ask, naming the target |
-| Change repository visibility or publish anything | Ask; see [publishing](publishing.md) |
+| Change repository visibility | Ask |
+| Publish anything drawn from the repository | Ask; see [publishing](publishing.md) |
 | Change infrastructure | Ask |
 
 ## Doing a task
@@ -175,12 +176,13 @@ installed package. It changes only at a release, never per edit or session.
 | 1.0.0 | Policy: a deliberately chosen stable release, later |
 
 Rows marked Policy describe how versions are chosen, not promised releases.
-Until 1.0.0, the changelog states every compatibility change.
+Until 1.0.0, the changelog states every compatibility change. Tags up to
+0.3.3 were made while the repository was private, as their rows say; later
+rows leave that out.
 
 ### Checklist
 
-1. Jadon chooses the version. The repository is public, so a tag is public
-   as soon as it is pushed.
+1. Jadon chooses the version.
 2. Branch `release/X.Y.Z` from `main`.
 3. Set `version` in `pyproject.toml`, run `uv lock`, then `uv sync --locked`.
    The lockfile should change only in Workbench's own version.
@@ -199,7 +201,8 @@ Until 1.0.0, the changelog states every compatibility change.
    [app smoke check](testing.md#app-smoke-check) with it in Windows Terminal.
 7. Pull request, CI, review and merge, as for a task. The release gets a "-"
    row in Done with its PR.
-8. Tag the merge commit and push the tag (ask first):
+8. Tag the merge commit and push the tag (ask first; the tag is public as
+   soon as it is pushed):
 
    ```text
    git tag -a vX.Y.Z -m "Release X.Y.Z" <merge commit>
