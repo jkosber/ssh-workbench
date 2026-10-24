@@ -150,7 +150,8 @@ class StatusFinished(Message):
 class KeyTargetResolved(Message):
     """What `ssh -G` said about an alias when K was pressed."""
 
-    machine_id: str
+    # Which K lookup this answers; an earlier one's answer opens nothing.
+    lookup: int
     target: AliasTarget | None
 
 
@@ -584,6 +585,8 @@ class SSHWorkbenchApp(App[None]):
         # The machine K is looking up an alias for. Anything the user does in
         # between drops the wait, and the answer then opens nothing.
         self._key_waiting: Machine | None = None
+        # Numbers K's lookups, so only the latest one's answer counts.
+        self._key_lookup = 0
         # Exported aliases: a problem writing Workbench's SSH config file, shown
         # after the rebuild, and whether to offer the Include line then.
         self._export_problem: str | None = None
@@ -1606,11 +1609,13 @@ class SSHWorkbenchApp(App[None]):
         # Key setup is one of the moments ssh -G may run: it names the keys
         # the alias offers.
         self._key_waiting = machine
-        if not self._start_thread(self._resolve_key_target, (machine,)):
+        self._key_lookup += 1
+        arguments = (self._key_lookup, machine)
+        if not self._start_thread(self._resolve_key_target, arguments):
             self._key_waiting = None
             self._open_key_setup(machine, None)
 
-    def _resolve_key_target(self, machine: Machine) -> None:
+    def _resolve_key_target(self, lookup: int, machine: Machine) -> None:
         if self._status_closed.is_set():
             return
         try:
@@ -1619,7 +1624,7 @@ class SSHWorkbenchApp(App[None]):
             target = None
         if not self._status_closed.is_set():
             try:
-                self.post_message(KeyTargetResolved(machine.id, target))
+                self.post_message(KeyTargetResolved(lookup, target))
             except RuntimeError:
                 # The event loop may close between the guard and enqueue.
                 pass
@@ -1628,7 +1633,7 @@ class SSHWorkbenchApp(App[None]):
         if self._status_closed.is_set() or not self.is_running:
             return
         waiting = self._key_waiting
-        if waiting is None or waiting.id != message.machine_id:
+        if waiting is None or message.lookup != self._key_lookup:
             # The user moved on, or this is an earlier lookup's answer.
             return
         self._key_waiting = None

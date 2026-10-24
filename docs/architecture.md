@@ -363,7 +363,8 @@ an alias the app first runs `ssh -G` in a daemon thread, the one moment
 besides startup and R that it may, to learn the alias's `identityfile` and
 `identitiesonly`. The answer opens the picker only if nothing happened since
 K: any screen change (`screen_change_signal`), terminal handoff
-(`app_suspend_signal`) or move to another machine drops the wait, and the
+(`app_suspend_signal`) or move to another machine drops the wait, the
+answer must come from the latest lookup (each carries a number), and the
 selected machine must still equal the one K was pressed on. A second K on
 that machine while it waits says so in the status line; K after a dropped
 wait looks up again. The three steps then run in one `ssh_handoff` and
