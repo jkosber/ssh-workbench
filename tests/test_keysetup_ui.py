@@ -1298,6 +1298,27 @@ async def test_an_alias_names_its_keys_without_a_pub_file(
         assert unlisted(screen) == line
 
 
+async def test_a_config_naming_the_pub_file_gets_no_not_listed_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Some agents' setup guides say to name the .pub: `IdentityFile ~/.ssh/x.pub`.
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_a.pub",)
+    )
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        assert option_labels(screen) == [
+            "id_a.pub",
+            "id_b.pub",
+            "Create a new key: id_ed25519_garden",
+        ]
+        assert not screen.query("#key-unlisted")
+
+
 async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
