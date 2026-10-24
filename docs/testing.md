@@ -1,13 +1,14 @@
 # Testing
 
-How SSH Workbench is checked: the automated checks that run on every push,
-and the manual checks in a real terminal that automation cannot replace.
+How SSH Workbench is checked: the automated checks that CI runs, and the
+manual checks in a real terminal that automation cannot replace.
 Results of manual checks go in [the validation log](validation.md).
 
 ## Automated checks
 
-CI runs these on Windows and Ubuntu for every push and pull request. Run them
-locally before opening a pull request:
+CI runs these on Windows and Ubuntu for every pull request and every push to
+`main` or a version tag; a branch without a pull request gets no CI run. Run
+them locally before opening a pull request:
 
 ```text
 uv sync --locked
