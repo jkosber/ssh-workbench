@@ -6,7 +6,23 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+### 23. Key setup follow-ups
+
+Jadon started this task on 2026-10-24 with the five Key setup rows Task 22's
+review added.
+
+- [ ] A config that names the public key (`IdentityFile ~/.ssh/x.pub`) is
+  read as naming key `x`: the picker lists `x.pub (your SSH config offers
+  this)` without a "doesn't name this key" note, and a passing login test
+  gives no hint.
+- [ ] At 60x20 the key picker shows a note and a "Not listed" line without
+  scrolling; it may use the whole height before it scrolls.
+- [ ] As an administrator, the Windows script prints its result only after
+  its ACL step succeeded; if that fails, only the error line appears.
+- [ ] A PowerShell error with line breaks prints as one line; the script's
+  "no comment lines" rule has a test; the length tests pass unchanged.
+- [ ] Tests first; full checks; docs, changelog and validation; a fresh
+  review. Approved: K on the approved Windows target with its installed key.
 
 ## Next
 
