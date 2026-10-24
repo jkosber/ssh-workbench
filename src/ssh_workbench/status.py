@@ -9,6 +9,7 @@ only when the app asks, never on the status timer.
 import re
 import socket
 import subprocess
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -17,6 +18,14 @@ from ssh_workbench.config import Machine, is_valid_ssh_alias
 from ssh_workbench.ssh import SSHLaunchError, find_ssh
 from ssh_workbench.sshconfig import ssh_folder_override
 
+# A Match exec command run by ssh -G must not draw over the TUI. On Windows,
+# CREATE_NO_WINDOW gives ssh a hidden console that its children inherit; on
+# POSIX, a new session has no controlling terminal.
+_DETACHED: dict[str, object] = (
+    {"creationflags": subprocess.CREATE_NO_WINDOW}
+    if sys.platform == "win32"
+    else {"start_new_session": True}
+)
 
 class State(Enum):
     """Each state has a word and a distinct symbol, so color is never needed."""
@@ -89,6 +98,7 @@ def resolve_alias(alias: str, timeout: float = 10.0) -> AliasTarget | None:
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
+            **_DETACHED,
         )
     except SSHLaunchError, OSError, subprocess.SubprocessError:
         return None
