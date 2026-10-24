@@ -206,17 +206,19 @@ def posix_install_command(key: PublicKey) -> str:
 # Windows OpenSSH runs commands through cmd.exe unless its DefaultShell is
 # changed, so the script starts PowerShell explicitly. Administrators use the
 # shared file sshd reads for the Administrators group; sshd ignores that file
-# unless only SYSTEM and Administrators may access it. Without a console,
-# progress records reach the terminal as CLIXML, so they are switched off.
+# unless only SYSTEM and Administrators may access it; group claims include
+# deny-only groups, so a filtered token still counts. Without a console,
+# progress records and errors reach the terminal as CLIXML, so progress is
+# switched off and the trap prints an error as one line and exits 1.
 # sshd skips comment lines, so a commented-out copy of the key does not count.
 # Comments stay out of the script: every character counts against cmd.exe's
 # 8191-character limit.
 _WINDOWS_SCRIPT = """$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+trap { "SSH Workbench: the install stopped with an error: $_"; exit 1 }
 $key = '@KEY@'
 $blob = $key.Split(' ')[1]
 $me = [Security.Principal.WindowsIdentity]::GetCurrent()
-# Group claims include deny-only groups, so a filtered token still counts.
 $admin = @($me.Claims | Where-Object { $_.Value -eq 'S-1-5-32-544' }).Count -gt 0
 if ($admin) {
   $file = Join-Path (Join-Path $env:ProgramData 'ssh') 'administrators_authorized_keys'
