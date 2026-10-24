@@ -15,7 +15,7 @@ Changes by release, newest first. Version numbers follow the policy in
   silently.
 - Ctrl+C during key setup says which step it stopped: while creating the key,
   before the install or during the install.
-- An error in the Windows install script now prints one line, "SSH
+- An error in the Windows install script now prints as plain text, "SSH
   Workbench: the install stopped with an error: ...", instead of a block of
   CLIXML.
 

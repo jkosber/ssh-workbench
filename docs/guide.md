@@ -298,10 +298,10 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    | Windows, other accounts | `%USERPROFILE%\.ssh\authorized_keys` |
 
    On Windows the command starts PowerShell itself, because the default remote
-   shell is cmd.exe; if it fails, it prints one line starting "SSH Workbench:
-   the install stopped with an error:". cmd.exe limits the command's length,
-   so Workbench refuses an RSA key larger than about 6000 bits before
-   connecting; Ed25519 keys and 4096-bit RSA keys fit.
+   shell is cmd.exe; if it fails, it prints PowerShell's error after "SSH
+   Workbench: the install stopped with an error:". cmd.exe limits the
+   command's length, so Workbench refuses an RSA key larger than about 6000
+   bits before connecting; Ed25519 keys and 4096-bit RSA keys fit.
 3. **Test it.** SSH logs in once more allowing only public-key authentication
    and runs `exit`. Workbench reports "Key login works." or what failed. A key
    with a passphrase works: SSH asks for it.
