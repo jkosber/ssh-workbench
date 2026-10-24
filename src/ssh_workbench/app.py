@@ -888,9 +888,15 @@ class SSHWorkbenchApp(App[None]):
         return True
 
     def _start_check(self, machine: Machine, resolve: bool) -> bool:
-        known = machine.alias is None or machine.alias in self._targets
+        unresolved = machine.alias is not None and machine.alias not in self._targets
+        if unresolved and not resolve:
+            # Only startup, R and K run ssh -G; nothing to check until then.
+            self._statuses[machine.id] = MachineStatus(
+                State.UNKNOWN, reason="press R to resolve this alias"
+            )
+            return True
         target = self._targets.get(machine.alias) if machine.alias else None
-        arguments = (self._round, machine, resolve, known, target)
+        arguments = (self._round, machine, resolve, target)
         if self._start_thread(self._check, arguments):
             self._checking.add(machine.id)
             if resolve and machine.alias is not None:
@@ -1001,7 +1007,6 @@ class SSHWorkbenchApp(App[None]):
         round_id: int,
         machine: Machine,
         resolve: bool,
-        known: bool,
         target: AliasTarget | None,
     ) -> None:
         if self._status_closed.is_set():
@@ -1010,12 +1015,7 @@ class SSHWorkbenchApp(App[None]):
         try:
             if resolved:
                 target = self.checker.resolve_alias(machine.alias)
-            if machine.alias is not None and not resolved and not known:
-                status = MachineStatus(
-                    State.UNKNOWN, reason="press R to resolve this alias"
-                )
-            else:
-                status = check_machine(machine, target, self.checker.port_open)
+            status = check_machine(machine, target, self.checker.port_open)
         except Exception:
             # Never let a background failure print a traceback into the TUI.
             status = MachineStatus(State.UNKNOWN, reason="the check failed")
@@ -1081,7 +1081,9 @@ class SSHWorkbenchApp(App[None]):
             return
         self._frame += 1
         for symbol in self.query(StatusSymbol):
-            symbol.frame = self._frame
+            # Only the spinner and the Online pulse move.
+            if symbol.state in (State.CHECKING, State.ONLINE):
+                symbol.frame = self._frame
 
     def _browsing(self) -> bool:
         """True when the browser screen is active, current and not connecting."""
