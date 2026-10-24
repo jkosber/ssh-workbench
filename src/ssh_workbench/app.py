@@ -150,18 +150,24 @@ class StatusFinished(Message):
 class KeyTargetResolved(Message):
     """What `ssh -G` said about an alias when K was pressed."""
 
-    machine_id: str
+    # Which K lookup this answers; an earlier one's answer opens nothing.
+    lookup: int
     target: AliasTarget | None
 
 
 @dataclass
 class AliasesReviewed(Message):
+    # The startup or R round that started the review. R waits for every
+    # review, so it is the latest such round; a save may have started a newer
+    # round since, and the review still applies.
     round: int
     # The literal Host names read for this review.
     names: tuple[str, ...]
     # None when the review failed; the round then checks every alias that is
     # not already missing.
     review: Review | None
+    # After a failed review, the aliases the saved state lists as missing.
+    known_missing: tuple[str, ...] = ()
 
 
 class StatusSymbol(Widget):
@@ -563,6 +569,12 @@ class SSHWorkbenchApp(App[None]):
         self._pending_aliases: set[str] = set()
         # True while a startup or R round still reviews or resolves aliases.
         self._resolving = False
+        # Aliases the startup or R review is still reviewing; empty once it
+        # reports.
+        self._reviewing: frozenset[str] = frozenset()
+        # Missing aliases a form save kept while that review ran; it would
+        # otherwise mark them missing again.
+        self._kept_during_review: set[str] = set()
         # Machines whose check in this round has not reported; the timer waits.
         self._checking: set[str] = set()
         # Reviews and ssh -G checks still running, from any round. R waits for
@@ -570,8 +582,11 @@ class SSHWorkbenchApp(App[None]):
         self._resolves_running = 0
         # The machine and new alias a first U warned about.
         self._update_armed: tuple[str, str] | None = None
-        # The machine whose alias K is resolving, if any.
-        self._key_resolving: str | None = None
+        # The machine K is looking up an alias for. Anything the user does in
+        # between drops the wait, and the answer then opens nothing.
+        self._key_waiting: Machine | None = None
+        # Numbers K's lookups, so only the latest one's answer counts.
+        self._key_lookup = 0
         # Exported aliases: a problem writing Workbench's SSH config file, shown
         # after the rebuild, and whether to offer the Include line then.
         self._export_problem: str | None = None
@@ -674,6 +689,11 @@ class SSHWorkbenchApp(App[None]):
         )
 
     def on_mount(self) -> None:
+        # Any screen (a form, a question, the picker) and any terminal handoff
+        # (C, key setup) drop K's wait. Immediate, so the wait is gone before
+        # the action that opened the screen or handed off the terminal ends.
+        self.screen_change_signal.subscribe(self, self._drop_key_wait, immediate=True)
+        self.app_suspend_signal.subscribe(self, self._drop_key_wait, immediate=True)
         self._update_summary()
         if self.machines:
             self.query_one("#machine-list", ListView).focus()
@@ -686,6 +706,14 @@ class SSHWorkbenchApp(App[None]):
         self._update_armed = None
         self.refresh_bindings()
         index = event.list_view.index
+        # Moving to another machine drops K's wait; the list reporting the
+        # same machine again does not.
+        if (
+            index is None
+            or index >= len(self.machines)
+            or self.machines[index] != self._key_waiting
+        ):
+            self._drop_key_wait()
         # An old list can still report a highlight while the panes rebuild.
         if index is not None and not self._rebuilding:
             self._show_details(index)
@@ -851,20 +879,25 @@ class SSHWorkbenchApp(App[None]):
         """Check every machine in the background; only `resolve` runs ssh -G.
 
         A resolving round first reviews the aliases against the SSH config, so
-        an alias that vanished never reaches ssh -G or a port check.
+        an alias that vanished never reaches ssh -G or a port check. A round a
+        save starts while that review or its ssh -G runs leaves those aliases
+        Checking; the review or the answer checks them when it comes.
         """
         self._round += 1
         self._checking = set()
         aliases = [machine.alias for machine in self.machines if machine.alias]
         reviewing = resolve and bool(aliases)
-        self._resolving = reviewing
+        if resolve:
+            self._resolving = reviewing
+            self._reviewing = frozenset(aliases) if reviewing else frozenset()
         for machine in self.machines:
             if not resolve and machine.alias in self._missing:
                 self._statuses[machine.id] = MachineStatus(State.NOT_FOUND)
                 continue
             self._statuses[machine.id] = MachineStatus(State.CHECKING)
-            # Alias checks start once the review is in.
-            if not (reviewing and machine.alias is not None):
+            # Alias checks start once the review, or the alias's answer, is in.
+            waits = reviewing or (not resolve and self._awaiting(machine.alias))
+            if not (waits and machine.alias is not None):
                 self._start_check(machine, resolve)
         if reviewing:
             first = self.config_path if not self._memory_loaded else None
@@ -878,6 +911,21 @@ class SSHWorkbenchApp(App[None]):
             self.refresh_bindings()
         self._show_statuses()
 
+    def _awaiting(self, alias: str | None) -> bool:
+        """Whether the startup or R review, or its ssh -G, will still answer."""
+        return alias in self._reviewing or alias in self._pending_aliases
+
+    def _check_waiting(self, alias: str) -> None:
+        """Check the machines a newer round left waiting for this alias's answer."""
+        for machine in self.machines:
+            if (
+                machine.alias == alias
+                and machine.id not in self._checking
+                and self._status_of(machine).state is State.CHECKING
+            ):
+                self._start_check(machine, resolve=False)
+        self._show_statuses()
+
     def _start_thread(self, target: Callable[..., None], arguments: tuple) -> bool:
         # Daemon threads, like the link worker: quitting never waits for a
         # check that hangs on DNS, ssh -G or a dropped connection.
@@ -888,9 +936,15 @@ class SSHWorkbenchApp(App[None]):
         return True
 
     def _start_check(self, machine: Machine, resolve: bool) -> bool:
-        known = machine.alias is None or machine.alias in self._targets
+        unresolved = machine.alias is not None and machine.alias not in self._targets
+        if unresolved and not resolve:
+            # Only startup, R and K run ssh -G; nothing to check until then.
+            self._statuses[machine.id] = MachineStatus(
+                State.UNKNOWN, reason="press R to resolve this alias"
+            )
+            return True
         target = self._targets.get(machine.alias) if machine.alias else None
-        arguments = (self._round, machine, resolve, known, target)
+        arguments = (self._round, machine, resolve, target)
         if self._start_thread(self._check, arguments):
             self._checking.add(machine.id)
             if resolve and machine.alias is not None:
@@ -910,6 +964,7 @@ class SSHWorkbenchApp(App[None]):
     ) -> None:
         if self._status_closed.is_set():
             return
+        known_missing: tuple[str, ...] = ()
         try:
             if machine_file is not None:
                 path = state_path(machine_file, self._computer)
@@ -924,31 +979,47 @@ class SSHWorkbenchApp(App[None]):
             result = review(memory, aliases, names, self.checker.resolve_alias)
         except Exception:
             # Without a review the round still checks the aliases not missing.
+            # Those the saved state lists as missing stay so; one that vanished
+            # since the last run can't be told apart and is still checked.
             names, result = (), None
+            if memory is not None:
+                known_missing = tuple(
+                    alias for alias in aliases if alias in memory.baselines
+                )
         if not self._status_closed.is_set():
             try:
-                self.post_message(AliasesReviewed(round_id, names, result))
+                self.post_message(
+                    AliasesReviewed(round_id, names, result, known_missing)
+                )
             except RuntimeError:
                 # The event loop may close between the guard and enqueue.
                 pass
 
     def on_aliases_reviewed(self, message: AliasesReviewed) -> None:
         self._resolve_reported()
-        if (
-            self._status_closed.is_set()
-            or not self.is_running
-            or message.round != self._round
-        ):
+        if self._status_closed.is_set() or not self.is_running:
             return
+        # R waits for every review and ssh -G, so this is the review of the
+        # latest startup or R round, even when a save started a newer round.
+        reviewed, self._reviewing = self._reviewing, frozenset()
         if message.review is not None:
             self._memory = message.review.memory
             self._memory_loaded = True
             self._host_names = frozenset(message.names)
             self._missing = message.review.missing
             self._targets.update(message.review.resolved)
+        else:
+            for alias in message.known_missing:
+                self._missing.setdefault(alias, None)
+        for alias in self._kept_during_review:
+            self._missing.pop(alias, None)
+            if self._memory is not None:
+                self._memory.forget(alias)
+        self._kept_during_review = set()
         self._pending_aliases = set()
         for machine in self.machines:
-            if machine.alias is None:
+            # An alias a save added or changed since waits for R.
+            if machine.alias is None or machine.alias not in reviewed:
                 continue
             if machine.alias in self._missing:
                 self._statuses[machine.id] = MachineStatus(State.NOT_FOUND)
@@ -978,6 +1049,9 @@ class SSHWorkbenchApp(App[None]):
     def _forget_alias(self, alias: str) -> None:
         """The user saved a machine with this alias, listed or not."""
         del self._missing[alias]
+        if self._reviewing:
+            # The review running now still counts it missing.
+            self._kept_during_review.add(alias)
         if self._memory is not None:
             self._memory.forget(alias)
         self._write_state()
@@ -985,6 +1059,9 @@ class SSHWorkbenchApp(App[None]):
     def _write_state(self) -> None:
         """Save what the review and ssh -G found, next to an existing machine file."""
         if self._memory is None or self.config_path is None or self.file_text is None:
+            return
+        # The machine file may have been deleted outside Workbench since.
+        if not self.config_path.is_file():
             return
         text = format_state(self._memory, self._computer)
         if text == self._state_text:
@@ -1001,7 +1078,6 @@ class SSHWorkbenchApp(App[None]):
         round_id: int,
         machine: Machine,
         resolve: bool,
-        known: bool,
         target: AliasTarget | None,
     ) -> None:
         if self._status_closed.is_set():
@@ -1010,12 +1086,7 @@ class SSHWorkbenchApp(App[None]):
         try:
             if resolved:
                 target = self.checker.resolve_alias(machine.alias)
-            if machine.alias is not None and not resolved and not known:
-                status = MachineStatus(
-                    State.UNKNOWN, reason="press R to resolve this alias"
-                )
-            else:
-                status = check_machine(machine, target, self.checker.port_open)
+            status = check_machine(machine, target, self.checker.port_open)
         except Exception:
             # Never let a background failure print a traceback into the TUI.
             status = MachineStatus(State.UNKNOWN, reason="the check failed")
@@ -1037,14 +1108,11 @@ class SSHWorkbenchApp(App[None]):
     def on_status_finished(self, message: StatusFinished) -> None:
         if message.alias is not None:
             self._resolve_reported()
-        if (
-            self._status_closed.is_set()
-            or not self.is_running
-            or message.round != self._round
-        ):
+        if self._status_closed.is_set() or not self.is_running:
             return
-        self._checking.discard(message.machine_id)
         if message.alias is not None:
+            # Kept even when a save started a newer round since: R waits for
+            # every ssh -G, so the answer is from the latest startup or R round.
             self._targets[message.alias] = message.target
             if message.target is not None and self._memory is not None:
                 self._memory.remember(message.alias, message.target)
@@ -1052,6 +1120,12 @@ class SSHWorkbenchApp(App[None]):
                 self._pending_aliases.discard(message.alias)
                 if not self._pending_aliases:
                     self._round_resolved()
+        if message.round != self._round:
+            # The status itself belongs to the older round.
+            if message.alias is not None:
+                self._check_waiting(message.alias)
+            return
+        self._checking.discard(message.machine_id)
         if message.machine_id in {machine.id for machine in self.machines}:
             self._statuses[message.machine_id] = message.status
             if message.status.state is State.ONLINE and message.status.address:
@@ -1081,7 +1155,9 @@ class SSHWorkbenchApp(App[None]):
             return
         self._frame += 1
         for symbol in self.query(StatusSymbol):
-            symbol.frame = self._frame
+            # Only the spinner and the Online pulse move.
+            if symbol.state in (State.CHECKING, State.ONLINE):
+                symbol.frame = self._frame
 
     def _browsing(self) -> bool:
         """True when the browser screen is active, current and not connecting."""
@@ -1525,16 +1601,21 @@ class SSHWorkbenchApp(App[None]):
         if machine.alias is None or self.checker is None:
             self._open_key_setup(machine, None)
             return
-        if self._key_resolving is not None:
+        if self._key_waiting == machine:
+            self._show_key_result(
+                machine, f"Still looking up {machine.alias} in your SSH config."
+            )
             return
         # Key setup is one of the moments ssh -G may run: it names the keys
         # the alias offers.
-        self._key_resolving = machine.id
-        if not self._start_thread(self._resolve_key_target, (machine,)):
-            self._key_resolving = None
+        self._key_waiting = machine
+        self._key_lookup += 1
+        arguments = (self._key_lookup, machine)
+        if not self._start_thread(self._resolve_key_target, arguments):
+            self._key_waiting = None
             self._open_key_setup(machine, None)
 
-    def _resolve_key_target(self, machine: Machine) -> None:
+    def _resolve_key_target(self, lookup: int, machine: Machine) -> None:
         if self._status_closed.is_set():
             return
         try:
@@ -1543,7 +1624,7 @@ class SSHWorkbenchApp(App[None]):
             target = None
         if not self._status_closed.is_set():
             try:
-                self.post_message(KeyTargetResolved(machine.id, target))
+                self.post_message(KeyTargetResolved(lookup, target))
             except RuntimeError:
                 # The event loop may close between the guard and enqueue.
                 pass
@@ -1551,11 +1632,18 @@ class SSHWorkbenchApp(App[None]):
     def on_key_target_resolved(self, message: KeyTargetResolved) -> None:
         if self._status_closed.is_set() or not self.is_running:
             return
-        self._key_resolving = None
-        ids = [machine.id for machine in self.machines]
-        if message.machine_id in ids and self._browsing():
-            machine = self.machines[ids.index(message.machine_id)]
-            self._open_key_setup(machine, message.target)
+        waiting = self._key_waiting
+        if waiting is None or message.lookup != self._key_lookup:
+            # The user moved on, or this is an earlier lookup's answer.
+            return
+        self._key_waiting = None
+        # U saves without opening a screen, so the machine may have changed.
+        index = self._selected_index()
+        if index is not None and self.machines[index] == waiting:
+            self._open_key_setup(waiting, message.target)
+
+    def _drop_key_wait(self, _: object = None) -> None:
+        self._key_waiting = None
 
     def _open_key_setup(self, machine: Machine, target: AliasTarget | None) -> None:
         folder = ssh_folder()

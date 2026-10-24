@@ -12,17 +12,18 @@ import signal
 import struct
 import threading
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, OptionList, RadioButton, Static
+from textual.widgets import Footer, Input, ListView, OptionList, RadioButton, Static
 
 from ssh_workbench import app as app_module
 from ssh_workbench import keys
 from ssh_workbench.aliases import AliasMemory, AliasRecord, format_state, state_path
 from ssh_workbench.app import SSHWorkbenchApp, StatusSymbol
 from ssh_workbench.config import Machine, format_machines, read_machines
-from ssh_workbench.forms import KeySetup
+from ssh_workbench.forms import KeySetup, MachineForm
 from ssh_workbench.keys import (
     PublicKey,
     posix_install_command,
@@ -786,6 +787,205 @@ async def test_k_waits_for_the_alias_and_quitting_does_not(
                 assert not app.is_running
     finally:
         hold.set()
+
+
+def tracked_threads(monkeypatch: pytest.MonkeyPatch) -> list[threading.Thread]:
+    """Record every thread the app starts, so a test can wait for all of them."""
+    started: list[threading.Thread] = []
+
+    def thread(*args, **kwargs) -> threading.Thread:
+        started.append(threading.Thread(*args, **kwargs))
+        return started[-1]
+
+    monkeypatch.setattr(app_module, "Thread", thread)
+    return started
+
+
+async def answered(pilot, threads: list[threading.Thread]) -> None:
+    """Each answer is posted before its thread ends; then it is handled."""
+    for thread in threads:
+        thread.join(5)
+    await pilot.pause()
+
+
+async def k_waits(app: SSHWorkbenchApp, pilot, checker: FakeChecker) -> None:
+    """K on Garden, with startup's and K's ssh -G both held."""
+    await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+    await pilot.press("k")
+    await wait_for(pilot, lambda: checker.resolved.count("garden-host") == 2)
+
+
+async def test_a_k_answer_after_c_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    monkeypatch.setattr(app_module, "launch_ssh", Mock(return_value=0))
+    threads = tracked_threads(monkeypatch)
+    checker = FakeChecker(None, hold=hold)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    ended = "SSH exited with status 0. Machine 1: garden"
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("c")
+            await wait_for(pilot, lambda: connection_status(app) == ended)
+            hold.set()
+            await answered(pilot, threads)
+            assert not isinstance(app.screen, KeySetup)
+            assert connection_status(app) == ended
+    finally:
+        hold.set()
+
+
+async def test_a_k_answer_after_a_form_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    threads = tracked_threads(monkeypatch)
+    checker = FakeChecker(None, hold=hold)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("e")
+            await wait_for(pilot, lambda: showing(app, MachineForm))
+            await pilot.press("escape")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            hold.set()
+            await answered(pilot, threads)
+            assert not isinstance(app.screen, KeySetup)
+    finally:
+        hold.set()
+
+
+async def test_moving_away_while_k_waits_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    machines = (GARDEN, BOX)
+    folder, path, text = workspace(tmp_path, monkeypatch, machines, Native())
+    threads = tracked_threads(monkeypatch)
+    checker = FakeChecker(None, hold=hold)
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("down")
+            await wait_for(pilot, lambda: app.query_one(ListView).index == 1)
+            hold.set()
+            await answered(pilot, threads)
+            assert not isinstance(app.screen, KeySetup)
+    finally:
+        hold.set()
+
+
+async def test_a_second_k_while_waiting_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    checker = FakeChecker(None, hold=hold)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    still = "Still looking up garden-host in your SSH config. Machine 1: garden"
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("k")
+            await wait_for(pilot, lambda: connection_status(app) == still)
+            assert checker.resolved.count("garden-host") == 2
+            hold.set()
+            await wait_for(pilot, lambda: showing(app, KeySetup))
+    finally:
+        hold.set()
+
+
+async def test_k_after_a_dropped_wait_looks_up_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    machines = (GARDEN, BOX)
+    folder, path, text = workspace(tmp_path, monkeypatch, machines, Native())
+    threads = tracked_threads(monkeypatch)
+    checker = FakeChecker(None, hold=hold)
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("down")
+            await wait_for(pilot, lambda: app.query_one(ListView).index == 1)
+            await pilot.press("up")
+            await wait_for(pilot, lambda: app.query_one(ListView).index == 0)
+            await pilot.press("k")
+            await wait_for(pilot, lambda: checker.resolved.count("garden-host") == 3)
+            hold.set()
+            await wait_for(pilot, lambda: showing(app, KeySetup))
+            await answered(pilot, threads)
+            # Two answers, one picker.
+            assert len(app.screen_stack) == 2
+    finally:
+        hold.set()
+
+
+class HeldPerAlias(FakeChecker):
+    """Each alias's ssh -G waits for its own event."""
+
+    def __init__(
+        self, targets: dict[str, AliasTarget], holds: dict[str, threading.Event]
+    ) -> None:
+        super().__init__(None)
+        self.targets = targets
+        self.holds = holds
+
+    def resolve_alias(self, alias: str) -> AliasTarget | None:
+        self.resolved.append(alias)
+        self.holds[alias].wait(30)
+        return self.targets[alias]
+
+
+def offering(*keys: str) -> AliasTarget:
+    return AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=keys, identities_only=True
+    )
+
+
+async def test_an_earlier_k_lookup_never_opens_the_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    holds = {"garden-host": threading.Event(), "other-host": threading.Event()}
+    targets = {
+        "garden-host": offering("~/ssh/id_a"),
+        "other-host": offering("~/ssh/id_b"),
+    }
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    threads = tracked_threads(monkeypatch)
+    checker = HeldPerAlias(targets, holds)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await k_waits(app, pilot, checker)
+            await pilot.press("e")
+            await wait_for(pilot, lambda: showing(app, MachineForm))
+            app.screen.query_one("#form-alias", Input).value = "other-host"
+            await pilot.press("ctrl+s")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            await pilot.press("k")
+            await wait_for(pilot, lambda: checker.resolved.count("other-host") == 1)
+            # garden-host answers first: startup's and the first K's lookup.
+            holds["garden-host"].set()
+            for thread in threads[:-1]:
+                thread.join(5)
+            await pilot.pause()
+            assert not isinstance(app.screen, KeySetup)
+            holds["other-host"].set()
+            await wait_for(pilot, lambda: showing(app, KeySetup))
+            assert option_labels(app.screen)[0] == (
+                "id_b.pub (your SSH config offers this)"
+            )
+    finally:
+        for hold in holds.values():
+            hold.set()
 
 
 async def test_without_a_terminal_handoff_nothing_runs(

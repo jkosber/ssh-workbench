@@ -134,6 +134,18 @@ async def checked(app, pilot) -> None:
     )
 
 
+def tracked_threads(monkeypatch: pytest.MonkeyPatch) -> list[threading.Thread]:
+    """Record every thread the app starts, so a test can wait for all of them."""
+    started: list[threading.Thread] = []
+
+    def thread(*args, **kwargs) -> threading.Thread:
+        started.append(threading.Thread(*args, **kwargs))
+        return started[-1]
+
+    monkeypatch.setattr(app_module, "Thread", thread)
+    return started
+
+
 def allow_connect(monkeypatch: pytest.MonkeyPatch) -> Mock:
     launcher = Mock(return_value=0)
     monkeypatch.setattr(app_module, "launch_ssh", launcher)
@@ -248,6 +260,27 @@ async def test_no_state_file_without_a_machine_file(
     assert not (tmp_path / "later").exists()
 
 
+async def test_no_state_file_once_the_machine_file_is_deleted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    hold = threading.Event()
+    machines = (Machine("garden", "Garden", alias="garden-host"),)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["garden-host"])
+    checker = FakeChecker({"garden-host": SAME}, hold=hold)
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+            path.unlink()
+            hold.set()
+            # The answer that turns it Online is the one that writes the state.
+            await wait_for(pilot, lambda: symbols(app) == [State.ONLINE])
+            await pilot.pause()
+            assert not state_path(path, platform.node()).exists()
+    finally:
+        hold.set()
+
+
 async def test_timer_rounds_keep_alias_not_found(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -306,6 +339,82 @@ async def test_update_asks_again_before_dropping_comments(
         assert connection_status(app) == (
             "Updated machine 1: garden now uses alias new-host."
         )
+
+
+async def test_moving_away_between_two_u_presses_asks_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    text = "# Fictional notes kept by hand\n" + format_machines(machines)
+    path, text = workspace(
+        tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS, text=text
+    )
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        await pilot.press("u")
+        await pilot.pause()
+        assert connection_status(app) == WARNING
+        app.query_one(ListView).index = 1
+        await wait_for(pilot, lambda: field(app, "id") == "lab")
+        app.query_one(ListView).index = 0
+        await wait_for(pilot, lambda: field(app, "id") == "garden")
+        await pilot.press("u")
+        await pilot.pause()
+        assert connection_status(app) == WARNING
+        assert path.read_text(encoding="utf-8") == text
+        await pilot.press("u")
+        await wait_for(pilot, lambda: read_machines(path)[0][0].alias == "new-host")
+
+
+async def test_r_save_and_reload_never_resolve_a_missing_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["hop-host"], PREVIOUS)
+    checker = FakeChecker({"old-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+
+    def still_missing() -> None:
+        assert symbols(app)[0] is State.NOT_FOUND
+        assert "old-host" not in checker.resolved
+
+    async def save_lab() -> None:
+        app.query_one(ListView).index = 1
+        await wait_for(pilot, lambda: field(app, "id") == "lab")
+        await pilot.press("e")
+        await wait_for(pilot, lambda: showing(app, MachineForm))
+        started = app._round
+        await pilot.press("ctrl+s")
+        await wait_for(pilot, lambda: app._round > started)
+
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        still_missing()
+
+        started = app._round
+        await pilot.press("r")
+        await wait_for(
+            pilot,
+            lambda: app._round > started and app.check_action("refresh", ()) is True,
+        )
+        await checked(app, pilot)
+        still_missing()
+
+        await save_lab()
+        await wait_for(pilot, lambda: not showing(app, MachineForm))
+        await checked(app, pilot)
+        still_missing()
+
+        # The reload path: the form stays open with the reload message.
+        path.write_text(format_machines(machines) + "\n# outside\n", encoding="utf-8")
+        await save_lab()
+        assert showing(app, MachineForm)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not showing(app, MachineForm))
+        await checked(app, pilot)
+        still_missing()
 
 
 async def test_an_alias_that_returns_clears_alias_not_found_on_r(
@@ -411,11 +520,33 @@ async def test_a_failed_review_still_checks_every_alias(
         assert field(app, "target") == "garden-host"
 
 
+async def test_a_failed_review_keeps_an_alias_missing_from_the_last_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(folder: Path, skip: Path | None = None) -> list[str]:
+        raise RuntimeError("fictional failure")
+
+    monkeypatch.setattr(app_module, "host_names", broken)
+    machines = (GARDEN, LAB)
+    missing = AliasMemory(
+        ("old-host",), {"old-host": RECORD}, {"old-host": ("old-host",)}
+    )
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], missing)
+    checker = FakeChecker({"old-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        assert symbols(app) == [State.NOT_FOUND, State.OFFLINE]
+        assert field(app, "status") == NO_OFFER
+        assert checker.resolved == []
+
+
 async def test_a_review_while_the_screens_close_starts_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     machines = (GARDEN, LAB)
     path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    threads = tracked_threads(monkeypatch)
     checker = FakeChecker({"new-host": SAME})
     app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
     late = Review(
@@ -437,7 +568,9 @@ async def test_a_review_while_the_screens_close_starts_nothing(
 
     async with app.run_test(message_hook=during_shutdown) as pilot:
         await checked(app, pilot)
-    await asyncio.sleep(0.2)
+    # Any check the late review started has finished once its thread has.
+    for thread in threads:
+        thread.join(5)
     assert errors == []
     assert calls
     assert (len(checker.resolved), len(checker.checked)) == calls[0]
@@ -491,6 +624,91 @@ async def test_saving_the_machine_from_the_form_keeps_its_alias(
         await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
         assert field(app, "target") == "old-host (not in your SSH config)"
         assert checker.resolved == ["hop-host", "old-host"]
+
+
+async def test_a_save_during_the_review_keeps_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    release = threading.Event()
+    read = app_module.host_names
+    calls: list[Path] = []
+
+    def slow_host_names(folder: Path, skip: Path | None = None) -> list[str]:
+        calls.append(folder)
+        # Only the startup review waits; opening the form reads the names too.
+        if len(calls) == 1:
+            assert release.wait(10)
+        return read(folder, skip=skip)
+
+    monkeypatch.setattr(app_module, "host_names", slow_host_names)
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    state = state_path(path, platform.node())
+    try:
+        async with app.run_test() as pilot:
+            await wait_for(pilot, lambda: calls and symbols(app)[1:] == [State.OFFLINE])
+            app.query_one(ListView).index = 1
+            await wait_for(pilot, lambda: field(app, "id") == "lab")
+            await pilot.press("e")
+            await wait_for(pilot, lambda: showing(app, MachineForm))
+            await pilot.press("ctrl+s")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            release.set()
+            await wait_for(pilot, lambda: symbols(app)[0] is State.NOT_FOUND)
+            app.query_one(ListView).index = 0
+            await wait_for(pilot, lambda: field(app, "id") == "garden")
+            assert field(app, "status") == OFFER
+            assert checker.resolved == ["new-host"]
+            await wait_for(
+                pilot,
+                lambda: (
+                    state.exists()
+                    and load_state(state, platform.node())
+                    == AliasMemory(
+                        ("new-host",), {"old-host": RECORD}, {"old-host": ("old-host",)}
+                    )
+                ),
+            )
+    finally:
+        release.set()
+
+
+async def test_keeping_a_missing_alias_during_r_survives_the_review(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["hop-host"], PREVIOUS)
+    checker = FakeChecker({"old-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    release = threading.Event()
+    computed = threading.Event()
+    real = app_module.review
+
+    def held_review(*args, **kwargs) -> Review:
+        # The result is in before the save, as when the save comes late.
+        result = real(*args, **kwargs)
+        computed.set()
+        assert release.wait(10)
+        return result
+
+    try:
+        async with app.run_test() as pilot:
+            await checked(app, pilot)
+            assert field(app, "status") == NO_OFFER
+            monkeypatch.setattr(app_module, "review", held_review)
+            await pilot.press("r")
+            await wait_for(pilot, computed.is_set)
+            await pilot.press("e")
+            await wait_for(pilot, lambda: showing(app, MachineForm))
+            await pilot.press("ctrl+s")
+            await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+            release.set()
+            await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
+            assert field(app, "target") == "old-host (not in your SSH config)"
+    finally:
+        release.set()
 
 
 async def test_a_timer_round_waits_for_the_review(

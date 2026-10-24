@@ -2,6 +2,7 @@
 
 import socket
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -25,6 +26,12 @@ pytestmark = pytest.mark.usefixtures("no_external_actions")
 G_OUTPUT = (
     "user dev\nhostname 192.0.2.40\nport 2222\nidentitiesonly no\n"
     "proxycommand none\nproxyjump none\n"
+)
+# ssh -G evaluates Match exec; its children must not reach Workbench's terminal.
+DETACHED = (
+    {"creationflags": subprocess.CREATE_NO_WINDOW}
+    if sys.platform == "win32"
+    else {"start_new_session": True}
 )
 
 
@@ -93,6 +100,7 @@ def test_resolve_alias_runs_ssh_g_without_a_shell(
         encoding="utf-8",
         errors="replace",
         timeout=10.0,
+        **DETACHED,
     )
 
 

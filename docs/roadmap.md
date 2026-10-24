@@ -27,23 +27,20 @@ needs its own task before work starts.
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
+| Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
 
 ### Status and aliases
 
 | Item | From |
 | --- | --- |
-| A save during a resolving round drops that round's `ssh -G` answers, so an alias shows "press R" until the next R | 10 |
-| A `Match exec` command could open the terminal and draw over the screen. Proposal: `start_new_session=True` on POSIX and `CREATE_NO_WINDOW` on Windows for `ssh -G` | 10 |
-| A thread starts only to post "press R to resolve this alias", and the animation timer also updates symbols that never move | 10 |
-| When the review itself fails at startup, every alias is resolved and checked, a vanished one included | 11 |
-| A save during the startup or R review still drops that review until the next R | 11 |
-| A machine file deleted outside Workbench during a session still gets a state file written next to it | 11 |
+| A save during an R review can show Alias not found for an alias that review finds listed again, until its `ssh -G` answers | 21 |
+| After a failed startup review, keeping a missing alias with a form save does not reach the state file, so the next R marks it missing again | 21 |
+| A `Match exec` command that hangs outlives `ssh -G`'s 10 s timeout and, now that `ssh -G` runs detached, the terminal too; one can pile up per startup, R or K | 21 |
 
 ### Key setup
 
 | Item | From |
 | --- | --- |
-| A late `ssh -G` answer for K opens the picker even after C or an edit in between; a second K while it resolves is ignored without a hint | 12 |
 | The "doesn't name this key" note ignores configured keys whose `.pub` is missing | 12 |
 | The picker can open with no choices; "Key setup interrupted." names no step; the handoff block repeats Connect's | 12 |
 | zsh, fish and tcsh login shells are untested | 12 |
@@ -84,10 +81,8 @@ needs its own task before work starts.
 | A few schema tests match message prefixes instead of exact strings | 8 |
 | The 60x20 many-links picker test does not press Escape; the 80x24 test covers Escape restoring selection and focus | 8 |
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
-| The "the check failed" path has no test; the stale-round test asserts nothing for its removed-machine message | 10 |
-| The spinner test depends on real time, nothing tests the Online pulse, and the O label test checks only that "Link" appears in the label | 10 |
-| Missing tests: R, a save or a reload while an alias is missing, then a check that it was never resolved; moving the selection between two U presses. One test waits 0.2 s of real time for a negative result | 11 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
+| `test_return_preserves_scroll_and_literal_details` checks the scroll right after a key press; a cold Windows runner failed it once (PR #27) | 21 |
 
 ## Done
 
@@ -125,6 +120,7 @@ in the pull request description.
 | 19 | Documentation and workflow guides; Tasks 1-18 archived | [#24](https://github.com/jkosber/ssh-workbench/pull/24) | 0.3.0 |
 | 20 | UI makeover: theme, status header, responsive layout | [#25](https://github.com/jkosber/ssh-workbench/pull/25) | 0.3.0 |
 | - | Release 0.3.0 | [#26](https://github.com/jkosber/ssh-workbench/pull/26) | 0.3.0 |
+| 21 | Status and alias fixes; K's late answer | [#27](https://github.com/jkosber/ssh-workbench/pull/27) | Unreleased |
 
 ## Deferred ideas
 
