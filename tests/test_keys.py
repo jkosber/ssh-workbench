@@ -390,6 +390,19 @@ def test_shell_check_passes_from_sh() -> None:
     assert (result.stdout, result.returncode) == ("sh: PASS\n", 0), result.stderr
 
 
+def test_shell_check_prints_lf_line_ends() -> None:
+    # It is piped to sh on another machine, which reads "do\r" as a word.
+    script = subprocess.run(
+        [sys.executable, str(CHECK_SHELLS)],
+        capture_output=True,
+        timeout=60,
+        check=True,
+    ).stdout
+
+    assert script.endswith(b'\nexit "$failed"\n')
+    assert b"\r" not in script
+
+
 def test_shell_check_reports_a_missing_shell() -> None:
     result = shell_check("sh", "no-such-shell-for-workbench")
 
