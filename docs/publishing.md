@@ -1,8 +1,10 @@
 # Publishing checklist
 
-The repository is private. Before it, or anything drawn from it, is made
-public, these checks pass and Jadon approves the exact content, destination
-and any visibility change. Passing the checks alone authorizes nothing.
+The repository has been public since 2026-10-24, with Jadon's approval; the
+[validation log](validation.md#repository-made-public-2026-10-24) records the
+checks before the change. Before anything drawn from it, such as a portfolio
+case study or a guide, is published, these checks pass and Jadon approves the
+exact content and destination. Passing the checks alone authorizes nothing.
 
 The repository is the technical source of truth. Personal planning, questions
 and reflections belong in Obsidian. Neither the app nor its documentation is a
@@ -19,8 +21,7 @@ finished portfolio case study or a homelab guide.
 - [ ] Remove private paths, addresses, host aliases, account details and
   secrets.
 - [x] Choose a license: MIT, decided on 2026-10-20.
-- [ ] Jadon approves the exact content, destination and any repository
-  visibility change.
+- [ ] Jadon approves the exact content and destination.
 
 ## Homelab guide or helper
 
@@ -41,5 +42,6 @@ finished portfolio case study or a homelab guide.
 | Design decisions | [Architecture](architecture.md) |
 | Usability observations Jadon approved, and questions he wants to explore | Obsidian until sanitized |
 
-Never invent reflections, test results or claims of experience. The project
-has no site, release automation or public publication.
+Never invent reflections, test results or claims of experience. Beyond the
+public repository, the project has no site, release automation or other
+publication.

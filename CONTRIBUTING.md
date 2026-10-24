@@ -1,8 +1,7 @@
 # Contributing
 
 SSH Workbench is developed by Jadon Kosberg with coding agents. The repository
-is private for now; these notes are written so that others can join once it is
-public.
+has been public since 2026-10-24; these notes are for anyone who joins.
 
 | Read | For |
 | --- | --- |

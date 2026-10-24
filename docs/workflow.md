@@ -179,8 +179,8 @@ Until 1.0.0, the changelog states every compatibility change.
 
 ### Checklist
 
-1. Jadon chooses the version. A public release first needs the
-   [publishing checklist](publishing.md).
+1. Jadon chooses the version. The repository is public, so a tag is public
+   as soon as it is pushed.
 2. Branch `release/X.Y.Z` from `main`.
 3. Set `version` in `pyproject.toml`, run `uv lock`, then `uv sync --locked`.
    The lockfile should change only in Workbench's own version.
