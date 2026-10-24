@@ -474,10 +474,11 @@ def test_windows_command_is_refused_only_past_what_cmd_accepts() -> None:
     assert CMD_BUDGET - 3 <= max(lengths) <= CMD_BUDGET
 
 
-def install_with_powershell(home: Path, key: PublicKey) -> str:
+def run_windows_script(home: Path, key: PublicKey) -> subprocess.CompletedProcess[str]:
     """Run the Windows script's standard-user branch with USERPROFILE in `home`.
 
     The administrator lines are replaced: that branch would change real ACLs.
+    Output is captured, as under sshd without a terminal.
     """
     script = windows_script(key)
     lines = script.splitlines(keepends=True)
@@ -490,7 +491,7 @@ def install_with_powershell(home: Path, key: PublicKey) -> str:
     shell = shutil.which("powershell") or shutil.which("pwsh")
     assert shell is not None, "PowerShell is needed to run the Windows script"
     encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-    result = subprocess.run(
+    return subprocess.run(
         [shell, "-NoProfile", "-NonInteractive", "-EncodedCommand", encoded],
         env={**os.environ, "USERPROFILE": str(home)},
         capture_output=True,
@@ -498,8 +499,30 @@ def install_with_powershell(home: Path, key: PublicKey) -> str:
         timeout=60,
         check=False,
     )
+
+
+def install_with_powershell(home: Path, key: PublicKey) -> str:
+    result = run_windows_script(home, key)
     assert result.returncode == 0, result.stderr
     return result.stdout
+
+
+def test_windows_install_error_reaches_the_terminal_as_plain_text(
+    tmp_path: Path,
+) -> None:
+    # A folder where the key file belongs makes reading it fail. Windows
+    # PowerShell writes an uncaught error to redirected output as CLIXML.
+    (tmp_path / ".ssh" / "authorized_keys").mkdir(parents=True)
+
+    result = run_windows_script(tmp_path, ED_KEY)
+
+    assert result.returncode == 1
+    assert result.stderr == ""
+    assert result.stdout.startswith(
+        "SSH Workbench: the install stopped with an error: "
+    ), result.stdout
+    assert result.stdout.count("\n") == 1
+    assert "CLIXML" not in result.stdout
 
 
 def test_windows_install_adds_the_key_once_for_a_standard_user(
