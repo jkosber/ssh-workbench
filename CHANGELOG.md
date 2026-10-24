@@ -5,6 +5,25 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Fixed
+
+- K no longer opens an empty key list: with no key to offer it says so. A
+  machine's own key whose `.pub` file is missing or not valid is reported when
+  K is pressed, before anything is handed over.
+- For an alias, keys its SSH config offers that have no valid `.pub` file are
+  named under the key list as "Not listed", instead of being left out
+  silently.
+- Ctrl+C during key setup says which step it stopped: while creating the key,
+  before the install or during the install.
+- An error in the Windows install script now prints one line, "SSH
+  Workbench: the install stopped with an error: ...", instead of a block of
+  CLIXML.
+
+### Development
+
+- `scripts/check_shells.py` checks that the POSIX install command works the
+  same from bash, dash, zsh, fish and tcsh.
+
 ## 0.3.1 - 2026-10-23
 
 Status and alias fixes: saves keep the alias checks in progress, `Match exec`

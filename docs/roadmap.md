@@ -6,36 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-### 22. Key setup fixes
-
-Jadon started this task on 2026-10-24 with four of the Key setup backlog
-rows. The fifth, the login test accepting a `Host` entry's keys for a direct
-machine's address, stays: the only fix, `-F none`, would drop the user's SSH
-config for that address.
-
-- [ ] K never opens an empty key list. With nothing to offer, the status line
-  says "No key to offer: your SSH folder has no valid .pub file, and a key
-  named id_ed25519_<id> already exists; nothing was installed." A direct
-  machine's own key without a valid `.pub` is reported when K is pressed,
-  before any list or handoff.
-- [ ] For an alias, keys its SSH config offers whose private file exists but
-  whose `.pub` is missing or not valid are named under the list ("Not
-  listed: id_work, which your SSH config offers, has no valid .pub file.").
-  Workbench only checks that the private file exists.
-- [ ] Ctrl+C names the step: "Key setup interrupted while creating the key;
-  nothing was installed.", "Key setup interrupted before the install;
-  nothing was installed." or "Key setup interrupted during the install;
-  login was not tested." The login test's message does not change.
-- [ ] C and K share one terminal handoff, with no change in either one's
-  behavior; checked natively with `check_terminal.py` and `check_keys.py`.
-- [ ] An error in the Windows install script reaches the terminal as one
-  plain line, "SSH Workbench: the install stopped with an error: ...", not
-  CLIXML, and SSH exits 1. The command-length tests pass unchanged.
-- [ ] The POSIX install command works the same from bash, dash, zsh, fish and
-  tcsh: `scripts/check_shells.py`, run on an approved Linux machine.
-- [ ] Tests first for each fix; full checks; docs, changelog and validation;
-  a fresh review. Optional, approved: K on the approved Windows target with
-  its installed key.
+No task is in progress.
 
 ## Next
 
@@ -70,11 +41,8 @@ needs its own task before work starts.
 
 | Item | From |
 | --- | --- |
-| The "doesn't name this key" note ignores configured keys whose `.pub` is missing | 12 |
-| The picker can open with no choices; "Key setup interrupted." names no step; the handoff block repeats Connect's | 12 |
-| zsh, fish and tcsh login shells are untested | 12 |
-| The login test also accepts keys from a `Host` entry in the user's SSH config that matches a direct machine's address (documented) | 14 |
-| An error thrown by the Windows script may also reach the terminal as CLIXML; unchecked | 15 |
+| The login test also accepts keys from a `Host` entry in the user's SSH config that matches a direct machine's address (documented); the only fix, `-F none`, would drop the user's config for that address | 14 |
+| At 60x20 the key picker scrolls when a note holds a long path (an `SSH_WORKBENCH_SSH_DIR` folder) or a long alias, so reaching the target system takes scrolling | 22 |
 
 ### Machine file and forms
 
@@ -151,6 +119,7 @@ in the pull request description.
 | - | Release 0.3.0 | [#26](https://github.com/jkosber/ssh-workbench/pull/26) | 0.3.0 |
 | 21 | Status and alias fixes; K's late answer | [#27](https://github.com/jkosber/ssh-workbench/pull/27) | 0.3.1 |
 | - | Release 0.3.1 | [#28](https://github.com/jkosber/ssh-workbench/pull/28) | 0.3.1 |
+| 22 | Key setup fixes: no empty key list, keys without a `.pub` named, Ctrl+C naming its step, plain-text Windows errors, a login shell check | - | Unreleased |
 
 ## Deferred ideas
 

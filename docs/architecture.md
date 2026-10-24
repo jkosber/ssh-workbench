@@ -77,6 +77,7 @@ flowchart LR
 | `scripts/check_terminal.py` | Interactive terminal handoff check with harmless local children instead of SSH |
 | `scripts/check_links.py` | Interactive link check with substituted openers; never opens a real browser |
 | `scripts/check_keys.py` | Interactive key-setup check with local children and fictional keys |
+| `scripts/check_shells.py` | Prints a POSIX sh script that runs the key install command from each login shell, with a temporary HOME and a fictional key; it runs nothing itself |
 | `examples/` | Fictional configuration |
 | `.github/` | CI and the pull-request template |
 
@@ -368,22 +369,22 @@ answer must come from the latest lookup (each carries a number), and the
 selected machine must still equal the one K was pressed on. A second K on
 that machine while it waits says so in the status line; K after a dropped
 wait looks up again. The three steps then run in one `ssh_handoff` and
-`suspend`, each through `ssh.run_native` with the terminal's own input and
-output, and a printed `SSH Workbench:` line before each. A nonzero status
-stops the steps.
+`_hand_off`, as for C, each through `ssh.run_native` with the terminal's own
+input and output, and a printed `SSH Workbench:` line before each. A nonzero
+status stops the steps.
 
 | Item | Rule |
 | --- | --- |
-| Choices | A direct machine's own `key`; otherwise the alias's configured keys that have a valid `.pub` (with `~` as the SSH folder's parent), the folder's valid `.pub` files by name, and `id_ed25519_<id>` unless that name exists. `keys.public_key_files` reads `.pub` files only |
+| Choices | A direct machine's own `key`, whose `.pub` must be valid or K reports `keys.read_public_key`'s message and opens nothing; otherwise the alias's configured keys that have a valid `.pub` (with `~` as the SSH folder's parent), the folder's valid `.pub` files by name, and `id_ed25519_<id>` unless that name exists. `keys.public_key_files` reads `.pub` files only. Configured keys whose private file exists (`Path.is_file`, never opened) but whose `.pub` is missing or not valid are named under the list, "Not listed: …". With no choice at all, K says "No key to offer: …" in the status line, followed by that sentence, and opens no picker |
 | Public key | `keys.parse_public_key`: one line of at most 16 KiB with no control characters; a known type; strict base64 whose length-prefixed strings use every byte and start with the same type. A comment outside `[A-Za-z0-9._@+-]` words, or longer than 100 characters, is dropped |
 | Create | `ssh-keygen -t ed25519 -f <path> -C ssh-workbench-<id>`, where the file is `id_ed25519_<id>` with dashes turned into underscores; `ssh-keygen` is found like `ssh` on absolute PATH entries, and a lookup error becomes a launch error inside the handoff |
-| POSIX install | `exec sh -c '<script>'`, so any login shell runs it: `umask 077`, create `~/.ssh` and `authorized_keys`, `chmod 700`/`600`, and append the key line unless `grep -qF` finds its base64 on a line whose first non-blank character is not `#` (both greps with `LC_ALL=C`, so lines with non-UTF-8 bytes still count), adding a newline first when the file lacks one. The script holds no single quote and no `!`; the key line sits in double quotes |
-| Windows install | `powershell -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64>`, so cmd.exe and PowerShell default shells run the same script, with `$ProgressPreference = 'SilentlyContinue'` so no CLIXML progress record reaches the terminal. Comment lines are skipped when looking for the key. An identity whose claims include `S-1-5-32-544` (deny-only included) uses `%ProgramData%\ssh\administrators_authorized_keys`, then gets an ACL with only FullControl for `S-1-5-32-544` and `S-1-5-18`, inheritance removed, checked by reading it back; others use `%USERPROFILE%\.ssh\authorized_keys` |
+| POSIX install | `exec sh -c '<script>'`, so any login shell runs it (`scripts/check_shells.py` checks bash, dash, zsh, fish and tcsh): `umask 077`, create `~/.ssh` and `authorized_keys`, `chmod 700`/`600`, and append the key line unless `grep -qF` finds its base64 on a line whose first non-blank character is not `#` (both greps with `LC_ALL=C`, so lines with non-UTF-8 bytes still count), adding a newline first when the file lacks one. The script holds no single quote and no `!`; the key line sits in double quotes |
+| Windows install | `powershell -NoProfile -NonInteractive -EncodedCommand <UTF-16LE base64>`, so cmd.exe and PowerShell default shells run the same script. Without a console, PowerShell writes progress records and errors to the terminal as CLIXML, so `$ProgressPreference = 'SilentlyContinue'` switches progress off and a `trap` prints any error as one line, `SSH Workbench: the install stopped with an error: <message>`, and exits 1. The script holds no comment lines. Comment lines are skipped when looking for the key. An identity whose claims include `S-1-5-32-544` (deny-only included) uses `%ProgramData%\ssh\administrators_authorized_keys`, then gets an ACL with only FullControl for `S-1-5-32-544` and `S-1-5-18`, inheritance removed, checked by reading it back; others use `%USERPROFILE%\.ssh\authorized_keys` |
 | Windows command length | Windows sshd runs a command as `"c:\windows\system32\cmd.exe" /c "<command>"`, and cmd.exe takes a command line of at most 8191 characters, so the command may have 8156. A key that would make it longer, an RSA key over 6008 bits with a 100-character comment or over 6608 bits with none, is refused before the handoff; a 4096-bit RSA key fits |
 | Install arguments | `ssh.install_arguments`: `RemoteCommand=none`, since SSH refuses a command next to an alias's own `RemoteCommand`; the connect arguments without `-i`, since the new key is not installed yet; then the command after the destination |
 | Login test | `ssh.login_test_arguments`: `PreferredAuthentications=publickey`, `PasswordAuthentication=no`, `KbdInteractiveAuthentication=no`, `ControlPath=none` so a connection the install left open can't skip authentication, `RemoteCommand=none`, the connect arguments (a direct machine with the chosen key and `IdentitiesOnly=yes`), then `exit`. No `BatchMode`, so a passphrase key works |
 | Afterwards | A direct machine's chosen key is saved through `_save` once its login test passes, as `~/.ssh/<name>` in the real SSH folder or an absolute path; otherwise the result says it was not saved. For an alias, a key its config does not name carries the `IdentityFile` line in the picker and in the test's result, passing or failing |
-| Interruption | A step is interrupted when its status is one `ssh.interrupted` names (a POSIX child killed by SIGINT, 0xC000013A or 0xFFFFFFFF), or when `ssh.ctrl_c_count()`, which the shield raises for each Ctrl+C, changed since just before the handoff: Windows ssh can exit 0 after Ctrl+C. Once it changed, no later step starts. Windows runs the parent's handler on a thread of its own, which can lose the race with a child's exit, so the count is read again once the terminal is handed back, and a passing test then reads as interrupted. ssh-keygen or the install then reads "Key setup interrupted."; the login test, "The key was installed, but the login test was interrupted." ssh-keygen's passphrase prompt on Windows takes Ctrl+C as a key, so the shield never sees it there; SSH's own prompts are unchecked. Connect reports statuses as they are |
+| Interruption | A step is interrupted when its status is one `ssh.interrupted` names (a POSIX child killed by SIGINT, 0xC000013A or 0xFFFFFFFF), or when `ssh.ctrl_c_count()`, which the shield raises for each Ctrl+C, changed since just before the handoff: Windows ssh can exit 0 after Ctrl+C. Once it changed, no later step starts. Windows runs the parent's handler on a thread of its own, which can lose the race with a child's exit, so the count is read again once the terminal is handed back, and a passing test then reads as interrupted. The result names the step: "Key setup interrupted while creating the key; nothing was installed." (before or during ssh-keygen), "Key setup interrupted before the install; nothing was installed." or "Key setup interrupted during the install; login was not tested."; the login test, "The key was installed, but the login test was interrupted." A `KeyboardInterrupt` from a step counts as that step's interruption. ssh-keygen's passphrase prompt on Windows takes Ctrl+C as a key, so the shield never sees it there; SSH's own prompts are unchecked. Connect reports statuses as they are |
 
 ## Native SSH boundary
 
@@ -416,16 +417,17 @@ characters rather than escaping them. Workbench never opens the key file.
 | SIGINT shield | `ssh_handoff` installs a callable SIGINT handler in the parent and restores the exact prior handler in `finally`. The app uses it across suspension, lookup, child execution and resumption; the standalone launcher also uses it, nesting safely inside the app's guard. This shields Textual's asyncio task even during slow executable lookup or driver transitions. The child receives normal Ctrl+C behavior: `SIG_IGN` could make the child inherit ignored interrupts. SSH can handle Ctrl+C and keep running, so the parent waits for the child to exit rather than treating Ctrl+C as an exit |
 
 The app has one Connect action, bound to C and shown in the footer. It
-requires a selection and guards against reentrant launches. The synchronous
-action enters `App.suspend()`, invokes the boundary and records the result.
-Expected launch errors and `KeyboardInterrupt` are caught **inside** the
+requires a selection and guards against reentrant launches. C and K's steps
+share one handoff, `_hand_off(steps, unsupported)`: it sets the launch guard,
+runs `steps` inside `App.suspend()` and returns its result. Each caller's
+`steps` catches its expected errors and `KeyboardInterrupt` **inside** the
 suspension block: installed Textual 8.2.8 resumes after a bare `yield`,
 without a `finally`, so an escaping exception would skip restoration.
 `SuspendNotSupported` is handled outside the block without launching a
-process. Afterward the selection and details scroll remain intact, focus
-returns to the list, the launch guard clears and a literal status message
-naming the machine appears below the panes, with neutral retry guidance after
-a nonzero exit or an interruption.
+process and returns `unsupported`. Afterward the selection and details scroll
+remain intact, focus returns to the list, the launch guard clears and a
+literal status message naming the machine appears below the panes, with
+neutral retry guidance after a nonzero exit or an interruption.
 
 Headless tests keep the installed `App.suspend` implementation and substitute
 only the driver's terminal methods to assert suspend, launch and resume
