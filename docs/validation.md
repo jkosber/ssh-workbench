@@ -39,17 +39,18 @@ connection and no browser.
 
 | Check | Observed |
 | --- | --- |
-| Installed tool | `ssh-workbench` resolved to the ignored tool folder; `--version` printed `ssh-workbench 0.3.1`. Jadon's own tool still printed `ssh-workbench 0.3.0` |
-| 80x24 | The header read `2 machines   ○ 1 offline   ◇ 1 can't check`; Garden demo read `◇ Can't check: SSH could not resolve the alias`, as its alias is not in the empty SSH config. Down showed Studio box's details and Up Garden demo's again; Tab, Page Down and Page Up kept the details in place; R showed `◐ 1 checking` |
+| Installed tool | `ssh-workbench` resolved to the ignored tool folder; `--version` printed `ssh-workbench 0.3.1`. In a second window, before the release folder was on `PATH`, Jadon's own tool printed `ssh-workbench 0.3.0` |
+| 80x24 | The header read `2 machines   ○ 1 offline   ◇ 1 can't check`; Garden demo read `◇ Can't check: SSH could not resolve the alias`, as its alias is not in the empty SSH config. Down showed Studio box's details and Up Garden demo's again; Tab, Page Down and Page Up left the details as they were, as they fit without scrolling; R showed `◐ 1 checking` |
 | 50x24 | The list above the details, the header as symbols, the footer on two rows, the help line hidden |
 | 120x30 | Each row showed its alias or address on the right |
 | 80x18 | The help line hidden, side by side |
-| Form during a resize | E at 80x24, a resize to 52x22 with the form open, then Escape: the browser behind it was stacked at the new size |
+| Form during a resize | In the second window, E at 80x24 opened the edit form; resizing to 52x22 with it open stacked the browser behind it; Escape closed it, the browser still stacked |
 | Quit | Q and, in a second run, Ctrl+Q exited with status 0 and returned to a working prompt |
 | Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1096 passed |
 
-Not checked: Linux and macOS terminals; the install from the tag, which
-needs the tag.
+Not checked: Linux and macOS terminals; which pane Tab focused (only the
+screen text was read); scrolling the details, which fit at 80x24; the install
+from the tag, which needs the tag.
 
 ## Task 21: status and alias fixes, 2026-10-23
 
