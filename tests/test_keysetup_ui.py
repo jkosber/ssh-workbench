@@ -1339,6 +1339,42 @@ async def test_a_config_naming_the_pub_file_tests_without_a_hint(
     assert native.calls[0][-1] == posix_install_command(public_key(1, "a"))
 
 
+@pytest.mark.parametrize(
+    ("identity_files", "hint"),
+    [
+        (
+            ("~/ssh/id_a.pub",),
+            " Your SSH config names id_a.pub for garden-host, which SSH uses only "
+            "through an agent that holds the key; without one, add this line under "
+            "Host garden-host: IdentityFile {folder}",
+        ),
+        # The private key is named too, so SSH can load it without an agent.
+        (("~/ssh/id_a.pub", "~/ssh/id_a"), ""),
+    ],
+    ids=["pub-only", "pub-and-key"],
+)
+async def test_a_failed_test_of_a_named_pub_explains_the_agent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    identity_files: tuple[str, ...],
+    hint: str,
+) -> None:
+    native = Native(statuses={"test": 255})
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    target = AliasTarget("192.0.2.10", 22, proxied=False, identity_files=identity_files)
+    checker = FakeChecker(target)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await picker(app, pilot)
+        await pilot.press("enter")
+        await finished(app, pilot)
+        assert connection_status(app) == (
+            "The key was installed, but key-only login failed (SSH exited with "
+            f"status 255).{hint.format(folder=folder / 'id_a')} Machine 1: garden"
+        )
+
+
 async def test_a_named_pub_that_is_missing_lists_its_key_as_not_listed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1384,8 +1420,9 @@ async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
     assert suspended == []
 
 
-# At 60x20 the picker fits this line only while the highlighted key has no
-# note; with a note, even a short "~/.ssh/..." one, it scrolls (a backlog row).
+# The test folder's notes name it in full, which can scroll at 60x20, so the
+# configured key, which has no note, stays highlighted there; a real
+# "~/.ssh/..." note is measured in the 60x20 real-note test below.
 @pytest.mark.parametrize(("size", "with_note"), [((80, 24), True), ((60, 20), False)])
 async def test_the_picker_shows_its_unlisted_keys_whole(
     tmp_path: Path,

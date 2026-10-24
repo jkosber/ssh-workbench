@@ -205,6 +205,16 @@ def test_identity_paths_reads_a_pub_file_as_its_key(tmp_path: Path) -> None:
     ) == [folder / "id_op", folder / "id_lab"]
 
 
+def test_identity_paths_skips_names_that_cannot_hold_a_key(tmp_path: Path) -> None:
+    # ".pub" alone has no suffix, and a folder's root has no name; neither
+    # names a key, and both used to raise from Path.with_name.
+    folder = tmp_path / "home" / ".ssh"
+
+    assert identity_paths(
+        ["~/.ssh/.pub", tmp_path.anchor, "~/.ssh/id_x.pub.pub"], folder
+    ) == [folder / ".pub", folder / "id_x.pub"]
+
+
 def test_identity_paths(tmp_path: Path) -> None:
     folder = tmp_path / "home" / ".ssh"
     absolute = tmp_path / "keys" / "id_abs"
@@ -543,9 +553,10 @@ def run_windows_script(
     """Run the Windows script with USERPROFILE and ProgramData in `home`.
 
     The administrator detection is replaced. The administrator branch would
-    change real ACLs, so a test that takes it replaces the ACL step through
-    `replace`, one exact line and its substitute. Output is captured, as
-    under sshd without a terminal.
+    change a real file's ACL, so it runs only with its ACL step replaced
+    through `replace`, one exact line and its substitute, and with its file
+    named inside `home` rather than found through ProgramData. Output is
+    captured, as under sshd without a terminal.
     """
     script = windows_script(key)
     lines = script.splitlines(keepends=True)
@@ -554,6 +565,13 @@ def run_windows_script(
     for line in detect:
         script = script.replace(line, "")
     script = f"$admin = ${str(admin).lower()}\n" + script
+    if admin:
+        assert replace is not None, "the administrator branch needs its ACL replaced"
+        found = "  $file = Join-Path (Join-Path $env:ProgramData 'ssh') "
+        found += "'administrators_authorized_keys'\n"
+        assert script.count(found) == 1
+        target = home / "ssh" / "administrators_authorized_keys"
+        script = script.replace(found, f"  $file = '{target}'\n")
     if replace is not None:
         old, new = replace
         assert script.count(f"{old}\n") == 1, old
@@ -617,6 +635,8 @@ def test_windows_admin_install_reports_only_the_error_when_its_acl_fails(
     assert result.stdout == (
         "SSH Workbench: the install stopped with an error: fictional ACL failure\n"
     )
+    keys_file = tmp_path / "ssh" / "administrators_authorized_keys"
+    assert keys_file.read_bytes() == (ED_LINE + "\r\n").encode()
 
 
 def test_windows_install_error_with_line_breaks_prints_one_line(
