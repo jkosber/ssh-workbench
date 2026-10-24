@@ -1160,3 +1160,193 @@ async def test_the_picker_shows_its_note_and_keys_whole(
             region = screen.query_one(widget).region
             assert region.height > 0, widget
             assert box.region.contains_region(region), widget
+
+
+NO_KEY = (
+    "No key to offer: your SSH folder has no valid .pub file, and a key named "
+    "{} already exists; nothing was installed."
+)
+
+
+def recorded_suspends(monkeypatch: pytest.MonkeyPatch) -> list[bool]:
+    suspended: list[bool] = []
+    monkeypatch.setattr(
+        HeadlessDriver,
+        "suspend_application_mode",
+        lambda self: suspended.append(True),
+    )
+    return suspended
+
+
+async def k_answered(app: SSHWorkbenchApp, pilot) -> None:
+    """K opened the picker or reported something in the status line."""
+    await pilot.press("k")
+    await wait_for(
+        pilot,
+        lambda: showing(app, KeySetup) or "Machine 1:" in connection_status(app),
+    )
+
+
+def unlisted(screen: KeySetup) -> str:
+    return str(screen.query_one("#key-unlisted", Static).content)
+
+
+async def test_no_key_to_offer_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
+    (folder / "id_a.pub").unlink()
+    (folder / "id_b.pub").unlink()
+    (folder / "id_ed25519_box").write_text("fictional private half\n", "ascii")
+    suspended = recorded_suspends(monkeypatch)
+    app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await k_answered(app, pilot)
+        assert not isinstance(app.screen, KeySetup)
+        assert connection_status(app) == (
+            f"{NO_KEY.format('id_ed25519_box')} Machine 1: box"
+        )
+    assert native.calls == []
+    assert suspended == []
+    assert path.read_text(encoding="utf-8") == text
+
+
+@pytest.mark.parametrize(
+    ("pub", "message"),
+    [
+        (None, "Could not read id_keyed.pub; nothing was installed."),
+        (
+            "not a key\n",
+            "id_keyed.pub is not a single valid OpenSSH public key; "
+            "nothing was installed.",
+        ),
+    ],
+)
+async def test_a_machines_own_key_without_a_valid_pub_opens_no_picker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pub: str | None, message: str
+) -> None:
+    native = Native()
+    key = tmp_path / "ssh" / "id_keyed"
+    keyed = Machine("keyed", "Keyed", addresses=("192.0.2.61",), key=str(key))
+    folder, path, text = workspace(tmp_path, monkeypatch, (keyed,), native)
+    key.write_text("fictional private half\n", "ascii")
+    if pub is not None:
+        Path(f"{key}.pub").write_text(pub, "ascii")
+    suspended = recorded_suspends(monkeypatch)
+    app = SSHWorkbenchApp((keyed,), config_path=path, file_text=text)
+    async with app.run_test() as pilot:
+        await k_answered(app, pilot)
+        assert not isinstance(app.screen, KeySetup)
+        assert connection_status(app) == f"{message} Machine 1: keyed"
+    assert native.calls == []
+    assert suspended == []
+
+
+def keys_without_pub(folder: Path, names: tuple[str, ...]) -> AliasTarget:
+    """Garden's config offers these keys, id_lab (with a valid .pub), a key
+    that doesn't exist and a folder; each named key is a private file only."""
+    for name in names:
+        (folder / name).write_text("fictional private half\n", "ascii")
+    (folder / "id_lab.pub").write_text(public_key(4, "lab").line + "\n", "ascii")
+    (folder / "id_dir").mkdir()
+    files = [f"~/ssh/{name}" for name in names]
+    files[1:1] = ["~/ssh/id_lab", "~/ssh/id_gone", "~/ssh/id_dir"]
+    return AliasTarget(
+        "192.0.2.10", 22, proxied=False, user="dev", identity_files=tuple(files)
+    )
+
+
+@pytest.mark.parametrize(
+    ("names", "line"),
+    [
+        (
+            ("id_work",),
+            "Not listed: id_work, which your SSH config offers, has no valid "
+            ".pub file.",
+        ),
+        (
+            ("id_work", "my key"),
+            "Not listed: id_work and my key, which your SSH config offers, have "
+            "no valid .pub file.",
+        ),
+        (
+            ("id_work", "my key", "id_old"),
+            "Not listed: id_work, my key and id_old, which your SSH config "
+            "offers, have no valid .pub file.",
+        ),
+    ],
+)
+async def test_an_alias_names_its_keys_without_a_pub_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    names: tuple[str, ...],
+    line: str,
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    checker = FakeChecker(keys_without_pub(folder, names))
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        assert option_labels(screen) == [
+            "id_lab.pub (your SSH config offers this)",
+            "id_a.pub",
+            "id_b.pub",
+            "Create a new key: id_ed25519_garden",
+        ]
+        assert unlisted(screen) == line
+
+
+async def test_an_alias_with_no_key_to_offer_names_its_unlisted_keys(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    native = Native()
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), native)
+    (folder / "id_a.pub").unlink()
+    (folder / "id_b.pub").unlink()
+    (folder / "id_ed25519_garden").write_text("fictional private half\n", "ascii")
+    (folder / "id_work").write_text("fictional private half\n", "ascii")
+    target = AliasTarget(
+        "192.0.2.10", 22, proxied=False, identity_files=("~/ssh/id_work",)
+    )
+    checker = FakeChecker(target)
+    suspended = recorded_suspends(monkeypatch)
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        await k_answered(app, pilot)
+        assert not isinstance(app.screen, KeySetup)
+        assert connection_status(app) == (
+            f"{NO_KEY.format('id_ed25519_garden')} Not listed: id_work, which your "
+            "SSH config offers, has no valid .pub file. Machine 1: garden"
+        )
+    assert native.calls == []
+    assert suspended == []
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+async def test_the_picker_shows_its_unlisted_keys_whole(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size: tuple[int, int]
+) -> None:
+    folder, path, text = workspace(tmp_path, monkeypatch, (GARDEN,), Native())
+    checker = FakeChecker(keys_without_pub(folder, ("id_work", "my key")))
+    app = SSHWorkbenchApp((GARDEN,), config_path=path, file_text=text, checker=checker)
+    async with app.run_test(size=size) as pilot:
+        await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
+        screen = await picker(app, pilot)
+        await pilot.press("down")
+        await wait_for(pilot, lambda: note(screen).startswith("Your SSH config"))
+        await pilot.pause()
+        box = screen.query_one("#key-setup")
+        assert box.region.bottom <= size[1]
+        for widget in (
+            "#key-note",
+            "#key-choices",
+            "#key-unlisted",
+            "#key-system",
+            "#key-help",
+        ):
+            region = screen.query_one(widget).region
+            assert region.height > 0, widget
+            assert box.region.contains_region(region), widget
