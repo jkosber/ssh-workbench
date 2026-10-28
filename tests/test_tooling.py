@@ -65,6 +65,24 @@ def test_package_check_keeps_python_out_of_strings() -> None:
     assert embedded == []
 
 
+def test_package_check_compiles_bytecode_before_timed_children() -> None:
+    # uv writes no .pyc files unless asked, so the first child to import
+    # Textual compiled every module inside its 10 s timeout, which a cold
+    # Windows runner exceeded (PR #23).
+    source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
+    installs = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.List):
+            words = [
+                item.value
+                for item in node.elts
+                if isinstance(item, ast.Constant) and isinstance(item.value, str)
+            ]
+            if words[:1] == ["pip"]:
+                installs.append((words[1], "--compile-bytecode" in words))
+    assert sorted(installs) == [("install", True), ("sync", True)]
+
+
 def test_ci_uv_pin_matches_build_backend_range() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requires = project["build-system"]["requires"]
