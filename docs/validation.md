@@ -37,8 +37,9 @@ environment, then runs the `loader` child three times.
 | Check | Observed |
 | --- | --- |
 | Cause, from PR #23's failed Windows attempt | After the install, help, version and the missing-file check took about 4.8 s; the `loader` child, the first to import Textual, then timed out after 10 s. On 2026-10-24, Windows runs finished all the children in 8-11 s |
-| `loader` child after the default install, two environments | First run 2.61 s and 1.29 s; later runs 0.46-0.66 s |
-| `loader` child after a `--compile-bytecode` install, two environments | First run 0.56 s and 0.68 s; later runs 0.52-0.72 s. The install took about 2 s instead of 0.5 s |
+| `loader` child after the default install, two environments | First run 1.20 s and 0.77 s; later runs 0.38-0.40 s |
+| `loader` child with the dependencies compiled, two environments | First run 0.43 s both times; later runs 0.37-0.39 s. The install took about 0.7 s instead of 0.3 s |
+| `_PROBE = "\d"` added to `config.py` in a throwaway worktree, then `uv build` and `check_package.py` | `main` and this branch both failed with `Installed wheel CLI check failed: --help`. An earlier commit of this branch that also compiled the wheel passed, hiding the warning |
 | Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1124 passed |
 
 Not checked: a cold Windows runner. A timeout like PR #23's cannot be

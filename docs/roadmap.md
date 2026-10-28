@@ -123,7 +123,7 @@ in the pull request description.
 | - | Release 0.3.3 | [#32](https://github.com/jkosber/ssh-workbench/pull/32) | 0.3.3 |
 | - | CI runs once for a push to a pull request | [#33](https://github.com/jkosber/ssh-workbench/pull/33) | Unreleased |
 | - | The repository is public; docs no longer call it private | [#34](https://github.com/jkosber/ssh-workbench/pull/34) | Unreleased |
-| - | The package check compiles bytecode before its timed steps | [#35](https://github.com/jkosber/ssh-workbench/pull/35) | Unreleased |
+| - | The package check precompiles its dependencies before its timed steps | [#35](https://github.com/jkosber/ssh-workbench/pull/35) | Unreleased |
 
 ## Deferred ideas
 
