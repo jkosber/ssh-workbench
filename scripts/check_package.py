@@ -54,7 +54,8 @@ def main() -> None:
         )
         # Compile the dependencies here, untimed: otherwise the first child to
         # import Textual compiles them inside its timeout. The wheel stays
-        # uncompiled, so a SyntaxWarning in it reaches the stderr checks.
+        # uncompiled, so a SyntaxWarning in a module --help loads (the package,
+        # cli, config) reaches the help check's stderr test.
         subprocess.run(
             [
                 uv,

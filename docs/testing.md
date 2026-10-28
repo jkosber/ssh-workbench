@@ -30,13 +30,15 @@ uv run --locked python scripts/check_package.py
 The package check installs the wheel with the locked runtime dependencies in
 a temporary environment. It compiles the dependencies to bytecode, so no timed
 step spends its limit compiling Textual, but not the wheel, so a
-`SyntaxWarning` in Workbench's own code still fails the help check. It then
-runs `scripts/package_smoke.py` there with `python -I`, so the wheel is tested
-rather than the checkout. It covers help, version, missing-file errors,
-loading a fictional file, a headless app that selects and quits, Connect with
-a substituted SSH (success, failure, launch error, interruption), link
-outcomes, quitting while a browser request hangs, and a first save. A build
-alone proves nothing about SSH or a real terminal; the manual checks below do.
+`SyntaxWarning` in a module that `--help` loads (`ssh_workbench`, `cli`,
+`config`) still fails the help check; one in another module, such as `app`,
+does not. It then runs `scripts/package_smoke.py` there with `python -I`, so
+the wheel is tested rather than the checkout. It covers help, version,
+missing-file errors, loading a fictional file, a headless app that selects and
+quits, Connect with a substituted SSH (success, failure, launch error,
+interruption), link outcomes, quitting while a browser request hangs, and a
+first save. A build alone proves nothing about SSH or a real terminal; the
+manual checks below do.
 
 UI tests use Textual's headless pilot. A test that waits for the screen should
 wait for the condition it asserts, not for a fixed pause.
