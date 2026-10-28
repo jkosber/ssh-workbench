@@ -52,8 +52,20 @@ def main() -> None:
             check=True,
             stdout=subprocess.DEVNULL,
         )
+        # Compile the dependencies here, untimed: otherwise the first child to
+        # import Textual compiles them inside its timeout. The wheel stays
+        # uncompiled, so a SyntaxWarning in a module --help loads (the package,
+        # cli, config) reaches the help check's stderr test.
         subprocess.run(
-            [uv, "pip", "sync", "--python", str(python), str(requirements)],
+            [
+                uv,
+                "pip",
+                "sync",
+                "--compile-bytecode",
+                "--python",
+                str(python),
+                str(requirements),
+            ],
             check=True,
         )
         subprocess.run(

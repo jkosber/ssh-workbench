@@ -68,7 +68,6 @@ needs its own task before work starts.
 
 | Item | From |
 | --- | --- |
-| `check_package.py` gives each installed-wheel child 10 s, which a cold Windows runner can exceed; PR #23's first Windows run did | 18 |
 | `test_no_external_actions_rejects_every_shared_boundary` passes even without a direct `subprocess.run` guard, because the guarded `Popen` fails first; assert that every guarded attribute is the fixture's own function | 7 |
 | No test proves that `check_links.install_fixture_guards` and `package_smoke.reject_external_actions` install the shared guards | 7 |
 | The strings test in `tests/test_tooling.py` misses inline children such as `["python", "-I", "-c", "..."]`; also reject a `"-c"` string | 7 |
@@ -124,6 +123,7 @@ in the pull request description.
 | - | Release 0.3.3 | [#32](https://github.com/jkosber/ssh-workbench/pull/32) | 0.3.3 |
 | - | CI runs once for a push to a pull request | [#33](https://github.com/jkosber/ssh-workbench/pull/33) | Unreleased |
 | - | The repository is public; docs no longer call it private | [#34](https://github.com/jkosber/ssh-workbench/pull/34) | Unreleased |
+| - | The package check precompiles its dependencies before its timed steps | [#35](https://github.com/jkosber/ssh-workbench/pull/35) | Unreleased |
 
 ## Deferred ideas
 
