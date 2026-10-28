@@ -52,8 +52,9 @@ def main() -> None:
             check=True,
             stdout=subprocess.DEVNULL,
         )
-        # Compile here, untimed: otherwise the first child to import Textual
-        # compiles every module inside its timeout.
+        # Compile the dependencies here, untimed: otherwise the first child to
+        # import Textual compiles them inside its timeout. The wheel stays
+        # uncompiled, so a SyntaxWarning in it reaches the stderr checks.
         subprocess.run(
             [
                 uv,
@@ -67,16 +68,7 @@ def main() -> None:
             check=True,
         )
         subprocess.run(
-            [
-                uv,
-                "pip",
-                "install",
-                "--compile-bytecode",
-                "--python",
-                str(python),
-                "--no-deps",
-                str(wheel),
-            ],
+            [uv, "pip", "install", "--python", str(python), "--no-deps", str(wheel)],
             check=True,
         )
         for option, expected in [
