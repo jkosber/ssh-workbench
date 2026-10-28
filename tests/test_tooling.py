@@ -65,12 +65,13 @@ def test_package_check_keeps_python_out_of_strings() -> None:
     assert embedded == []
 
 
-def test_package_check_compiles_bytecode_before_timed_children() -> None:
+def test_package_check_precompiles_dependencies_but_not_the_wheel() -> None:
     # uv writes no .pyc files unless asked, so the first child to import
-    # Textual compiled every module inside its 10 s timeout, which a cold
-    # Windows runner exceeded (PR #23).
+    # Textual compiled every dependency inside its 10 s timeout, which a cold
+    # Windows runner exceeded (PR #23). The wheel stays uncompiled: compiling
+    # hides a SyntaxWarning in Workbench's own code from the stderr checks.
     source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
-    installs = []
+    compiles = {}
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.List):
             words = [
@@ -78,9 +79,9 @@ def test_package_check_compiles_bytecode_before_timed_children() -> None:
                 for item in node.elts
                 if isinstance(item, ast.Constant) and isinstance(item.value, str)
             ]
-            if words[:1] == ["pip"]:
-                installs.append((words[1], "--compile-bytecode" in words))
-    assert sorted(installs) == [("install", True), ("sync", True)]
+            if words[:2] in (["pip", "sync"], ["pip", "install"]):
+                compiles[words[1]] = "--compile-bytecode" in words
+    assert compiles == {"sync": True, "install": False}
 
 
 def test_ci_uv_pin_matches_build_backend_range() -> None:
