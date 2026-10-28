@@ -52,12 +52,31 @@ def main() -> None:
             check=True,
             stdout=subprocess.DEVNULL,
         )
+        # Compile here, untimed: otherwise the first child to import Textual
+        # compiles every module inside its timeout.
         subprocess.run(
-            [uv, "pip", "sync", "--python", str(python), str(requirements)],
+            [
+                uv,
+                "pip",
+                "sync",
+                "--compile-bytecode",
+                "--python",
+                str(python),
+                str(requirements),
+            ],
             check=True,
         )
         subprocess.run(
-            [uv, "pip", "install", "--python", str(python), "--no-deps", str(wheel)],
+            [
+                uv,
+                "pip",
+                "install",
+                "--compile-bytecode",
+                "--python",
+                str(python),
+                "--no-deps",
+                str(wheel),
+            ],
             check=True,
         )
         for option, expected in [
