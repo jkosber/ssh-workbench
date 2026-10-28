@@ -28,6 +28,22 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Package check bytecode, 2026-10-28
+
+Windows 11, uv 0.13.6, Python 3.14.8, Textual 8.2.8. The timings come from a
+throwaway script that repeats the package check's install in a fresh
+environment, then runs the `loader` child three times.
+
+| Check | Observed |
+| --- | --- |
+| Cause, from PR #23's failed Windows attempt | After the install, help, version and the missing-file check took about 4.8 s; the `loader` child, the first to import Textual, then timed out after 10 s. On 2026-10-24, Windows runs finished all the children in 8-11 s |
+| `loader` child after the default install, two environments | First run 2.61 s and 1.29 s; later runs 0.46-0.66 s |
+| `loader` child after a `--compile-bytecode` install, two environments | First run 0.56 s and 0.68 s; later runs 0.52-0.72 s. The install took about 2 s instead of 0.5 s |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1124 passed |
+
+Not checked: a cold Windows runner. A timeout like PR #23's cannot be
+reproduced on demand; the pull request's CI shows only the new timings.
+
 ## Repository made public, 2026-10-24
 
 Windows 11, uv 0.13.4, Git for Windows. Scans used `gh` signed in as Jadon;

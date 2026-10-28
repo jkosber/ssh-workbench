@@ -28,13 +28,14 @@ uv run --locked python scripts/check_package.py
 | `check_package.py` | The built wheel installs and works outside the checkout | See below |
 
 The package check installs the wheel with the locked runtime dependencies in
-a temporary environment, then runs `scripts/package_smoke.py` there with
-`python -I`, so the wheel is tested rather than the checkout. It covers help,
-version, missing-file errors, loading a fictional file, a headless app that
-selects and quits, Connect with a substituted SSH (success, failure, launch
-error, interruption), link outcomes, quitting while a browser request hangs,
-and a first save. A build alone proves nothing about SSH or a real terminal;
-the manual checks below do.
+a temporary environment and compiles them to bytecode, so no timed step spends
+its limit compiling Textual. It then runs `scripts/package_smoke.py` there
+with `python -I`, so the wheel is tested rather than the checkout. It covers
+help, version, missing-file errors, loading a fictional file, a headless app
+that selects and quits, Connect with a substituted SSH (success, failure,
+launch error, interruption), link outcomes, quitting while a browser request
+hangs, and a first save. A build alone proves nothing about SSH or a real
+terminal; the manual checks below do.
 
 UI tests use Textual's headless pilot. A test that waits for the screen should
 wait for the condition it asserts, not for a fixed pause.
