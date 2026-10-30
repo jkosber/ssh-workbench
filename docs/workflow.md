@@ -198,7 +198,8 @@ rows leave that out.
 6. Run the full checks, a fresh `uv build` and the package check. Install the
    wheel as a tool in ignored folders (set `UV_TOOL_DIR` and
    `UV_TOOL_BIN_DIR` under `.local/`) and run the
-   [app smoke check](testing.md#app-smoke-check) with it in Windows Terminal.
+   [app smoke check](testing.md#app-smoke-check) with it in
+   [a real terminal](testing.md#manual-checks-in-a-real-terminal).
 7. Pull request, CI, review and merge, as for a task. The release gets a "-"
    row in Done with its PR.
 8. Tag the merge commit and push the tag (ask first; the tag is public as

@@ -67,7 +67,7 @@ Never break these. The [architecture](docs/architecture.md) explains each.
 | Launching SSH | Native SSH owns authentication and host-key checks. Revalidate every machine value with the loader's predicates, pass argument lists without a shell, and put `--` before the destination. Never disable host-key verification or store passwords or private keys |
 | Terminal handoff | Keep expected launch errors inside Textual's suspension block: the locked 8.2.8 context skips resumption when an exception escapes it. Verify the installed implementation when changing this path; use `scripts/check_terminal.py` for native checks without SSH |
 | Links | Dispatch shares the loader's URL validation, stays off the UI thread, preserves exact URLs and never falls back to a terminal browser. Use `scripts/check_links.py` for native checks without a real browser |
-| Native checks | Run them in Microsoft Windows Terminal. A real SSH target or browser URL needs Jadon's approval by name |
+| Native checks | Run them in a real terminal: Ghostty on Linux or Microsoft Windows Terminal on Windows. A real SSH target or browser URL needs Jadon's approval by name |
 
 ## Approvals
 

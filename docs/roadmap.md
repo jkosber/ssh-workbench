@@ -124,6 +124,7 @@ in the pull request description.
 | - | CI runs once for a push to a pull request | [#33](https://github.com/jkosber/ssh-workbench/pull/33) | Unreleased |
 | - | The repository is public; docs no longer call it private | [#34](https://github.com/jkosber/ssh-workbench/pull/34) | Unreleased |
 | - | The package check precompiles its dependencies before its timed steps | [#35](https://github.com/jkosber/ssh-workbench/pull/35) | Unreleased |
+| - | Manual checks cover Ghostty on Linux; the terminal fixture runs on Linux | [#36](https://github.com/jkosber/ssh-workbench/pull/36) | Unreleased |
 
 ## Deferred ideas
 

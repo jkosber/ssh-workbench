@@ -34,7 +34,7 @@ stand-in checker.*
 | Platform | Status |
 | --- | --- |
 | Windows 11 | Tested in Windows Terminal with real SSH hosts and browser links |
-| Linux | Tested on Linux Mint 22.3 with a real SSH host, in a terminal reached over SSH; CI runs the tests on Ubuntu. Opening links needs a desktop with `gio` and is untested on a real desktop |
+| Linux | Tested in Ghostty on an Arch Linux desktop with browser links, and on Linux Mint 22.3 with a real SSH host, in a terminal reached over SSH; CI runs the tests on Ubuntu. Opening links needs a desktop with `gio` |
 | macOS | Untested. Links report "browser unavailable" |
 
 ## Install
