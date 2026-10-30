@@ -108,10 +108,9 @@ Resize while it runs: under 60 columns the list moves above the details and
 the footer wraps onto two rows; at 110 columns or more each row shows where
 it connects; under 20 rows the help line hides. Resize once with a form open
 (E, then Escape): the browser behind it follows. Windows Terminal will not go
-narrower than about 47 columns (Ghostty: see the validation log). If
-everything is grey, the shell has `NO_COLOR` set (coding agents set it);
-clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR`
-in PowerShell.
+narrower than about 47 columns (Ghostty: about 19). If everything is grey,
+the shell has `NO_COLOR` set (coding agents set it); clear it first with
+`unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in PowerShell.
 
 ### Terminal handoff: `scripts/check_terminal.py`
 
