@@ -28,6 +28,25 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 24: details reset before the next frame, 2026-10-30
+
+Arch Linux, Python 3.14.8, Textual 8.2.8, headless pilot only: no terminal,
+no SSH, no browser. The flaky test's fictional machines. The slow-runner
+emulation used two pytest plugins kept outside the repository: one rounds the
+process time that `textual._wait.wait_for_idle` reads down to 15.625 ms
+steps, and one adds a delay to every Textual timer sleep.
+
+| Check | Branch | `main` |
+| --- | --- | --- |
+| Down from a long machine scrolled to its bottom to another long machine, 80x24, traced | The handler scrolled the pane to 0; the first frame showing the new machine was at the top | The handler left the pane at 67; the first frame showing the new machine was at 9, its bottom; the pane reached 0 one frame later, 86 ms after the handler |
+| `test_return_preserves_scroll_and_literal_details`, 20 runs | 20 passed | 20 passed |
+| The same, emulated with 20 ms late timers | 20 passed | 8 failed, all at the scroll check after Down (`assert 67 == 0` twice, `assert 22 == 0` six times) |
+| The same, emulated with 30 ms late timers | 20 passed | 10 failed, with 15 failing cases: 8 at the scroll check after Down, 7 at `scroll_y > 0` after End |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1125 passed | Not run |
+
+Not checked: a Windows runner or machine, where the emulated delays are
+assumed rather than measured; a native run in Ghostty, where the one-frame
+difference is too short to judge by eye.
 ## Task 24: uppercase letter keys, 2026-10-30
 
 Arch Linux (Omarchy 4.0.6, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 at 80x24
