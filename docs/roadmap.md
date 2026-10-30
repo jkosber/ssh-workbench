@@ -28,6 +28,8 @@ needs its own task before work starts.
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
 | Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
+| With Caps Lock on, the letter keys do nothing: the bindings are lowercase and the terminal delivers the uppercase character (seen in Windows Terminal; Linux unchecked) | [#37](https://github.com/jkosber/ssh-workbench/pull/37) |
+| When the local `TERM` is terminal-specific (`xterm-ghostty`, `xterm-kitty`), hosts without that terminfo may reject the terminal type in full-screen programs; Workbench runs `ssh` directly, so Ghostty's own shell integration does not apply. A proposal, not observed: give `ssh` `TERM=xterm-256color` in that case | [#36](https://github.com/jkosber/ssh-workbench/pull/36) |
 
 ### Status and aliases
 
@@ -78,6 +80,12 @@ needs its own task before work starts.
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
 | `test_return_preserves_scroll_and_literal_details` checks the scroll right after a key press; a cold Windows runner failed it once (PR #27) | 21 |
+| `test_windows_install_script_has_no_comment_lines` checks only lines that start with `#`, so it misses PowerShell `<# #>` block comments | 23 |
+| The release smoke logs do not save the `uv tool install` output | 0.3.3 release |
+| `test_ci_runs_once_for_a_push_to_a_pull_request` fails on harmless edits to the trigger block; a blank line inside the block ends the match early, so the failure reports missing lines | [#33](https://github.com/jkosber/ssh-workbench/pull/33) |
+| `docs/testing.md` and `docs/workflow.md` say CI runs for every pull request; GitHub skips a pull request with a merge conflict | [#33](https://github.com/jkosber/ssh-workbench/pull/33) |
+| The package check catches a `SyntaxWarning` only in the modules `--help` loads (`ssh_workbench`, `cli`, `config`); one in `app.py` passes because the `loader` child's stderr is unchecked. Options: a Ruff rule for the warning, or checking that child's stderr | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
+| `test_package_check_precompiles_dependencies_but_not_the_wheel` keeps only the last `uv pip sync` and `uv pip install` call it finds; an earlier one of either kind goes unchecked | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
 
 ## Done
 
