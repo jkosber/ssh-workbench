@@ -274,6 +274,34 @@ async def test_long_values_wrap_scroll_and_reset(size: tuple[int, int]) -> None:
         assert app.is_running
 
 
+async def test_new_selection_resets_details_scroll_before_the_next_frame() -> None:
+    machines = [
+        Machine(
+            f"long-demo-{number}",
+            f"Long demo {number}",
+            alias=f"long-demo-{number}-host",
+            links=(Link("Documentation", "https://example.com/" + "docs/" * 150),),
+        )
+        for number in (1, 2)
+    ]
+    app = SSHWorkbenchApp(machines)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        pane = app.query_one("#machine-details", VerticalScroll)
+        pane.scroll_end(animate=False, immediate=True)
+        assert pane.scroll_y > 0
+        machine_list = app.query_one(ListView)
+        machine_list.index = 1
+        # Nothing is awaited until the asserts, so no screen refresh runs in
+        # between: a reset left until after one would first paint the second
+        # machine at the first machine's offset.
+        app.on_list_view_highlighted(
+            ListView.Highlighted(machine_list, machine_list.highlighted_child)
+        )
+        assert pane.scroll_y == 0
+        assert str(app.query_one("#machine-name", Static).content) == "Long demo 2"
+
+
 async def test_many_machines_keep_keyboard_selection_visible() -> None:
     machines = [
         Machine(f"demo-{i}", f"Demo {i}", alias=f"demo-{i}-host") for i in range(35)
