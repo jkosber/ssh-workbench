@@ -6,7 +6,19 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+### 24. Letter keys with Caps Lock
+
+Jadon started this task on 2026-10-30 with the Caps Lock row from the
+Interface backlog.
+
+- [ ] An uppercase letter does what its lowercase letter does wherever a
+  letter is bound: C, U, O, A, E, X, K, R and Q in the browser, Q in the link
+  list, Y and N in the delete and Include questions.
+- [ ] The footer shows each key once, in lowercase, as before.
+- [ ] Capital letters typed into the add and edit forms go into the field and
+  run no action.
+- [ ] Tests first; full checks; changelog and validation; uppercase C and Q in
+  `scripts/check_terminal.py` in Ghostty. No real target is needed.
 
 ## Next
 
