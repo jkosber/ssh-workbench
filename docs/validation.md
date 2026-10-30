@@ -28,39 +28,38 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
-## Windows Terminal fixture check, 2026-10-30
+## Terminal fixture in Windows Terminal, 2026-10-30
 
-Windows 11, Windows Terminal 1.25.2733.0 with a PowerShell 7.6.9 shell inside
-the window, 80x24 (the screen read back as 24 rows by 80 columns), uv 0.13.6,
-Python 3.14.8, Textual 8.2.8, `main` at `3406baf` (the merge of #36, which
-changed the fixture to start its child with `sys.executable`). This run covers
-`check_terminal.py` on Windows after the fix, which the Linux entry below left
-unchecked. A coding agent drove the checks at Jadon's request from another
-machine, through a scheduled task in the Windows workstation's desktop session
-and a Windows Terminal harness: it sent keys with SendInput, read the screen
-text through UI Automation and took screenshots with PrintWindow. `NO_COLOR`
-was unset and `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed
-at empty ignored folders. Caps Lock was on for the whole run (see the Caps
-Lock row).
+Windows 11, Windows Terminal 1.25.2733.0 at 80x24 (read back from the screen)
+running PowerShell 7.6.9, uv 0.13.6, Python 3.14.8, Textual 8.2.8, `main` at
+`3406baf` (the merge of PR #36, which changed the fixture to start its child
+with `sys.executable`). This run covers `check_terminal.py` on Windows after
+the fix, which the Linux entry below left unchecked. At Jadon's request, a
+coding agent on another machine drove the checks through a scheduled task in
+the Windows workstation's desktop session and a Windows Terminal harness: it
+sent keys with SendInput, read the screen text through UI Automation and took
+screenshots with PrintWindow. `NO_COLOR` was unset and `APPDATA`,
+`XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed at empty ignored
+folders. Caps Lock was on for the whole run (see the Caps Lock row).
 
 | Check | Observed |
 | --- | --- |
 | `scripts/check_terminal.py` 1 | C: the child printed `Local child: fixture-zero; terminal stdin/stdout/stderr: [True, True, True]` and `Local child stderr is visible.`, and echoed `hello` as `Child input: hello`. `return` gave "SSH exited with status 0. Machine 1: fixture-zero", the same machine selected and the list focused (its border highlighted); Down selected fixture-seven, Up fixture-zero |
 | `check_terminal.py` 2 | Tab highlighted the details pane; C started the fixture-seven child; `return` gave "SSH exited with status 7. Check the SSH client's message and alias; C retries." with "Machine 2: fixture-seven" on the next row, and focus came back to the list; Down selected fixture-interrupt, Up fixture-seven |
-| `check_terminal.py` 3 | C, then Ctrl+C: the child printed "Child received Ctrl+C." and the status read "SSH exited with status 130. Check the SSH client's message and alias; C retries. Machine 3: fixture-interrupt", wrapped after "; C"; the app kept running |
-| `check_terminal.py` 4 | After each of two Ctrl+C presses the child printed "Child received Ctrl+C." and "Child still owns the terminal; type return to finish."; it echoed `still-here` as `Child input: still-here`; `return` gave "SSH exited with status 0. Machine 4: fixture-continue" |
-| `check_terminal.py` 5 | C pressed twice on each simulated entry kept the selection: "SSH not found. Install OpenSSH and add it to PATH. Machine 5: fixture-missing"; "Could not start SSH. Check its installation and executable permissions." with "Machine 6: fixture-error" on the next row; "SSH interrupted. Press C to retry or Q to quit. Machine 7: fixture-keyboard". After each second press the text was the same and the screenshot byte-identical |
-| `check_terminal.py` 6 | Q gave back the PowerShell prompt; `$LASTEXITCODE` was 0 and `echo hello` printed `hello`. On a second run, C on machine 1 and `return` gave "SSH exited with status 0. Machine 1: fixture-zero"; Ctrl+Q gave back the prompt, `$LASTEXITCODE` was 0 and `echo hello` printed `hello`. After quitting, the shell's screen kept every child's output from the run, and the app's own screen left no residue |
-| Status rows at 80 columns | The status 7, status 130 and process-start messages wrapped onto a second row. The status took the place of the "C: connect to the selected machine." help row |
-| Caps Lock | The key state showed Caps Lock on. A plain C on machine 1 did nothing, twice: no child and no status line, while Up and Down worked. Shift+C and Shift+Q (lowercase letters while Caps Lock is on) worked for the rest of the run; every C and Q in the rows above was sent that way, and Caps Lock was left on. The cause is inferred, not observed: Textual's Windows driver reports the typed character, so the app received the key `C`, and the app's letter bindings are lowercase |
-| Files | `git status` was clean after the run; there was no state file, and the three manual folders were still empty |
+| `check_terminal.py` 3 | C, then Ctrl+C: the child printed `Child received Ctrl+C.` and the status read "SSH exited with status 130. Check the SSH client's message and alias; C retries. Machine 3: fixture-interrupt", wrapped after "; C"; the app kept running |
+| `check_terminal.py` 4 | After each of two Ctrl+C presses the child printed `Child received Ctrl+C.` and `Child still owns the terminal; type return to finish.`; it echoed `still-here` as `Child input: still-here`; `return` gave "SSH exited with status 0. Machine 4: fixture-continue" |
+| `check_terminal.py` 5 | On each simulated entry C showed its message and kept the selection: "SSH not found. Install OpenSSH and add it to PATH. Machine 5: fixture-missing"; "Could not start SSH. Check its installation and executable permissions." with "Machine 6: fixture-error" on the next row; "SSH interrupted. Press C to retry or Q to quit. Machine 7: fixture-keyboard". A second C left the same text and a byte-identical screenshot |
+| `check_terminal.py` 6 | Q gave back the PowerShell prompt; on a second run, C on machine 1 and `return` gave "SSH exited with status 0. Machine 1: fixture-zero", then Ctrl+Q gave back the prompt. Both times `$LASTEXITCODE` was 0 and `echo hello` printed `hello`. After quitting, the shell's screen kept every child's output from the run and showed nothing of the app's screen |
+| Status lines at 80 columns | The status 7, status 130 and start-failure messages took two rows, replacing the one-row "C: connect to the selected machine." line |
+| Caps Lock | The console's key state reported Caps Lock on. A plain C on machine 1 did nothing, twice: no child and no status, while Up and Down worked. Shift+C and Shift+Q (lowercase letters while Caps Lock is on) worked for the rest of the run, and every C and Q above was sent that way. Inferred, not observed: Textual's Windows driver reports the typed character, so the app received `C`, which none of its lowercase letter bindings match |
+| Files | `git status` was clean after the run; there was no state file, and the three ignored folders were still empty |
 
 Not checked: real SSH targets (none approved); resizing during the fixture;
 the smoke check on `examples/machines.example.toml`, `check_links.py` and
 `check_keys.py` in Windows Terminal on this commit; the letter keys with Caps
-Lock off in this run; whether Caps Lock blocks the letter keys on Linux too;
-whether the second C on the simulated entries ran the action again (the
-screen did not change).
+Lock off in this run; whether Caps Lock has the same effect on Linux; whether
+the second C on the simulated entries ran the action again (the screen did not
+change).
 
 ## Linux desktop checks, 2026-10-30
 
