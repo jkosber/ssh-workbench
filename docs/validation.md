@@ -56,8 +56,9 @@ through wtype or `send_key_state`.
 
 Not checked: a physical keyboard, its Caps Lock key included (Hyprland sent
 the Caps Lock modifier with each key); in a real terminal, letters other than
-C and Q, Y and N in the dialogs among them, and capitals typed into the add
-and edit forms (tests cover these); Windows Terminal after the fix.
+C and Q, Y and N in the dialogs among them, and capitals typed into the forms
+(a test covers the add form; the edit form is the same `MachineForm`);
+Windows Terminal after the fix.
 
 ## Uppercase letters in Ghostty, 2026-10-30
 
