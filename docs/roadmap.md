@@ -138,7 +138,7 @@ in the pull request description.
 | - | The validation log records the terminal fixture in Windows Terminal | [#37](https://github.com/jkosber/ssh-workbench/pull/37) | Unreleased |
 | - | Eight deferred findings join the backlog; the validation log records uppercase letters in Ghostty | [#38](https://github.com/jkosber/ssh-workbench/pull/38) | Unreleased |
 | 24 | Letter keys work with Caps Lock on or typed as capitals | [#39](https://github.com/jkosber/ssh-workbench/pull/39) | Unreleased |
-| 24 | Details reset before the next frame, which steadies the scroll test that cold Windows runners failed | - | Unreleased |
+| 24 | Details reset before the next frame, which steadies the scroll test that cold Windows runners failed | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | Unreleased |
 
 ## Deferred ideas
 
