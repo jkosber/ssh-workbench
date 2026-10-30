@@ -14,9 +14,10 @@ Nothing is planned yet; the [backlog](#backlog) holds candidates.
 
 ## Backlog
 
-Deferred review findings, grouped by area. "From" names the task whose review
-found it; the [archive](archive/roadmap-tasks-1-18.md) has the context. Each
-needs its own task before work starts.
+Deferred findings from reviews and manual checks, grouped by area. "From"
+names the task, release or pull request where each was found; the context is
+in [the archive](archive/roadmap-tasks-1-18.md) for Tasks 1-18 and in the pull
+request for later ones. Each needs its own task before work starts.
 
 ### Interface
 
@@ -28,6 +29,8 @@ needs its own task before work starts.
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
 | Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
+| With Caps Lock on, the letter keys do nothing: every letter binding is lowercase and no uppercase letter matches; seen in Windows Terminal, and uppercase C and Q did nothing in Ghostty on Linux (Caps Lock untried) | [#37](https://github.com/jkosber/ssh-workbench/pull/37), [#38](https://github.com/jkosber/ssh-workbench/pull/38) |
+| When the local `TERM` is terminal-specific (`xterm-ghostty`, `xterm-kitty`), full-screen programs on a host without that terminfo entry may reject it, and Ghostty's shell integration does not apply because Workbench runs `ssh` directly (not observed); a proposal is to run `ssh` with `TERM=xterm-256color` in that case, which `SetEnv TERM=xterm-256color` in the user's SSH config already does | [#36](https://github.com/jkosber/ssh-workbench/pull/36) |
 
 ### Status and aliases
 
@@ -77,7 +80,13 @@ needs its own task before work starts.
 | The 60x20 many-links picker test does not press Escape; the 80x24 test covers Escape restoring selection and focus | 8 |
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
-| `test_return_preserves_scroll_and_literal_details` checks the scroll right after a key press; a cold Windows runner failed it once (PR #27) | 21 |
+| `test_return_preserves_scroll_and_literal_details` checks the scroll right after a key press; cold Windows runners failed it twice (PRs #27 and #38) | 21 |
+| `test_windows_install_script_has_no_comment_lines` checks only lines that start with `#`, so it misses PowerShell `<# #>` block comments and trailing `#` comments | 23 |
+| The release checklist does not ask to keep the output of step 6's `uv tool install`; the 0.3.3 evidence starts at `ssh-workbench --version` | 0.3.3 release |
+| `test_ci_runs_once_for_a_push_to_a_pull_request` fails on harmless edits to the trigger block; a blank line inside the block ends the match early, so the failure reports missing lines | [#33](https://github.com/jkosber/ssh-workbench/pull/33) |
+| `docs/testing.md` and `docs/workflow.md` say CI runs for every pull request; GitHub skips a pull request with a merge conflict | [#33](https://github.com/jkosber/ssh-workbench/pull/33) |
+| The package check catches a `SyntaxWarning` only in the modules `--help` loads (`ssh_workbench`, `cli`, `config`); one elsewhere, such as `app.py`, passes because the `loader` child compiles it first and that child's stderr is unchecked; check that stderr, or add Ruff's `W605` (invalid escapes) to `select` | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
+| `test_package_check_precompiles_dependencies_but_not_the_wheel` keeps only the last `uv pip sync` call and the last `uv pip install` call it finds; earlier calls of either kind go unchecked | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
 
 ## Done
 
@@ -125,6 +134,8 @@ in the pull request description.
 | - | The repository is public; docs no longer call it private | [#34](https://github.com/jkosber/ssh-workbench/pull/34) | Unreleased |
 | - | The package check precompiles its dependencies before its timed steps | [#35](https://github.com/jkosber/ssh-workbench/pull/35) | Unreleased |
 | - | Manual checks cover Ghostty on Linux; the terminal fixture runs on Linux | [#36](https://github.com/jkosber/ssh-workbench/pull/36) | Unreleased |
+| - | The validation log records the terminal fixture in Windows Terminal | [#37](https://github.com/jkosber/ssh-workbench/pull/37) | Unreleased |
+| - | Eight deferred findings join the backlog; the validation log records uppercase letters in Ghostty | [#38](https://github.com/jkosber/ssh-workbench/pull/38) | Unreleased |
 
 ## Deferred ideas
 
