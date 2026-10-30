@@ -272,7 +272,7 @@ class LinkPicker(ModalScreen[Link | None]):
     BINDINGS = [
         Binding("enter", "choose", "Open", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
-        Binding("q", "app.quit", "Quit"),
+        Binding("q,Q", "app.quit", "Quit"),
         Binding("ctrl+q", "app.quit", "Quit", show=False),
     ]
     DEFAULT_CSS = """
@@ -368,18 +368,21 @@ class SSHWorkbenchApp(App[None]):
     # line hides when narrow or short.
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (60, "-normal"), (110, "-wide")]
     VERTICAL_BREAKPOINTS = [(0, "-short"), (20, "-tall")]
+    # Each letter is bound in both cases: with Caps Lock on, or with Shift, the
+    # terminal sends "C", which a "c" binding does not match. The footer shows
+    # the first key of each action.
     BINDINGS = [
-        Binding("c", "connect", "Connect"),
+        Binding("c,C", "connect", "Connect"),
         # Shown only for a machine with a rename offer, which hides Connect.
-        Binding("u", "update_alias", "Update"),
-        Binding("o", "open_link", "Link"),
-        Binding("a", "add", "Add"),
-        Binding("e", "edit", "Edit"),
-        Binding("x", "delete", "Delete"),
-        Binding("k", "key_setup", "Key"),
+        Binding("u,U", "update_alias", "Update"),
+        Binding("o,O", "open_link", "Link"),
+        Binding("a,A", "add", "Add"),
+        Binding("e,E", "edit", "Edit"),
+        Binding("x,X", "delete", "Delete"),
+        Binding("k,K", "key_setup", "Key"),
         # "Check", not "Refresh": eight keys must fit 60 columns.
-        Binding("r", "refresh", "Check"),
-        Binding("q", "quit", "Quit"),
+        Binding("r,R", "refresh", "Check"),
+        Binding("q,Q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
     CSS = """
