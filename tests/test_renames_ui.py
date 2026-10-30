@@ -186,6 +186,50 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
         assert app.check_action("update_alias", ()) is False
 
 
+async def test_uppercase_u_applies_the_rename_like_u(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
+
+        await pilot.press("U")
+        await wait_for(pilot, lambda: symbols(app)[:1] == [State.ONLINE])
+
+        updated = dataclasses.replace(GARDEN, alias="new-host")
+        assert read_machines(path)[0] == [updated, LAB]
+        assert connection_status(app) == (
+            "Updated machine 1: garden now uses alias new-host."
+        )
+
+
+async def test_the_footer_shows_u_once_in_lowercase(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await checked(app, pilot)
+        await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
+        keys = app.query_one(Footer).query("FooterKey")
+        assert [key.render().plain for key in keys] == [
+            "u Update",
+            "o Link",
+            "a Add",
+            "e Edit",
+            "x Delete",
+            "k Key",
+            "r Check",
+            "q Quit",
+        ]
+
+
 async def test_without_exactly_one_match_there_is_no_offer(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

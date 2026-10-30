@@ -141,6 +141,30 @@ async def test_exact_selected_url_from_either_pane(
         assert not app.is_running
 
 
+async def test_uppercase_o_opens_a_link_like_o(monkeypatch) -> None:
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("O")
+        await completed(app, pilot)
+        opener.assert_called_once_with(MACHINES[0].links[0].url)
+        assert status(app) == "Repository browser request accepted. Machine 1: first"
+
+
+async def test_uppercase_q_quits_from_the_picker_like_q(monkeypatch) -> None:
+    opener = Mock(side_effect=AssertionError("Unexpected browser action"))
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "o")
+        await picker_open(app, pilot)
+        await pilot.press("Q")
+        assert not app.is_running
+        assert app.return_code == 0
+    opener.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "machines", [None, (), MACHINES, (Machine("bare", "Bare", alias="bare-host"),)]
 )

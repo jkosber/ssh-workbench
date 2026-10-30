@@ -132,6 +132,18 @@ async def test_refresh_resolves_aliases_again() -> None:
         assert symbols(app)[0] is State.ONLINE
 
 
+async def test_uppercase_r_resolves_aliases_again_like_r() -> None:
+    checker = FakeChecker()
+    app = SSHWorkbenchApp(MACHINES, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        assert checker.resolved.count("garden-host") == 1
+        await pilot.press("R")
+        await wait_for(pilot, lambda: checker.resolved.count("garden-host") == 2)
+        await checked(app, pilot)
+        assert symbols(app)[0] is State.ONLINE
+
+
 async def test_timer_rounds_never_run_ssh_g(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_module, "STATUS_INTERVAL", 0.05)
     checker = FakeChecker()
