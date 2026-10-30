@@ -13,6 +13,12 @@ Changes by release, newest first. Version numbers follow the policy in
   Ghostty on Linux as well as Windows Terminal, and `scripts/check_terminal.py`
   runs on Linux.
 
+### Fixed
+
+- Letter keys work with Caps Lock on or typed as capitals: C connects, Q
+  quits, Y and N answer the delete and Include questions, and so on for every
+  letter. The footer still shows them in lowercase.
+
 ## 0.3.3 - 2026-10-24
 
 Key setup follow-ups: a config that names a key by its `.pub` counts as

@@ -28,6 +28,36 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Uppercase letters after the fix, in Ghostty, 2026-10-30
+
+Arch Linux (Omarchy 4.0.6, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 at 80x24
+(the wrapper printed `TERM=xterm-ghostty size=80x24`), uv 0.13.4, Python
+3.14.8, Textual 8.2.8, `fix/caps-lock-letters` at `18db80d`. At Jadon's
+request, a coding agent drove `scripts/check_terminal.py` and took screenshots
+with grim. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at ignored folders with no Workbench files.
+wtype turned out not to send Shift+letter (first two rows), so Hyprland's
+`send_key_state` sent the uppercase letters through the desktop's keymap, as
+Shift+letter or as the letter with the Caps Lock modifier; lowercase text went
+through wtype or `send_key_state`.
+
+| Check | Observed |
+| --- | --- |
+| wtype `C`, then `return` and Return, then `Q` | No screen change; the app kept running, as in the entry below |
+| Raw input in a key-logging Textual app | wtype `C` arrived as `ESC [27;;67u` and wtype `Q` as `ESC [27;;81u`; Textual named both `escape`, with the letter as the character. Through Hyprland, Shift+C arrived as `ESC [99;2;67u`, C with the Caps Lock modifier as `ESC [99;65;67u` and Shift+Q as `ESC [113;2;81u`; Textual named them `C`, `C` and `Q` |
+| Shift+C on machine 1 | The child printed `Local child: fixture-zero; terminal stdin/stdout/stderr: [True, True, True]` and `Type return, or press Ctrl+C for an interruption check:` |
+| `return` | "SSH exited with status 0. Machine 1: fixture-zero", with machine 1 still selected |
+| C with the Caps Lock modifier, in a new run | The same child lines; `return` gave the same status line |
+| Q with the Caps Lock modifier | `APP EXIT STATUS: 0` and the `check$` prompt |
+| Shift+Q, in a new run | `APP EXIT STATUS: 0` and the `check$` prompt |
+| Footer | `c Connect o Link a Add e Edit x Delete k Key r Check q Quit` in every screenshot of the browser |
+| Discarded attempt | After wtype had typed, `send_key_state` failed with "key not found" until a real key press. That run's next wtype text, meant for the shell, reached the app: it started the fixture-zero child, ran K and chose "Create a new key", so the real ssh-keygen started for a key in the ignored SSH folder. The window was closed at its passphrase prompt: no key file was written and no SSH command ran |
+| Files | No state file under `examples/` or the ignored folders; the `APPDATA` and SSH folders stayed empty |
+
+Not checked: the physical Caps Lock key (Hyprland sent the Caps Lock modifier
+with each key); letters other than C and Q in a real terminal; Y and N in the
+dialogs; Windows Terminal after the fix; a physical keyboard.
+
 ## Uppercase letters in Ghostty, 2026-10-30
 
 Arch Linux (Omarchy 4.0.6, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 at 80x24
@@ -49,6 +79,10 @@ folders. Uppercase letters were sent as Shift+letter.
 
 Not checked: Caps Lock itself on Linux; the other letters in uppercase; a
 physical keyboard; Windows, which the entry below covers.
+
+Found later the same day (entry above): wtype types a capital without Shift,
+and Ghostty reports it to Textual as Escape with the letter as text, so the
+uppercase rows most likely show Escape, not C or Q.
 
 ## Terminal fixture in Windows Terminal, 2026-10-30
 

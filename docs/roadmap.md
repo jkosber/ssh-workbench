@@ -6,19 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-### 24. Letter keys with Caps Lock
-
-Jadon started this task on 2026-10-30 with the Caps Lock row from the
-Interface backlog.
-
-- [ ] An uppercase letter does what its lowercase letter does wherever a
-  letter is bound: C, U, O, A, E, X, K, R and Q in the browser, Q in the link
-  list, Y and N in the delete and Include questions.
-- [ ] The footer shows each key once, in lowercase, as before.
-- [ ] Capital letters typed into the add and edit forms go into the field and
-  run no action.
-- [ ] Tests first; full checks; changelog and validation; uppercase C and Q in
-  `scripts/check_terminal.py` in Ghostty. No real target is needed.
+No task is in progress.
 
 ## Next
 
@@ -41,7 +29,6 @@ request for later ones. Each needs its own task before work starts.
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
 | Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
-| With Caps Lock on, the letter keys do nothing: every letter binding is lowercase and no uppercase letter matches; seen in Windows Terminal, and uppercase C and Q did nothing in Ghostty on Linux (Caps Lock untried) | [#37](https://github.com/jkosber/ssh-workbench/pull/37), [#38](https://github.com/jkosber/ssh-workbench/pull/38) |
 | When the local `TERM` is terminal-specific (`xterm-ghostty`, `xterm-kitty`), full-screen programs on a host without that terminfo entry may reject it, and Ghostty's shell integration does not apply because Workbench runs `ssh` directly (not observed); a proposal is to run `ssh` with `TERM=xterm-256color` in that case, which `SetEnv TERM=xterm-256color` in the user's SSH config already does | [#36](https://github.com/jkosber/ssh-workbench/pull/36) |
 
 ### Status and aliases
@@ -148,6 +135,7 @@ in the pull request description.
 | - | Manual checks cover Ghostty on Linux; the terminal fixture runs on Linux | [#36](https://github.com/jkosber/ssh-workbench/pull/36) | Unreleased |
 | - | The validation log records the terminal fixture in Windows Terminal | [#37](https://github.com/jkosber/ssh-workbench/pull/37) | Unreleased |
 | - | Eight deferred findings join the backlog; the validation log records uppercase letters in Ghostty | [#38](https://github.com/jkosber/ssh-workbench/pull/38) | Unreleased |
+| 24 | Letter keys work with Caps Lock on or typed as capitals | - | Unreleased |
 
 ## Deferred ideas
 
