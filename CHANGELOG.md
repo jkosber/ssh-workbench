@@ -13,6 +13,11 @@ Changes by release, newest first. Version numbers follow the policy in
   Ghostty on Linux as well as Windows Terminal, and `scripts/check_terminal.py`
   runs on Linux.
 
+### Fixed
+
+- Selecting another machine shows its details from the top at once. Before,
+  the first frame could show them at the previous machine's scroll position.
+
 ## 0.3.3 - 2026-10-24
 
 Key setup follow-ups: a config that names a key by its `.pub` counts as
