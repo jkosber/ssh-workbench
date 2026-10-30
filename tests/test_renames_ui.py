@@ -155,8 +155,9 @@ def allow_connect(monkeypatch: pytest.MonkeyPatch) -> Mock:
     return launcher
 
 
+@pytest.mark.parametrize("key", ["u", "U"])
 async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     machines = (GARDEN, LAB)
     path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
@@ -167,11 +168,14 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
         assert symbols(app) == [State.NOT_FOUND, State.OFFLINE]
         assert field(app, "status") == OFFER
         await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
+        keys = app.query_one(Footer).query("FooterKey")
+        update = [item.render().plain for item in keys if item.action == "update_alias"]
+        assert update == ["u Update"]
         assert "connect" not in footer_actions(app)
         assert checker.resolved == ["new-host"]
         assert checker.checked == [("192.0.2.50", 22)]
 
-        await pilot.press("u")
+        await pilot.press(key)
         await wait_for(pilot, lambda: symbols(app)[:1] == [State.ONLINE])
 
         updated = dataclasses.replace(GARDEN, alias="new-host")

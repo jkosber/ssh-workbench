@@ -172,14 +172,15 @@ async def test_connect_uses_selected_machine_and_restores_focus(
         assert app.return_code == 0
 
 
+@pytest.mark.parametrize("key", ["c", "C"])
 async def test_direct_machine_connect_passes_machine(
-    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str]
+    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str], key: str
 ) -> None:
     launcher = Mock(return_value=9)
     monkeypatch.setattr(app_module, "launch_ssh", launcher)
     app = SSHWorkbenchApp([DIRECT])
     async with app.run_test() as pilot:
-        await pilot.press("c")
+        await pilot.press(key)
         launcher.assert_called_once_with(DIRECT)
         assert suspend_events == ["suspend", "resume"]
         assert connection_status(app) == (
@@ -187,6 +188,14 @@ async def test_direct_machine_connect_passes_machine(
             "machine's settings; C retries. Machine 1: agent-box"
         )
         await pilot.press("q")
+
+
+async def test_uppercase_q_quits_like_q() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("Q")
+        assert not app.is_running
+        assert app.return_code == 0
 
 
 @pytest.mark.parametrize(

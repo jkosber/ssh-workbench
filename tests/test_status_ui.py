@@ -120,13 +120,14 @@ async def test_startup_shows_checking_then_each_result() -> None:
         hold.set()
 
 
-async def test_refresh_resolves_aliases_again() -> None:
+@pytest.mark.parametrize("key", ["r", "R"])
+async def test_refresh_resolves_aliases_again(key: str) -> None:
     checker = FakeChecker()
     app = SSHWorkbenchApp(MACHINES, checker=checker)
     async with app.run_test() as pilot:
         await checked(app, pilot)
         assert checker.resolved.count("garden-host") == 1
-        await pilot.press("r")
+        await pilot.press(key)
         await wait_for(pilot, lambda: checker.resolved.count("garden-host") == 2)
         await checked(app, pilot)
         assert symbols(app)[0] is State.ONLINE

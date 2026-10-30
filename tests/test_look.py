@@ -246,6 +246,23 @@ async def test_short_or_narrow_terminals_hide_the_help_line(
         assert pane.region.height >= 5
 
 
+async def test_the_footer_shows_each_letter_key_once_in_lowercase() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        footer = app.query_one(Footer)
+        await wait_for(pilot, lambda: len(footer.query("FooterKey")) == 8)
+        assert [key.render().plain for key in footer.query("FooterKey")] == [
+            "c Connect",
+            "o Link",
+            "a Add",
+            "e Edit",
+            "x Delete",
+            "k Key",
+            "r Check",
+            "q Quit",
+        ]
+
+
 @pytest.mark.parametrize(
     ("size", "rows"), [((40, 16), 2), ((50, 20), 2), ((60, 20), 1)]
 )
