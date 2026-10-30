@@ -31,18 +31,27 @@ Not checked: what was left out, and why.
 ## Task 24: details reset before the next frame, 2026-10-30
 
 Arch Linux, Python 3.14.8, Textual 8.2.8, headless pilot only: no terminal,
-no SSH, no browser. The flaky test's fictional machines. The slow-runner
-emulation used two pytest plugins kept outside the repository: one rounds the
-process time that `textual._wait.wait_for_idle` reads down to 15.625 ms
-steps, and one adds a delay to every Textual timer sleep.
+no SSH, no browser. Fictional machines: the flaky test's, and for the trace a
+second machine with a long link. The slow-runner emulation used two pytest
+plugins kept outside the repository: one rounds the process time that
+`textual._wait.wait_for_idle` reads down to 15.625 ms steps, and one adds a
+delay to every Textual timer sleep. Each run of
+`test_return_preserves_scroll_and_literal_details` covers its 3 sizes. The
+plain and 20 ms runs ran one revision after the other; the 30 ms runs
+alternated between the revisions run by run, from two worktrees, with
+nothing else running.
 
-| Check | Branch | `main` |
+| Check | Branch at `2448e3b` | `main` at `5f57ad3` |
 | --- | --- | --- |
-| Down from a long machine scrolled to its bottom to another long machine, 80x24, traced | The handler scrolled the pane to 0; the first frame showing the new machine was at the top | The handler left the pane at 67; the first frame showing the new machine was at 9, its bottom; the pane reached 0 one frame later, 86 ms after the handler |
-| `test_return_preserves_scroll_and_literal_details`, 20 runs | 20 passed | 20 passed |
-| The same, emulated with 20 ms late timers | 20 passed | 8 failed, all at the scroll check after Down (`assert 67 == 0` twice, `assert 22 == 0` six times) |
-| The same, emulated with 30 ms late timers | 20 passed | 10 failed, with 15 failing cases: 8 at the scroll check after Down, 7 at `scroll_y > 0` after End |
-| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1125 passed | Not run |
+| Down from a long machine scrolled to its bottom to the machine with a long link, 80x24, traced | The handler scrolled the pane to 0; the first frame showing the new machine was at the top | The handler left the pane at 67; the first frame showing the new machine was at 9, its bottom; the pane reached 0 one frame later, 86 ms after the handler |
+| `test_return_preserves_scroll_and_literal_details` | 20 runs of 3 sizes: all passed | 20 runs of 3 sizes: all passed |
+| The same, emulated with 20 ms late timers | 20 runs of 3 sizes: all passed | 8 of 20 runs failed, each at the check after Down (line 371): `assert 67 == 0` twice, `assert 22 == 0` six times |
+| The same, emulated with 30 ms late timers, interleaved | 5 of 20 runs failed, 6 of 60 cases, all at the check after End (line 363, `assert 0.0 > 0`); none at the check after Down | 15 of 20 runs failed, 17 of 60 cases: 5 at the check after Down (line 371), 12 at the check after End (line 363) |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed at the branch head; 1125 passed | Not run |
+
+With the fix, the Down failure (line 371, the one CI saw) is gone in every
+emulated run. The End check (line 363) still fails on the branch at 30 ms:
+End's scroll is Textual's own and this task leaves it alone.
 
 Not checked: a Windows runner or machine, where the emulated delays are
 assumed rather than measured; a native run in Ghostty, where the one-frame
