@@ -6,7 +6,21 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+### 24. Details reset before the next frame
+
+Jadon started this task on 2026-10-30 with the Tests and tooling row about
+`test_return_preserves_scroll_and_literal_details`, which cold Windows
+runners failed twice.
+
+- [ ] Selecting another machine moves the details pane to the top while the
+  selection is handled, not after the next screen refresh, so the first
+  frame that shows the new machine shows its top.
+- [ ] A test that fails on `main` shows the reset is complete when the
+  selection handler returns.
+- [ ] `test_return_preserves_scroll_and_literal_details` keeps every
+  assertion and gets no added wait; 20 looped runs pass, as do 20 runs under
+  an emulation of a slow Windows runner that fails it on `main`.
+- [ ] Tests first; full checks; docs and changelog; a fresh review.
 
 ## Next
 
