@@ -92,9 +92,10 @@ A run on `examples/machines.example.toml` writes
 `examples/machines.example.state.<computer>.json` beside it, which
 `.gitignore` covers (`*.state.*.json`).
 
-The fixture scripts below replace SSH, `ssh-keygen` and the browser with local
-stand-ins, so they never connect anywhere or open a page. A check against a
-real SSH target or a real URL needs Jadon's approval for that target by name.
+Each fixture script replaces the boundary it checks: `check_terminal.py`
+Connect's SSH, `check_links.py` the browser, `check_keys.py` `ssh-keygen` and
+SSH. A check against a real SSH target or a real URL needs Jadon's approval
+for that target by name.
 
 ### App smoke check
 
@@ -123,6 +124,12 @@ uv run --locked python scripts/check_terminal.py
 ```
 
 Each fictional machine runs a local child instead of SSH.
+
+Do not press K here. This fixture does not replace key setup, so K then Enter
+starts the real `ssh-keygen` and then real SSH to the fictional alias;
+`check_keys.py` covers K. Send one key at a time and wait for the screen: keys
+typed while C hands over the terminal can run as shortcuts when the child
+exits.
 
 1. **Normal exit (0)**: press C. The child reports that stdin, stdout and
    stderr are all a terminal, and echoes what you type. Type `return`: status

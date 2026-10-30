@@ -17,7 +17,7 @@ Changes by release, newest first. Version numbers follow the policy in
 
 - Letter keys work with Caps Lock on or typed as capitals: C connects, Q
   quits, Y and N answer the delete and Include questions, and so on for every
-  letter. The footer still shows them in lowercase.
+  letter shortcut. The footer still shows them in lowercase.
 
 ## 0.3.3 - 2026-10-24
 

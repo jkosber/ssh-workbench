@@ -51,12 +51,13 @@ through wtype or `send_key_state`.
 | Q with the Caps Lock modifier | `APP EXIT STATUS: 0` and the `check$` prompt |
 | Shift+Q, in a new run | `APP EXIT STATUS: 0` and the `check$` prompt |
 | Footer | `c Connect o Link a Add e Edit x Delete k Key r Check q Quit` in every screenshot of the browser |
-| Discarded attempt | After wtype had typed, `send_key_state` failed with "key not found" until a real key press. That run's next wtype text, meant for the shell, reached the app: it started the fixture-zero child, ran K and chose "Create a new key", so the real ssh-keygen started for a key in the ignored SSH folder. The window was closed at its passphrase prompt: no key file was written and no SSH command ran |
+| Discarded attempt | After wtype had typed, `send_key_state` failed with "key not found" until a real key press, and the next wtype text, meant for the shell, reached the app. Its `c` started the fixture-zero child; a `k` the app had read before the handoff ran K once the child returned; a later Return chose "Create a new key". `check_terminal.py` does not replace key setup, so the real ssh-keygen started for a key in the ignored SSH folder, which the native-check rules forbid. The window was closed at its passphrase prompt: no key file was written, no SSH command ran and no process was left |
 | Files | No state file under `examples/` or the ignored folders; the `APPDATA` and SSH folders stayed empty |
 
 Not checked: the physical Caps Lock key (Hyprland sent the Caps Lock modifier
 with each key); letters other than C and Q in a real terminal; Y and N in the
-dialogs; Windows Terminal after the fix; a physical keyboard.
+dialogs; capitals typed into the add and edit forms in a real terminal (tests
+only); Windows Terminal after the fix; a physical keyboard.
 
 ## Uppercase letters in Ghostty, 2026-10-30
 
@@ -80,9 +81,10 @@ folders. Uppercase letters were sent as Shift+letter.
 Not checked: Caps Lock itself on Linux; the other letters in uppercase; a
 physical keyboard; Windows, which the entry below covers.
 
-Found later the same day (entry above): wtype types a capital without Shift,
-and Ghostty reports it to Textual as Escape with the letter as text, so the
-uppercase rows most likely show Escape, not C or Q.
+Found later the same day (entry above): the sentence "Uppercase letters were
+sent as Shift+letter" is wrong. wtype types a capital without Shift, and in
+this setup Ghostty reports it to Textual as Escape with the letter as text, so
+these rows do not show what uppercase C or Q did.
 
 ## Terminal fixture in Windows Terminal, 2026-10-30
 
