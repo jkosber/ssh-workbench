@@ -27,6 +27,11 @@ uv run --locked python scripts/check_package.py
 | `uv build` | A source archive and a wheel build under `dist/` | Read the build error; the backend is `uv_build` |
 | `check_package.py` | The built wheel installs and works outside the checkout | See below |
 
+The Windows key-install script's tests (`tests/test_keys.py`) run that script
+with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without one.
+GitHub's Ubuntu and Windows runners have PowerShell, so a Linux machine needs
+PowerShell 7 installed to run the whole suite.
+
 The package check installs the wheel with the locked runtime dependencies in
 a temporary environment. It compiles the dependencies to bytecode, so no timed
 step spends its limit compiling Textual, but not the wheel, so a
@@ -58,8 +63,17 @@ reach a real host or browser.
 
 ## Manual checks in a real terminal
 
-Run these in Microsoft Windows Terminal. Before a manual run, point Workbench
-at ignored folders so it cannot touch your real files:
+Run these in a real terminal: Ghostty on Linux or Microsoft Windows Terminal
+on Windows, the two the validation log records. Before a manual run, point
+Workbench at ignored folders so it cannot touch your real files. In bash:
+
+```bash
+export APPDATA="$PWD/.local/manual/appdata"
+export XDG_CONFIG_HOME="$PWD/.local/manual/xdg"
+export SSH_WORKBENCH_SSH_DIR="$PWD/.local/manual/ssh"
+```
+
+In PowerShell:
 
 ```powershell
 $env:APPDATA = "$PWD\.local\manual\appdata"
@@ -71,6 +85,9 @@ Without `--config`, `uv run --locked ssh-workbench` loads, and A, E, X and U
 can change, your real machine file. Any run with alias machines also writes a
 state file next to the machine file, runs `ssh -G` on the SSH config and
 checks every machine's port, the example file's fictional names included.
+A run on `examples/machines.example.toml` writes
+`examples/machines.example.state.<computer>.json` beside it, which
+`.gitignore` covers (`*.state.*.json`).
 
 The fixture scripts below replace SSH, `ssh-keygen` and the browser with local
 stand-ins, so they never connect anywhere or open a page. A check against a
@@ -91,8 +108,10 @@ Resize while it runs: under 60 columns the list moves above the details and
 the footer wraps onto two rows; at 110 columns or more each row shows where
 it connects; under 20 rows the help line hides. Resize once with a form open
 (E, then Escape): the browser behind it follows. Windows Terminal will not go
-narrower than about 47 columns. If everything is grey, the shell has
-`NO_COLOR` set (coding agents set it); `Remove-Item Env:NO_COLOR` first.
+narrower than about 47 columns (Ghostty: see the validation log). If
+everything is grey, the shell has `NO_COLOR` set (coding agents set it);
+clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR`
+in PowerShell.
 
 ### Terminal handoff: `scripts/check_terminal.py`
 
