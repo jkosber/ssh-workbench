@@ -406,13 +406,11 @@ at a time, and Q still quits while it waits.
 | Y / N | When deleting: delete / keep |
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
-Letter keys work in either case, so Caps Lock and Shift make no difference;
-the footer shows them in lowercase.
+Letter keys work in either case, so Caps Lock and Shift make no difference.
 
-C, O, A, E, X, K, R and Q also appear in the footer and can be clicked; O is
-labelled Link and R Check there. Under 60 columns the footer shows them on
-two rows. Keys that can't act right now are dimmed or
-hidden:
+C, O, A, E, X, K, R and Q also appear in the footer, in lowercase, and can be
+clicked; O is labelled Link and R Check there. Under 60 columns the footer
+shows them on two rows. Keys that can't act right now are dimmed or hidden:
 
 | Key | Dimmed or hidden when |
 | --- | --- |

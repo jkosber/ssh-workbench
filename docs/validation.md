@@ -28,10 +28,10 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
-## Uppercase letters after the fix, in Ghostty, 2026-10-30
+## Task 24: uppercase letter keys, 2026-10-30
 
 Arch Linux (Omarchy 4.0.6, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 at 80x24
-(the wrapper printed `TERM=xterm-ghostty size=80x24`), uv 0.13.4, Python
+(a wrapper script printed `TERM=xterm-ghostty size=80x24`), uv 0.13.4, Python
 3.14.8, Textual 8.2.8, `fix/caps-lock-letters` at `18db80d`. At Jadon's
 request, a coding agent drove `scripts/check_terminal.py` and took screenshots
 with grim. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
@@ -54,10 +54,10 @@ through wtype or `send_key_state`.
 | Discarded attempt | After wtype had typed, `send_key_state` failed with "key not found" until a real key press, and the next wtype text, meant for the shell, reached the app. Its `c` started the fixture-zero child; a `k` the app had read before the handoff ran K once the child returned; a later Return chose "Create a new key". `check_terminal.py` does not replace key setup, so the real ssh-keygen started for a key in the ignored SSH folder, which the native-check rules forbid. The window was closed at its passphrase prompt: no key file was written, no SSH command ran and no process was left |
 | Files | No state file under `examples/` or the ignored folders; the `APPDATA` and SSH folders stayed empty |
 
-Not checked: the physical Caps Lock key (Hyprland sent the Caps Lock modifier
-with each key); letters other than C and Q in a real terminal; Y and N in the
-dialogs; capitals typed into the add and edit forms in a real terminal (tests
-only); Windows Terminal after the fix; a physical keyboard.
+Not checked: a physical keyboard, its Caps Lock key included (Hyprland sent
+the Caps Lock modifier with each key); in a real terminal, letters other than
+C and Q, Y and N in the dialogs among them, and capitals typed into the add
+and edit forms (tests cover these); Windows Terminal after the fix.
 
 ## Uppercase letters in Ghostty, 2026-10-30
 
@@ -84,7 +84,7 @@ physical keyboard; Windows, which the entry below covers.
 Found later the same day (entry above): the sentence "Uppercase letters were
 sent as Shift+letter" is wrong. wtype types a capital without Shift, and in
 this setup Ghostty reports it to Textual as Escape with the letter as text, so
-these rows do not show what uppercase C or Q did.
+the first two rows do not show what uppercase C or Q did.
 
 ## Terminal fixture in Windows Terminal, 2026-10-30
 

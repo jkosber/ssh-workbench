@@ -92,10 +92,10 @@ A run on `examples/machines.example.toml` writes
 `examples/machines.example.state.<computer>.json` beside it, which
 `.gitignore` covers (`*.state.*.json`).
 
-Each fixture script replaces the boundary it checks: `check_terminal.py`
-Connect's SSH, `check_links.py` the browser, `check_keys.py` `ssh-keygen` and
-SSH. A check against a real SSH target or a real URL needs Jadon's approval
-for that target by name.
+Each fixture script stands in only for the boundary it checks: SSH for
+Connect in `check_terminal.py`, the browser in `check_links.py`, and
+`ssh-keygen` and SSH in `check_keys.py`. A check against a real SSH target or
+a real URL needs Jadon's approval for that target by name.
 
 ### App smoke check
 
