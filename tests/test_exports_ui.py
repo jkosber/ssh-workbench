@@ -98,8 +98,9 @@ async def test_the_export_checkbox_belongs_to_direct_machines(
         assert str(box.label) == "ssh <ID> works in any terminal"
 
 
+@pytest.mark.parametrize("key", ["y", "Y"])
 async def test_saving_an_export_writes_the_file_and_y_adds_the_include(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     folder, path, text = workspace(tmp_path, monkeypatch, (LAB,))
     config = folder / "config"
@@ -115,22 +116,23 @@ async def test_saving_an_export_writes_the_file_and_y_adds_the_include(
         assert str(app.screen.query_one("#include-line", Static).content) == (
             "Include ssh-workbench.config"
         )
-        await pilot.press("y")
+        await pilot.press(key)
         await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmInclude))
         assert connection_status(app) == ADDED.format(path=config)
     assert config.read_bytes() == b"Include ssh-workbench.config\n" + USER_CONFIG
     assert (folder / "config.ssh-workbench.bak").read_bytes() == USER_CONFIG
 
 
+@pytest.mark.parametrize("key", ["n", "N"])
 async def test_n_changes_nothing_and_is_not_asked_again(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     folder, path, text = workspace(tmp_path, monkeypatch, (LAB,))
     app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await add_exported_box(app, pilot)
         await wait_for(pilot, lambda: showing(app, ConfirmInclude))
-        await pilot.press("n")
+        await pilot.press(key)
         await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmInclude))
         assert connection_status(app) == DECLINED
         await pilot.press("e")
@@ -139,37 +141,6 @@ async def test_n_changes_nothing_and_is_not_asked_again(
         await wait_for(pilot, lambda: "Saved machine 2: box." in connection_status(app))
         await pilot.pause()
         assert not isinstance(app.screen, ConfirmInclude)
-    assert (folder / "config").read_bytes() == USER_CONFIG
-    assert not (folder / "config.ssh-workbench.bak").exists()
-
-
-async def test_uppercase_y_adds_the_include_like_y(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    folder, path, text = workspace(tmp_path, monkeypatch, (LAB,))
-    config = folder / "config"
-    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
-    async with app.run_test() as pilot:
-        await add_exported_box(app, pilot)
-        await wait_for(pilot, lambda: showing(app, ConfirmInclude))
-        await pilot.press("Y")
-        await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmInclude))
-        assert connection_status(app) == ADDED.format(path=config)
-    assert config.read_bytes() == b"Include ssh-workbench.config\n" + USER_CONFIG
-    assert (folder / "config.ssh-workbench.bak").read_bytes() == USER_CONFIG
-
-
-async def test_uppercase_n_changes_nothing_like_n(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    folder, path, text = workspace(tmp_path, monkeypatch, (LAB,))
-    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
-    async with app.run_test() as pilot:
-        await add_exported_box(app, pilot)
-        await wait_for(pilot, lambda: showing(app, ConfirmInclude))
-        await pilot.press("N")
-        await wait_for(pilot, lambda: not isinstance(app.screen, ConfirmInclude))
-        assert connection_status(app) == DECLINED
     assert (folder / "config").read_bytes() == USER_CONFIG
     assert not (folder / "config.ssh-workbench.bak").exists()
 

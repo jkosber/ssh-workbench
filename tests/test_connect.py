@@ -172,14 +172,15 @@ async def test_connect_uses_selected_machine_and_restores_focus(
         assert app.return_code == 0
 
 
+@pytest.mark.parametrize("key", ["c", "C"])
 async def test_direct_machine_connect_passes_machine(
-    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str]
+    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str], key: str
 ) -> None:
     launcher = Mock(return_value=9)
     monkeypatch.setattr(app_module, "launch_ssh", launcher)
     app = SSHWorkbenchApp([DIRECT])
     async with app.run_test() as pilot:
-        await pilot.press("c")
+        await pilot.press(key)
         launcher.assert_called_once_with(DIRECT)
         assert suspend_events == ["suspend", "resume"]
         assert connection_status(app) == (
@@ -187,23 +188,6 @@ async def test_direct_machine_connect_passes_machine(
             "machine's settings; C retries. Machine 1: agent-box"
         )
         await pilot.press("q")
-
-
-async def test_uppercase_c_connects_like_c(
-    monkeypatch: pytest.MonkeyPatch, suspend_events: list[str]
-) -> None:
-    # Caps Lock, or Shift, makes the terminal send C, which Textual names "C".
-    launcher = Mock(return_value=9)
-    monkeypatch.setattr(app_module, "launch_ssh", launcher)
-    app = SSHWorkbenchApp([DIRECT])
-    async with app.run_test() as pilot:
-        await pilot.press("C")
-        launcher.assert_called_once_with(DIRECT)
-        assert suspend_events == ["suspend", "resume"]
-        assert connection_status(app) == (
-            "SSH exited with status 9. Check the SSH client's message and the "
-            "machine's settings; C retries. Machine 1: agent-box"
-        )
 
 
 async def test_uppercase_q_quits_like_q() -> None:

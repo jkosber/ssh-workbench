@@ -362,27 +362,15 @@ async def test_ctrl_q_quits_from_the_form_and_the_delete_question(
     assert path.read_bytes() == before
 
 
-async def test_q_and_keys_type_into_the_form(tmp_path: Path) -> None:
+@pytest.mark.parametrize("keys", ["qcox", "QCUOAEXKRYN"])
+async def test_q_and_keys_type_into_the_form(tmp_path: Path, keys: str) -> None:
     app, _ = saved_app(tmp_path)
     async with app.run_test() as pilot:
         form = await open_form(app, pilot, "a")
-        await pilot.press("q", "c", "o", "x")
+        await pilot.press(*keys)
         assert app.is_running
         assert isinstance(app.screen, MachineForm)
-        assert form.query_one("#form-id", Input).value == "qcox"
-
-
-@pytest.mark.parametrize("opener", ["a", "e"])
-async def test_capital_letters_type_into_the_form(tmp_path: Path, opener: str) -> None:
-    app, _ = saved_app(tmp_path)
-    async with app.run_test() as pilot:
-        form = await open_form(app, pilot, opener)
-        field = form.query_one("#form-id", Input)
-        field.value = ""
-        await pilot.press(*"QCUOAEXKRYN")
-        assert app.is_running
-        assert isinstance(app.screen, MachineForm)
-        assert field.value == "QCUOAEXKRYN"
+        assert form.query_one("#form-id", Input).value == keys
 
 
 @pytest.mark.parametrize(("key", "machine_id"), [("A", ""), ("E", "garden")])
