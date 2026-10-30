@@ -28,6 +28,28 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Uppercase letters in Ghostty, 2026-10-30
+
+Arch Linux (Omarchy, Hyprland 0.56.2), Ghostty 1.4.0 at 80x24 with
+`TERM=xterm-ghostty`, Python 3.14.8, Textual 8.2.8, `main` at `d0d98b3`. At
+Jadon's request, a coding agent drove `scripts/check_terminal.py`: it sent
+keys with wtype and took screenshots with grim. `NO_COLOR` was unset and
+`APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed at empty
+ignored folders. Uppercase letters were sent as Shift+letter; Caps Lock itself
+was not toggled.
+
+| Check | Observed |
+| --- | --- |
+| Uppercase C on machine 1 | The screen did not change: no child and no status line, and the same machine stayed selected |
+| Uppercase Q | The app did not quit |
+| Lowercase c | The child printed `Local child: fixture-zero; terminal stdin/stdout/stderr: [True, True, True]` and its prompt, `Type return, or press Ctrl+C for an interruption check:` |
+| `return` | "SSH exited with status 0. Machine 1: fixture-zero", with the same machine selected |
+| Lowercase q | `APP EXIT STATUS: 0` and the shell prompt |
+| Delivery | Typing `CQ` at the bash prompt in the same window, without Return, echoed `CQ` |
+
+Not checked: Caps Lock itself on Linux; the other letters in uppercase; a
+physical keyboard; Windows, unchanged from the entry below.
+
 ## Terminal fixture in Windows Terminal, 2026-10-30
 
 Windows 11, Windows Terminal 1.25.2733.0 at 80x24 (read back from the screen)
