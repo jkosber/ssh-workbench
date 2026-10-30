@@ -27,12 +27,6 @@ uv run --locked python scripts/check_package.py
 | `uv build` | A source archive and a wheel build under `dist/` | Read the build error; the backend is `uv_build` |
 | `check_package.py` | The built wheel installs and works outside the checkout | See below |
 
-The Windows key-install script's tests (`tests/test_keys.py`) run or parse
-that script with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without
-one.
-GitHub's Ubuntu and Windows runners have PowerShell, so a Linux machine needs
-PowerShell 7 installed to run the whole suite.
-
 The package check installs the wheel with the locked runtime dependencies in
 a temporary environment. It compiles the dependencies to bytecode, so no timed
 step spends its limit compiling Textual, but not the wheel, so a
@@ -45,6 +39,11 @@ quits, Connect with a substituted SSH (success, failure, launch error,
 interruption), link outcomes, quitting while a browser request hangs, and a
 first save. A build alone proves nothing about SSH or a real terminal; the
 manual checks below do.
+
+The Windows key-install script's tests (`tests/test_keys.py`) run or parse
+that script with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without
+one. GitHub's Ubuntu and Windows runners include PowerShell; on your own Linux
+machine, install PowerShell 7 to run the whole suite.
 
 UI tests use Textual's headless pilot. A test that waits for the screen should
 wait for the condition it asserts, not for a fixed pause.
@@ -65,7 +64,7 @@ reach a real host or browser.
 ## Manual checks in a real terminal
 
 Run these in a real terminal: Ghostty on Linux or Microsoft Windows Terminal
-on Windows, the two the validation log records. Before a manual run, point
+on Windows, the terminals the validation log records. Before a manual run, point
 Workbench at ignored folders so it cannot touch your real files. In bash:
 
 ```bash
@@ -81,6 +80,9 @@ $env:APPDATA = "$PWD\.local\manual\appdata"
 $env:XDG_CONFIG_HOME = "$PWD\.local\manual\xdg"
 $env:SSH_WORKBENCH_SSH_DIR = "$PWD\.local\manual\ssh"
 ```
+
+The variables last until the shell closes, so use a separate shell for
+manual runs.
 
 Without `--config`, `uv run --locked ssh-workbench` loads, and A, E, X and U
 can change, your real machine file. Any run with alias machines also writes a
@@ -109,7 +111,7 @@ Resize while it runs: under 60 columns the list moves above the details and
 the footer wraps onto two rows; at 110 columns or more each row shows where
 it connects; under 20 rows the help line hides. Resize once with a form open
 (E, then Escape): the browser behind it follows. Windows Terminal will not go
-narrower than about 47 columns (Ghostty under Hyprland, 9pt font: about 19).
+narrower than about 47 columns (Ghostty: about 19, see the validation log).
 If everything is grey, the shell has `NO_COLOR` set (coding agents set it);
 clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in
 PowerShell.

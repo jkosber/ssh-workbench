@@ -9,9 +9,9 @@ Changes by release, newest first. Version numbers follow the policy in
 
 - The GitHub repository is public, so installing from it needs no GitHub
   account or invitation.
-- The manual checks and the README now cover Linux (Ghostty) beside Windows
-  Terminal, with links checked on a real Linux desktop, and the terminal
-  fixture script runs on Linux.
+- Opening links is tested on a real Linux desktop. The manual checks cover
+  Ghostty on Linux as well as Windows Terminal, and `scripts/check_terminal.py`
+  runs on Linux.
 
 ## 0.3.3 - 2026-10-24
 

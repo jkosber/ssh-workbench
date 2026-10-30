@@ -21,6 +21,9 @@ uv sync --locked
 uv run --locked ssh-workbench --config examples/machines.example.toml
 ```
 
+On Linux, install PowerShell 7 (`pwsh`) as well, or 12 tests of the Windows
+key-install script fail; see [Testing](docs/testing.md#automated-checks).
+
 | Piece | What it does |
 | --- | --- |
 | `.python-version` | The Python version uv installs into `.venv`; don't change your global Python |
