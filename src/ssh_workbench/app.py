@@ -368,9 +368,9 @@ class SSHWorkbenchApp(App[None]):
     # line hides when narrow or short.
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (60, "-normal"), (110, "-wide")]
     VERTICAL_BREAKPOINTS = [(0, "-short"), (20, "-tall")]
-    # Each letter is bound in both cases: with Caps Lock on, or with Shift, the
-    # terminal sends "C", which a "c" binding does not match. The footer shows
-    # the first key of each action.
+    # Each letter is bound in both cases: with Caps Lock or Shift, Textual names
+    # the key "C", which a "c" binding does not match. The footer shows the
+    # first key, so the lowercase one comes first.
     BINDINGS = [
         Binding("c,C", "connect", "Connect"),
         # Shown only for a machine with a rename offer, which hides Connect.
