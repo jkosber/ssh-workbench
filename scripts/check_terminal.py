@@ -63,8 +63,10 @@ def launch_fixture(machine: Machine) -> int:
             raise OSError("Simulated process start failure")
         if alias == "fixture-keyboard":
             raise KeyboardInterrupt
+        # On Linux the venv's python is a symlink and the resolved path leaves
+        # the venv; on Windows the two are the same file.
         return RUN_CHILD(
-            [executable, str(Path(__file__).resolve()), "--child", alias], **kwargs
+            [sys.executable, str(Path(__file__).resolve()), "--child", alias], **kwargs
         )
 
     # Keep the production validation, signal handling and terminal handoff.
