@@ -27,8 +27,9 @@ uv run --locked python scripts/check_package.py
 | `uv build` | A source archive and a wheel build under `dist/` | Read the build error; the backend is `uv_build` |
 | `check_package.py` | The built wheel installs and works outside the checkout | See below |
 
-The Windows key-install script's tests (`tests/test_keys.py`) run that script
-with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without one.
+The Windows key-install script's tests (`tests/test_keys.py`) run or parse
+that script with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without
+one.
 GitHub's Ubuntu and Windows runners have PowerShell, so a Linux machine needs
 PowerShell 7 installed to run the whole suite.
 
@@ -108,9 +109,10 @@ Resize while it runs: under 60 columns the list moves above the details and
 the footer wraps onto two rows; at 110 columns or more each row shows where
 it connects; under 20 rows the help line hides. Resize once with a form open
 (E, then Escape): the browser behind it follows. Windows Terminal will not go
-narrower than about 47 columns (Ghostty: about 19). If everything is grey,
-the shell has `NO_COLOR` set (coding agents set it); clear it first with
-`unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in PowerShell.
+narrower than about 47 columns (Ghostty under Hyprland, 9pt font: about 19).
+If everything is grey, the shell has `NO_COLOR` set (coding agents set it);
+clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in
+PowerShell.
 
 ### Terminal handoff: `scripts/check_terminal.py`
 

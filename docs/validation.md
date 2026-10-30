@@ -30,13 +30,14 @@ Not checked: what was left out, and why.
 
 ## Linux desktop checks, 2026-10-30
 
-Arch Linux (Omarchy 4.0.6, Hyprland, Wayland), Ghostty 1.4.0, 80x24 at start,
-Python 3.14.8, Textual 8.2.8, PowerShell 7.6.9 for the Windows-script tests.
-A coding agent drove the checks: it sent keys with wtype, set window sizes in
-pixels with Hyprland's resize dispatcher and read grim screenshots. Jadon did
-not watch them. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
-`SSH_WORKBENCH_SSH_DIR` pointed at empty ignored folders. The fixtures ran in
-a second window at 83x24.
+Arch Linux (Omarchy 4.0.6, Hyprland, Wayland), Ghostty 1.4.0 with JetBrainsMono
+Nerd Font at 9pt, 77x24 (Ghostty's answer to an 80x24 request; the fixtures
+ran in a second window at 83x24), uv 0.13.4, Python 3.14.8, Textual 8.2.8,
+PowerShell 7.6.9 for the Windows-script tests. A coding agent drove the checks
+at Jadon's request: it sent keys with wtype, set window sizes in pixels with
+Hyprland's resize dispatcher and read grim screenshots. Jadon did not watch
+them. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at empty ignored folders.
 
 | Check | Observed |
 | --- | --- |
@@ -45,17 +46,17 @@ a second window at 83x24.
 | `scripts/check_shells.py` piped to `sh -s`, locally | bash PASS; dash, zsh, fish and tcsh are not installed, so it exited 1 |
 | Smoke check on `examples/machines.example.toml` | Ghostty opened the 80x24 request at 77 columns (`stty size` answered 24 77). The list, details and footer drew. Garden demo read "Can't check: SSH could not resolve the alias" (the SSH folder is empty); Studio box read Offline. With Up, Down, Tab, Page Up and Page Down the selection and details followed, and Tab moved focus to the details pane; R showed Checking, then Offline and Can't check. The run wrote `examples/machines.example.state.<computer>.json` beside the example file |
 | Quit | Q gave back the shell prompt, `echo hello` echoed, Up recalled the line and the app's status was 0. Ctrl+Q on a second run gave back the prompt and `stty size` answered 24 77 |
-| Resizes, set in pixels | At 56 and 59 columns the list moved above the details, the footer took two rows and the header counts shortened to "2 ◯1 ◇1". At 111 columns each list row showed where it connects ("garden-demo-host", "studio-box.example…"). At 19 rows the help line hid and the footer stayed. E open, a resize to 56 columns, then Escape: the browser behind the form had the narrow layout when the form closed |
+| Resizes, set in pixels | At 56 and 59 columns the list moved above the details, the footer took two rows and the header counts shortened to "2  ○1 ◇1". At 111 columns each list row showed where it connects ("garden-demo-host", "studio-box.example…"). At 19 rows the help line hid and the footer stayed. E open, a resize to 56 columns, then Escape: the browser behind the form had the narrow layout when the form closed |
 | Ghostty's narrowest window | About 19 columns (139 logical px wide); the shell kept working |
 | `scripts/check_links.py` 1 | Accepted, from the list and from the details: "[b]Only[/b] link browser request accepted. Machine 1: fixture-accepted", with `[b]` kept as text. Failed and error both read "browser request failed. Check the environment's browser setup and retry." with no private marker. The long message wrapped inside the details pane and the status area |
-| `check_links.py` 2 to 4 | No links: "o Link" dimmed in the footer and O changed nothing. Picker: O opened "Open a link" with both links; Enter opened the first, Down then Enter the second; Escape closed it with the same selection and focus. Blocked: a second O read "browser request still pending. Wait or Q to quit."; Up and Tab worked; Q exited at once, status 0 |
+| `check_links.py` 2 to 4 | No links: "o Link" dimmed in the footer and O changed nothing. Picker: O opened "Open a link" with both links; Enter opened the first, Down then Enter the second; Escape closed it with the same selection and focus. Blocked: O read pending; a second O read "browser request still pending. Wait or Q to quit."; Up and Tab worked; Q exited at once, status 0 |
 | `scripts/check_keys.py` | K on Box listed id_a.pub, id_lab.pub and "Create a new key: id_ed25519_box", then offered Linux/macOS/POSIX or Windows as the target system. With every step at status 0, the keygen, install (the POSIX command, 564 characters) and test children each took `return`; the result read "Key login works. The key is saved as this machine's key." and the Key field showed the working folder's `ssh/id_ed25519_box` |
 | `check_keys.py --test-status 255` | "The key was installed, but key-only login failed (SSH exited with status 255). The key was not saved as this machine's key."; Key stayed Not set |
 | `check_keys.py`, Ctrl+C at the install child | "Key setup interrupted during the install; login was not tested."; no test child ran. Q gave back the shell prompt after each of the three runs |
 | `scripts/check_terminal.py` as on `main` | Every C read "SSH exited with status 1". `.venv/bin/python` is a symlink on Linux and the fixture resolved it, so the child ran under `/usr/bin/python3.14` and could not import `ssh_workbench`. The fix starts the child with `sys.executable` |
 | `check_terminal.py` 1 to 3, after the fix | 1: after C the child printed `terminal stdin/stdout/stderr: [True, True, True]` and echoed input; `return` gave "SSH exited with status 0. Machine 1: fixture-zero", the same machine selected, the list focused, Up and Down working. 2: Tab, C, `return` gave "SSH exited with status 7. Check the SSH client's message and alias; C retries. Machine 2: fixture-seven", and Down then changed the selection. 3: Ctrl+C gave "SSH exited with status 130 ... Machine 3: fixture-interrupt" |
 | `check_terminal.py` 4 to 6, after the fix | 4: at each of two Ctrl+C the child printed "Child still owns the terminal; type return to finish." and it echoed `still-here`; `return` gave status 0 for machine 4. 5: each simulated entry, pressed twice, kept the selection: "SSH not found. Install OpenSSH and add it to PATH. Machine 5"; "Could not start SSH. Check its installation and executable permissions. Machine 6"; "SSH interrupted. Press C to retry or Q to quit. Machine 7". 6: after Q, and after Ctrl+Q on a second run, the shell prompt came back, `stty size` answered and `echo` printed |
-| Real link, a URL Jadon approved: O on an ignored copy of the example file whose Documentation link is `https://example.com/` | The status read "Documentation browser request accepted."; Chromium, the desktop's default browser, opened a new window titled "Example Domain" on the same workspace, showing example.com |
+| Real link, a URL Jadon approved by name on 2026-10-30: O on an ignored copy of the example file whose Documentation link is `https://example.com/` | The status read "Documentation browser request accepted."; Chromium, the desktop's default browser, opened a new window titled "Example Domain" on the same workspace, showing example.com |
 
 Not checked: real SSH targets (none approved); `check_shells.py` beyond bash
 (dash, zsh, fish and tcsh are not installed); macOS; Windows Terminal, which
