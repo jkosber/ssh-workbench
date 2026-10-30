@@ -19,7 +19,7 @@ Changes by release, newest first. Version numbers follow the policy in
   lowercase key does, Y and N in the delete and Include questions included.
   The footer still shows them in lowercase.
 - Selecting another machine shows its details from the top at once. Before,
-  the first frame could show them at the previous machine's scroll position.
+  the first frame could show them scrolled down, as the previous machine was.
 
 ## 0.3.3 - 2026-10-24
 

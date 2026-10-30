@@ -87,7 +87,7 @@ request for later ones. Each needs its own task before work starts.
 | The package check catches a `SyntaxWarning` only in the modules `--help` loads (`ssh_workbench`, `cli`, `config`); one elsewhere, such as `app.py`, passes because the `loader` child compiles it first and that child's stderr is unchecked; check that stderr, or add Ruff's `W605` (invalid escapes) to `select` | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
 | `test_package_check_precompiles_dependencies_but_not_the_wheel` keeps only the last `uv pip sync` call and the last `uv pip install` call it finds; earlier calls of either kind go unchecked | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
 | `scripts/check_terminal.py` replaces only Connect: K reaches the real `ssh-keygen` and then SSH through the real SSH config, although the script's docstring says it never invokes SSH; a discarded manual run started ssh-keygen this way | 24 |
-| `test_return_preserves_scroll_and_literal_details` still needs End's scroll, which Textual runs after the next screen refresh, to land before `wait_for_scheduled_animations` returns. In [Task 24's emulation](validation.md#task-24-details-reset-before-the-next-frame-2026-10-30) with 30 ms late timers, `main` failed there in 7 of 60 cases, and a trace showed End's scroll starting after the press returned; the branch passed all 60 | 24 |
+| `test_return_preserves_scroll_and_literal_details` needs End's scroll, which Textual defers to the next refresh and then animates for 1 s, to start before `wait_for_scheduled_animations` checks the animator; when it starts later, `scroll_y` is still 0. In [Task 24's emulation](validation.md#task-24-details-reset-before-the-next-frame-2026-10-30) with 30 ms late timers it failed there in 6 of 60 cases on the branch and 12 of 60 on `main` | 24 |
 
 ## Done
 
@@ -138,7 +138,7 @@ in the pull request description.
 | - | The validation log records the terminal fixture in Windows Terminal | [#37](https://github.com/jkosber/ssh-workbench/pull/37) | Unreleased |
 | - | Eight deferred findings join the backlog; the validation log records uppercase letters in Ghostty | [#38](https://github.com/jkosber/ssh-workbench/pull/38) | Unreleased |
 | 24 | Letter keys work with Caps Lock on or typed as capitals | [#39](https://github.com/jkosber/ssh-workbench/pull/39) | Unreleased |
-| 24 | Details reset before the next frame, which steadies the scroll test that cold Windows runners failed | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | Unreleased |
+| 24 | Details reset before the next frame; the scroll test's check after Down no longer waits on a refresh | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | Unreleased |
 
 ## Deferred ideas
 
