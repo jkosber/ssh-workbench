@@ -43,7 +43,7 @@ no browser.
 
 | Check | Observed |
 | --- | --- |
-| Installed tool | `uv tool install --reinstall` of the wheel into the ignored folders ended with `Installed 1 executable: ssh-workbench`; that executable's `--version` printed `ssh-workbench 0.3.4`, while the `ssh-workbench` on `PATH` still printed `ssh-workbench 0.3.3` |
+| Installed tool | `uv tool install --reinstall` of the wheel into the ignored folders ended with `Installed 1 executable: ssh-workbench`; that executable's `--version` printed `ssh-workbench 0.3.4`, while the `ssh-workbench` on `PATH` still printed `ssh-workbench 0.3.3`; every row below ran that executable with `--config` on the copied machine file |
 | 80x24 | The header read `2 machines   ◐ 1 checking   ◇ 1 can't check`, then `○ 1 offline` once the check finished; Garden demo read `◇ Can't check: SSH could not resolve the alias` (the empty SSH folder has no config file), with the help line and the footer's eight keys in lowercase. Down showed Studio box's details (`○ Offline`, both addresses, port 2222) and Up Garden demo's again; Tab moved the focus border to the details; Page Down and Page Up left the details as they were, as they fit without scrolling; R showed `◐ 1 checking` again |
 | 50x24 | The list above the details, the header as symbols (`2  ○1 ◇1`), the footer on two rows, the help line hidden, the details with a scrollbar |
 | 120x30 | Each row showed its alias or address on the right |
@@ -53,8 +53,10 @@ no browser.
 | Files | A state file beside the copied machine file in the ignored folder; nothing under `examples/`; the `APPDATA` and SSH folders stayed empty |
 | Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1141 passed |
 
-Not checked: Windows Terminal and macOS; Caps Lock and capitals in this run
-(Task 24's entry covers them); the install from the tag, which needs the tag.
+Not checked: Windows Terminal and macOS; scrolling the details, which fit at
+80x24, and with it Task 25's reset on a new selection; Caps Lock and capitals
+in this run (Task 24's entry covers C and Q); the install from the tag, which
+needs the tag.
 
 ## Task 25: details reset before the next frame, 2026-10-30
 
