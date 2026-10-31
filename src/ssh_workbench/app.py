@@ -760,7 +760,11 @@ class SSHWorkbenchApp(App[None]):
         self.query_one("#machine-target-label", Static).update(
             "Addresses" if direct else "SSH alias"
         )
-        self.query_one("#machine-details", VerticalScroll).scroll_home(animate=False)
+        # Immediate, or Textual scrolls only after the next refresh, whose frame
+        # would show the new machine still scrolled down.
+        self.query_one("#machine-details", VerticalScroll).scroll_home(
+            animate=False, immediate=True
+        )
 
     def _status_of(self, machine: Machine) -> MachineStatus:
         default = State.NOT_CHECKED if self.checker is None else State.CHECKING
