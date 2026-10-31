@@ -28,6 +28,34 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Release 0.3.4, 2026-10-31
+
+Arch Linux (Omarchy, Hyprland, Wayland), Ghostty at 80x24 (a wrapper script
+printed `TERM=xterm-ghostty size=80x24`), Python 3.14.8, Textual 8.2.8. The
+built wheel installed as a tool into ignored folders (`UV_TOOL_DIR`,
+`UV_TOOL_BIN_DIR`), with the install output kept, leaving Jadon's installed
+0.3.3 alone. At Jadon's request, a coding agent drove a floating Ghostty
+window with wtype and Hyprland's window dispatchers and took screenshots with
+grim. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at ignored folders with no Workbench files; a
+copy of the example machine file in an ignored folder. No SSH connection and
+no browser.
+
+| Check | Observed |
+| --- | --- |
+| Installed tool | `uv tool install --reinstall` of the wheel into the ignored folders ended with `Installed 1 executable: ssh-workbench`; that executable's `--version` printed `ssh-workbench 0.3.4`, while the `ssh-workbench` on `PATH` still printed `ssh-workbench 0.3.3` |
+| 80x24 | The header read `2 machines   ◐ 1 checking   ◇ 1 can't check`, then `○ 1 offline` once the check finished; Garden demo read `◇ Can't check: SSH could not resolve the alias` (the empty SSH folder has no config file), with the help line and the footer's eight keys in lowercase. Down showed Studio box's details (`○ Offline`, both addresses, port 2222) and Up Garden demo's again; Tab moved the focus border to the details; Page Down and Page Up left the details as they were, as they fit without scrolling; R showed `◐ 1 checking` again |
+| 50x24 | The list above the details, the header as symbols (`2  ○1 ◇1`), the footer on two rows, the help line hidden, the details with a scrollbar |
+| 120x30 | Each row showed its alias or address on the right |
+| 80x18 | Side by side, the help line hidden |
+| Form during a resize | E at 80x24, then 52x22: the edit form stayed open over the browser, with its ID and Name fields and the Save and Cancel buttons; after Escape, the browser was stacked with the footer on two rows |
+| Quit | Q and, in a second run, Ctrl+Q exited with status 0 and returned to a prompt that echoed `echo typed-ok` and printed `typed-ok` |
+| Files | A state file beside the copied machine file in the ignored folder; nothing under `examples/`; the `APPDATA` and SSH folders stayed empty |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1141 passed |
+
+Not checked: Windows Terminal and macOS; Caps Lock and capitals in this run
+(Task 24's entry covers them); the install from the tag, which needs the tag.
+
 ## Task 25: details reset before the next frame, 2026-10-30
 
 Arch Linux, Python 3.14.8, Textual 8.2.8, headless pilot only: no terminal, no
