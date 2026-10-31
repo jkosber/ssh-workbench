@@ -80,13 +80,13 @@ request for later ones. Each needs its own task before work starts.
 | The 60x20 many-links picker test does not press Escape; the 80x24 test covers Escape restoring selection and focus | 8 |
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
-| `test_return_preserves_scroll_and_literal_details` checks the scroll right after a key press; cold Windows runners failed it twice (PRs #27 and #38) | 21 |
 | `test_windows_install_script_has_no_comment_lines` checks only lines that start with `#`, so it misses PowerShell `<# #>` block comments and trailing `#` comments | 23 |
 | The release checklist does not ask to keep the output of step 6's `uv tool install`; the 0.3.3 evidence starts at `ssh-workbench --version` | 0.3.3 release |
 | `test_ci_runs_once_for_a_push_to_a_pull_request` fails on harmless edits to the trigger block; a blank line inside the block ends the match early, so the failure reports missing lines | [#33](https://github.com/jkosber/ssh-workbench/pull/33) |
 | `docs/testing.md` and `docs/workflow.md` say CI runs for every pull request; GitHub skips a pull request with a merge conflict | [#33](https://github.com/jkosber/ssh-workbench/pull/33) |
 | The package check catches a `SyntaxWarning` only in the modules `--help` loads (`ssh_workbench`, `cli`, `config`); one elsewhere, such as `app.py`, passes because the `loader` child compiles it first and that child's stderr is unchecked; check that stderr, or add Ruff's `W605` (invalid escapes) to `select` | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
 | `test_package_check_precompiles_dependencies_but_not_the_wheel` keeps only the last `uv pip sync` call and the last `uv pip install` call it finds; earlier calls of either kind go unchecked | [#35](https://github.com/jkosber/ssh-workbench/pull/35) |
+| `test_return_preserves_scroll_and_literal_details` can check End's scroll before it starts: Textual defers it to the next refresh, `wait_for_scheduled_animations` then finds no animation to wait for, and `scroll_y` is still 0. [Task 24's emulation](validation.md#task-24-details-reset-before-the-next-frame-2026-10-30) with 30 ms late timers failed there in 6 of 60 cases with the fix and 12 of 60 before it | 24 |
 
 ## Done
 
@@ -136,6 +136,7 @@ in the pull request description.
 | - | Manual checks cover Ghostty on Linux; the terminal fixture runs on Linux | [#36](https://github.com/jkosber/ssh-workbench/pull/36) | Unreleased |
 | - | The validation log records the terminal fixture in Windows Terminal | [#37](https://github.com/jkosber/ssh-workbench/pull/37) | Unreleased |
 | - | Eight deferred findings join the backlog; the validation log records uppercase letters in Ghostty | [#38](https://github.com/jkosber/ssh-workbench/pull/38) | Unreleased |
+| 24 | Details reset before the next frame, so the scroll test's check after Down no longer depends on a refresh | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | Unreleased |
 
 ## Deferred ideas
 

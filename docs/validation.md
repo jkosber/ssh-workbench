@@ -28,6 +28,36 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 24: details reset before the next frame, 2026-10-30
+
+Arch Linux, Python 3.14.8, Textual 8.2.8, headless pilot only: no terminal, no
+SSH, no browser. Fictional machines: those of
+`test_return_preserves_scroll_and_literal_details`, and for the trace a second
+machine with a long link. One run of that test covers its 3 sizes, so 20 runs
+are 60 cases. Two pytest plugins kept outside the repository emulated a slow
+Windows runner: one rounds the process time that `textual._wait.wait_for_idle`
+reads down to 15.625 ms steps, as Windows counts it, and one makes every
+Textual timer sleep 20 or 30 ms late. The plain and 20 ms runs were not
+interleaved; the 30 ms runs alternated between the branch and `main` run by
+run, from two worktrees with nothing else running, so both met the same load.
+
+| Check | Branch at `2448e3b` | `main` at `5f57ad3` |
+| --- | --- | --- |
+| Traced at 80x24: Down from the long machine, scrolled to its bottom, to the machine with a long link | The handler scrolled the pane to 0; the first frame showing the new machine was at the top | The handler left the pane at 67; the first frame showing the new machine was at 9, its bottom; the pane reached 0 one frame later, 86 ms after the handler returned |
+| `test_return_preserves_scroll_and_literal_details` | All 20 runs passed | All 20 runs passed |
+| The same, emulated with 20 ms late timers | All 20 runs passed | 8 of 20 runs failed, 8 of 60 cases, all at the check after Down (line 371): `assert 67 == 0` twice, `assert 22 == 0` six times |
+| The same, emulated with 30 ms late timers, interleaved | 5 of 20 runs failed, 6 of 60 cases, all at the check after End (line 363, `assert 0.0 > 0`) | 15 of 20 runs failed, 17 of 60 cases: 5 at the check after Down (line 371), 12 at the check after End (line 363) |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1125 passed | Not run |
+
+With the fix, the check after Down (line 371, the one CI saw) did not fail in
+any of the 40 emulated runs. The check after End (line 363) still failed at
+30 ms: End's scroll is Textual's own, this task leaves it alone, and a backlog
+row records it.
+
+Not checked: a Windows runner or machine, where the emulated delays are
+assumed rather than measured; a native run in Ghostty, where the one-frame
+difference is too short to judge by eye.
+
 ## Uppercase letters in Ghostty, 2026-10-30
 
 Arch Linux (Omarchy 4.0.6, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 at 80x24
