@@ -49,7 +49,7 @@ You need:
 Install from GitHub:
 
 ```text
-uv tool install git+https://github.com/jkosber/ssh-workbench@v0.3.3
+uv tool install git+https://github.com/jkosber/ssh-workbench@v0.3.4
 ssh-workbench --version
 ```
 
