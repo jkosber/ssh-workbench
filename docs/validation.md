@@ -28,7 +28,7 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
-## Task 24: details reset before the next frame, 2026-10-30
+## Task 25: details reset before the next frame, 2026-10-30
 
 Arch Linux, Python 3.14.8, Textual 8.2.8, headless pilot only: no terminal, no
 SSH, no browser. Fictional machines: those of
@@ -57,6 +57,7 @@ row records it.
 Not checked: a Windows runner or machine, where the emulated delays are
 assumed rather than measured; a native run in Ghostty, where the one-frame
 difference is too short to judge by eye.
+
 ## Task 24: uppercase letter keys, 2026-10-30
 
 Arch Linux (Omarchy 4.0.6, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 at 80x24
