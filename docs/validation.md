@@ -28,6 +28,37 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Caps Lock in Windows Terminal, 2026-10-31
+
+Windows 11, Windows Terminal at 80x24 running PowerShell 7, Python 3.14.8,
+Textual 8.2.8, `main` at `fc2028e` (release 0.3.4; `uv run --locked
+ssh-workbench --version` printed `ssh-workbench 0.3.4` in the window). This
+run covers Windows Terminal after Task 24's fix, which that task's entry below
+left unchecked. At Jadon's request, a coding agent on another machine drove
+the window through a scheduled task in the Windows workstation's desktop
+session and the Windows Terminal harness, as in the terminal fixture entry of
+2026-10-30. A synthetic tap of the Caps Lock key turned the toggle on before
+the app's keys were sent (`[Console]::CapsLock` read True while the app ran)
+and off again before the window closed. C and Q were sent as plain key
+presses, without Shift, so with the toggle on they typed capitals. `NO_COLOR`
+was unset and `APPDATA`, `XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed
+at empty ignored folders. `scripts/check_terminal.py` with its fictional
+fixtures; the app made no SSH connection and opened no browser.
+
+| Check | Observed |
+| --- | --- |
+| Caps Lock on, C on fixture-zero | The child printed `Local child: fixture-zero; terminal stdin/stdout/stderr: [True, True, True]`, `Local child stderr is visible.` and `Type return, or press Ctrl+C for an interruption check:` |
+| `return` | `SSH exited with status 0. Machine 1: fixture-zero`, with fixture-zero still selected |
+| Caps Lock on, Q | The app exited and `$LASTEXITCODE` printed `0`; with Caps Lock off again, `echo typed-ok` printed `typed-ok` |
+| Footer | `c Connect o Link a Add e Edit x Delete k Key r Check q Quit`, lowercase throughout |
+| Files | Nothing under the ignored `APPDATA`, config and SSH folders; no python process or test window left after `exit` |
+
+Not checked: a physical Caps Lock key (a synthetic tap set the toggle);
+letters other than C and Q, and Y and N in the dialogs; capitals typed into
+the forms; with Caps Lock off after the fix, plain letters and Shift+letter
+(the terminal fixture entry sent Shift+C and Shift+Q only with Caps Lock on,
+before the fix, where they type lowercase).
+
 ## Release 0.3.4, 2026-10-31
 
 Arch Linux (Omarchy, Hyprland, Wayland), Ghostty at 80x24 (a wrapper script

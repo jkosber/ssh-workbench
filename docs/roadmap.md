@@ -140,6 +140,7 @@ in the pull request description.
 | 24 | Letter keys work with Caps Lock on or typed as capitals | [#39](https://github.com/jkosber/ssh-workbench/pull/39) | 0.3.4 |
 | 25 | Details reset before the next frame, so the scroll test's check after Down no longer depends on a refresh | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | 0.3.4 |
 | - | Release 0.3.4 | [#41](https://github.com/jkosber/ssh-workbench/pull/41) | 0.3.4 |
+| - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | Unreleased |
 
 ## Deferred ideas
 
