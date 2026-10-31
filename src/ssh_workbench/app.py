@@ -758,7 +758,7 @@ class SSHWorkbenchApp(App[None]):
             "Addresses" if direct else "SSH alias"
         )
         # Immediate, or Textual scrolls only after the next refresh, whose frame
-        # shows the new machine at the previous machine's offset.
+        # would show the new machine still scrolled down.
         self.query_one("#machine-details", VerticalScroll).scroll_home(
             animate=False, immediate=True
         )
