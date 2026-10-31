@@ -292,9 +292,8 @@ async def test_new_selection_resets_details_scroll_before_the_next_frame() -> No
         assert pane.scroll_y > 0
         machine_list = app.query_one(ListView)
         machine_list.index = 1
-        # Nothing is awaited until the asserts, so no screen refresh runs in
-        # between: a reset left until after one would first paint the second
-        # machine at the first machine's offset.
+        # Called directly, not through a key press, so nothing is awaited and
+        # no screen refresh can run before the asserts.
         app.on_list_view_highlighted(
             ListView.Highlighted(machine_list, machine_list.highlighted_child)
         )
