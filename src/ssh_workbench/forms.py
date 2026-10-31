@@ -339,8 +339,8 @@ class ConfirmDelete(ModalScreen[bool]):
     """Ask before deleting; Y deletes, N or Escape keeps the machine."""
 
     BINDINGS = [
-        Binding("y", "answer(True)", "Delete", priority=True),
-        Binding("n", "answer(False)", "Keep", priority=True),
+        Binding("y,Y", "answer(True)", "Delete", priority=True),
+        Binding("n,N", "answer(False)", "Keep", priority=True),
         Binding("escape", "answer(False)", "Keep", priority=True),
         Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
@@ -388,8 +388,8 @@ class ConfirmInclude(ModalScreen[bool]):
     """Ask before adding the one Include line; Y adds it, N or Escape does not."""
 
     BINDINGS = [
-        Binding("y", "answer(True)", "Add", priority=True),
-        Binding("n", "answer(False)", "Not now", priority=True),
+        Binding("y,Y", "answer(True)", "Add", priority=True),
+        Binding("n,N", "answer(False)", "Not now", priority=True),
         Binding("escape", "answer(False)", "Not now", priority=True),
         Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]

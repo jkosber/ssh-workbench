@@ -362,14 +362,61 @@ async def test_ctrl_q_quits_from_the_form_and_the_delete_question(
     assert path.read_bytes() == before
 
 
-async def test_q_and_keys_type_into_the_form(tmp_path: Path) -> None:
+@pytest.mark.parametrize("keys", ["qcox", "QCUOAEXKRYN"])
+async def test_q_and_keys_type_into_the_form(tmp_path: Path, keys: str) -> None:
     app, _ = saved_app(tmp_path)
     async with app.run_test() as pilot:
         form = await open_form(app, pilot, "a")
-        await pilot.press("q", "c", "o", "x")
+        await pilot.press(*keys)
         assert app.is_running
         assert isinstance(app.screen, MachineForm)
-        assert form.query_one("#form-id", Input).value == "qcox"
+        assert form.query_one("#form-id", Input).value == keys
+
+
+@pytest.mark.parametrize(("key", "machine_id"), [("A", ""), ("E", "garden")])
+async def test_uppercase_a_and_e_open_the_form_like_a_and_e(
+    tmp_path: Path, key: str, machine_id: str
+) -> None:
+    app, _ = saved_app(tmp_path)
+    async with app.run_test() as pilot:
+        form = await open_form(app, pilot, key)
+        assert form.query_one("#form-id", Input).value == machine_id
+
+
+async def test_uppercase_x_asks_before_deleting_like_x(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    before = path.read_bytes()
+    async with app.run_test() as pilot:
+        await pilot.press("down", "X")
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
+        text = "\n".join(str(widget.content) for widget in app.screen.query(Static))
+        assert "Delete Studio (studio)?" in text
+    assert path.read_bytes() == before
+
+
+async def test_uppercase_y_deletes_like_y(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    async with app.run_test() as pilot:
+        await pilot.press("down", "x")
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
+        await pilot.press("Y")
+        await back_to_browser(app, pilot)
+        assert [m.id for m in parse_machines(path.read_text(encoding="utf-8"))] == [
+            "garden",
+            "lab",
+        ]
+        assert status(app) == "Deleted machine 2: studio."
+
+
+async def test_uppercase_n_keeps_the_machine_like_n(tmp_path: Path) -> None:
+    app, path = saved_app(tmp_path)
+    before = path.read_bytes()
+    async with app.run_test() as pilot:
+        await pilot.press("down", "x")
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
+        await pilot.press("N")
+        await back_to_browser(app, pilot)
+        assert path.read_bytes() == before
 
 
 async def test_delete_asks_first(tmp_path: Path) -> None:

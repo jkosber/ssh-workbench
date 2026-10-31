@@ -189,8 +189,8 @@ def showing(app, kind) -> bool:
     return isinstance(app.screen, kind) and app.screen.is_mounted
 
 
-async def picker(app: SSHWorkbenchApp, pilot) -> KeySetup:
-    await pilot.press("k")
+async def picker(app: SSHWorkbenchApp, pilot, key: str = "k") -> KeySetup:
+    await pilot.press(key)
     await wait_for(pilot, lambda: showing(app, KeySetup))
     return app.screen
 
@@ -199,14 +199,15 @@ async def finished(app: SSHWorkbenchApp, pilot) -> None:
     await wait_for(pilot, lambda: "Machine 1:" in connection_status(app))
 
 
+@pytest.mark.parametrize("key", ["k", "K"])
 async def test_a_direct_machine_without_a_key_offers_pub_files_and_a_new_key(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
 ) -> None:
     native = Native()
     folder, path, text = workspace(tmp_path, monkeypatch, (BOX,), native)
     app = SSHWorkbenchApp((BOX,), config_path=path, file_text=text)
     async with app.run_test() as pilot:
-        screen = await picker(app, pilot)
+        screen = await picker(app, pilot, key)
         assert option_labels(screen) == [
             "id_a.pub",
             "id_b.pub",
