@@ -5,6 +5,13 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.3.4 - 2026-10-31
+
+Letter keys work with Caps Lock on or typed as capitals, and a newly selected
+machine shows its details from the top in its first frame. The repository is
+public, and the manual checks run in Ghostty on Linux as well as in Windows
+Terminal.
+
 ### Changed
 
 - The GitHub repository is public, so installing from it needs no GitHub
