@@ -139,6 +139,15 @@ STATE_COLORS: dict[State, tuple[str, str]] = {
     State.NOT_CHECKED: ("$text-muted", "$text-muted"),
     State.NOT_FOUND: ("$error", "$text-error"),
 }
+# The states the header names, most urgent first. Not checked means status
+# checks are off, so it is left out.
+SUMMARY_ORDER = (
+    State.NOT_FOUND,
+    State.UNKNOWN,
+    State.OFFLINE,
+    State.CHECKING,
+    State.ONLINE,
+)
 
 
 def state_css() -> str:
@@ -768,47 +777,46 @@ class SSHWorkbenchApp(App[None]):
             found.first(Static).update(self._summary(width or self.size.width))
 
     def _summary(self, width: int) -> Content:
-        """Machines counted by status: in words when they fit beside the title,
-        else as symbols."""
+        """The machine count, then each state present, most urgent first: in
+        words when they fit beside the title, else as symbols."""
         count = len(self.machines)
         if not count:
             return Content("")
+        label = f"{count} machine{'' if count == 1 else 's'}"
         states = [self._status_of(machine).state for machine in self.machines]
-        # The header counts these states, in this order. Not checked means
-        # status checks are off, so it is left out.
-        shown = (
-            State.ONLINE,
-            State.OFFLINE,
-            State.CHECKING,
-            State.UNKNOWN,
-            State.NOT_FOUND,
-        )
+        # All online, or checks off: one muted phrase stands in for the counts.
+        if set(states) == {State.ONLINE}:
+            return Content.assemble(label, " · ", ("all online", "$text-muted"))
+        if set(states) == {State.NOT_CHECKED}:
+            return Content.assemble(label, " · ", ("not checked", "$text-muted"))
         counts = [
-            (state, STATE_COLORS[state][1], states.count(state))
-            for state in shown
-            if state in states
+            (state, states.count(state)) for state in SUMMARY_ORDER if state in states
         ]
-        words = Content.assemble(
-            f"{count} machine{'' if count == 1 else 's'}",
-            *(
-                part
-                for state, style, number in counts
-                for part in (
-                    "   ",
-                    (f"{state.symbol} {number} {state.word.lower()}", style),
-                )
-            ),
-        )
+        # Only the first, most urgent word takes its state's color.
+        entries = [
+            Content.assemble(
+                (state.symbol, STATE_COLORS[state][0]),
+                " ",
+                (
+                    f"{number} {state.word}",
+                    "$text-muted" if index else STATE_COLORS[state][1],
+                ),
+            )
+            for index, (state, number) in enumerate(counts)
+        ]
         # The words must fit beside the title, with one cell of padding on each
-        # side of both.
-        if not counts or words.cell_length + len(self.title) + 4 <= width:
-            return words
+        # side of both. The least urgent entries drop first.
+        room = width - len(self.title) - 4
+        for shown in range(len(entries), 0, -1):
+            words = Content(" · ").join([label, *entries[:shown]])
+            if words.cell_length <= room:
+                return words
         return Content.assemble(
-            f"{count} ",
+            f"{count} ·",
             *(
                 part
-                for state, style, number in counts
-                for part in (" ", (f"{state.symbol}{number}", style))
+                for state, number in counts
+                for part in (" ", (f"{state.symbol}{number}", STATE_COLORS[state][0]))
             ),
         )
 
