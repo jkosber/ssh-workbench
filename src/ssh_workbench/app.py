@@ -124,17 +124,35 @@ WORKBENCH_THEME = Theme(
         "block-cursor-blurred-background": "#1F2A38",
         "block-cursor-blurred-foreground": "#D8DEE9",
         "block-cursor-blurred-text-style": "none",
+        # Solid, so every pair can be measured: Textual's own "auto 60%" is
+        # only resolved against a background while drawing.
+        "text-muted": "#AAB0BA",
     },
 )
-# The header counts these states, in this order. Not checked means status
-# checks are off, so it is left out.
-SUMMARY_STYLES = {
-    State.ONLINE: "$success",
-    State.OFFLINE: "$error",
-    State.CHECKING: "$accent",
-    State.UNKNOWN: "$warning",
-    State.NOT_FOUND: "$error",
+# Each state's colors, (symbol, word), as theme variables. Offline and not
+# checked share the muted color; their symbols tell them apart.
+STATE_COLORS: dict[State, tuple[str, str]] = {
+    State.ONLINE: ("$success", "$text-success"),
+    State.OFFLINE: ("$text-muted", "$text-muted"),
+    State.CHECKING: ("$secondary", "$text-secondary"),
+    State.UNKNOWN: ("$warning", "$text-warning"),
+    State.NOT_CHECKED: ("$text-muted", "$text-muted"),
+    State.NOT_FOUND: ("$error", "$text-error"),
 }
+
+
+def state_css() -> str:
+    """The color rules for each state's list symbol and details status."""
+    return "".join(
+        f"""
+    StatusSymbol.state-{state.name.lower()} {{
+        color: {symbol};
+    }}
+    #machine-status.state-{state.name.lower()} {{
+        color: {word};
+    }}"""
+        for state, (symbol, word) in STATE_COLORS.items()
+    )
 
 
 @dataclass
@@ -179,24 +197,6 @@ class StatusSymbol(Widget):
     StatusSymbol {
         width: 2;
         height: 1;
-    }
-    StatusSymbol.state-online {
-        color: $success;
-    }
-    StatusSymbol.state-offline {
-        color: $error;
-    }
-    StatusSymbol.state-unknown {
-        color: $warning;
-    }
-    StatusSymbol.state-checking {
-        color: $accent;
-    }
-    StatusSymbol.state-not_checked {
-        color: $text-muted;
-    }
-    StatusSymbol.state-not_found {
-        color: $error;
     }
     """
 
@@ -378,7 +378,9 @@ class SSHWorkbenchApp(App[None]):
         Binding("q,Q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
-    CSS = """
+    CSS = (
+        state_css()
+        + """
     #app-header {
         height: 1;
         background: $panel;
@@ -446,18 +448,6 @@ class SSHWorkbenchApp(App[None]):
     #machine-name {
         text-style: bold;
     }
-    #machine-status.state-online {
-        color: $success;
-    }
-    #machine-status.state-offline, #machine-status.state-not_found {
-        color: $error;
-    }
-    #machine-status.state-unknown {
-        color: $warning;
-    }
-    #machine-status.state-checking {
-        color: $accent;
-    }
     #navigation-help, #connection-status, #link-status {
         height: auto;
         padding: 0 1;
@@ -520,6 +510,7 @@ class SSHWorkbenchApp(App[None]):
         height: 2;
     }
     """
+    )
 
     def __init__(
         self,
@@ -783,9 +774,18 @@ class SSHWorkbenchApp(App[None]):
         if not count:
             return Content("")
         states = [self._status_of(machine).state for machine in self.machines]
+        # The header counts these states, in this order. Not checked means
+        # status checks are off, so it is left out.
+        shown = (
+            State.ONLINE,
+            State.OFFLINE,
+            State.CHECKING,
+            State.UNKNOWN,
+            State.NOT_FOUND,
+        )
         counts = [
-            (state, style, states.count(state))
-            for state, style in SUMMARY_STYLES.items()
+            (state, STATE_COLORS[state][1], states.count(state))
+            for state in shown
             if state in states
         ]
         words = Content.assemble(
