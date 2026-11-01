@@ -21,7 +21,7 @@ build-backend = "uv_build"
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "W605"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
