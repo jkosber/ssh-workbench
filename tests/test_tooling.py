@@ -1,4 +1,5 @@
 import ast
+import difflib
 import importlib
 import re
 import sys
@@ -144,11 +145,22 @@ def test_ci_runs_once_for_a_push_to_a_pull_request() -> None:
     # A branch push runs only as its pull request; `main` and version tags,
     # which the release checklist checks, run as pushes.
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    triggers = re.search(r"^on:\n((?:[ \t]+.*\n)+)", workflow, re.MULTILINE)
-    assert triggers is not None, "on: should list each event with its filters"
-    assert triggers.group(1).splitlines() == [
+    lines = workflow.splitlines()
+    assert "on:" in lines, "on: should list each event with its filters"
+    # The block runs to the next top-level key; blank lines and comments in it
+    # change no trigger.
+    triggers = []
+    for line in lines[lines.index("on:") + 1 :]:
+        if line and not line[0].isspace() and not line.startswith("#"):
+            break
+        if line.strip() and not line.lstrip().startswith("#"):
+            triggers.append(line)
+    expected = [
         "  push:",
         "    branches: [main]",
         '    tags: ["v*"]',
         "  pull_request:",
     ]
+    assert triggers == expected, "on: differs (- expected, + found):\n" + "\n".join(
+        difflib.ndiff(expected, triggers)
+    )
