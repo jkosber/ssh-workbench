@@ -28,6 +28,36 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 27: colors, glyphs and states, 2026-11-01
+
+Arch Linux (Omarchy, Hyprland, Wayland), Ghostty at 80x24 (the wrapper
+printed `TERM=xterm-ghostty size=80x24`), JetBrains Mono Nerd Font, Python
+3.14.8, Textual 8.2.8, `feat/task27-colors-and-states` at `ada7c07`. At
+Jadon's request, a coding agent drove a floating Ghostty window with wtype
+and Hyprland's dispatchers and took screenshots with grim, as for the 0.3.4
+release. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at ignored folders with no Workbench files; a
+copy of the example machine file in an ignored folder. No SSH connection and
+no browser. Headless captures of the same build came from a throwaway script
+modeled on the tests, with ten fictional machines in every state.
+
+| Check | Observed |
+| --- | --- |
+| 80x24 | The header read `2 machines · ◇ 1 can't check · ○ 1 offline`, the `can't check` word amber and `offline` muted. Garden demo read `◇ can't check: SSH could not resolve the alias` (the empty SSH folder has no config file); Studio box's ring was grey |
+| R | The header showed `▖ 1 checking` in blue and the list row a blue quarter block, drawn by Ghostty; four seconds later the header read as before |
+| 120x30 | The full header `2 machines · ◇ 1 can't check · ○ 1 offline` with room to spare, each row with its alias or address on the right |
+| 60x20 | The same two entries fit (59 of 60 columns) |
+| 40x16 | The symbol form `2 · ◇1 ○1` |
+| Down | Studio box's details showed `○ offline` in muted grey |
+| Q | The wrapper printed `APP EXIT STATUS: 0`; `echo hello` echoed at the restored prompt |
+| Headless, 10 machines | At 80 columns the header trimmed to `10 machines · × 1 alias not found · ◇ 2 can't check`, at 60 to the first entry, at 40 to `10 · ×1 ◇2 ○3 ▖1 ●3`; at 120 and 160 columns every state was named. Without a checker every row showed `·` and the header `10 machines · not checked`; the details read `· not checked` muted. Offline rings and words were grey; the alias-not-found symbol and word red |
+| Automated | 1151 passed with no warnings; ruff check and format; `uv build`; the package check passed |
+
+Not checked: Windows Terminal, deferred to the single look check after Task
+30; a terminal without true color; the spinner's four frames one by one (one
+frame was caught); contrast measured on screen, which the test computes from
+the theme values instead.
+
 ## Task 26: tooling hygiene, 2026-10-31
 
 Arch Linux, uv 0.13.4, Python 3.14.8, Textual 8.2.8, no terminal, no SSH, no
