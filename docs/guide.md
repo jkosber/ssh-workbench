@@ -40,7 +40,7 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 
 | Part | Shows |
 | --- | --- |
-| Header | The app's name, and your machines counted by [status](#status), such as `5 machines   ● 3 online   ○ 1 offline`. When the words don't fit, the counts shrink to symbols: `5  ●3 ○1` |
+| Header | The app's name, and your machines counted by [status](#status), most urgent first, such as `5 machines · ○ 1 offline · ● 4 online`. When the words don't fit, the least urgent statuses drop first, then the counts shrink to symbols: `5 · ○1 ●4` |
 | Machines | The list, with each machine's status symbol. The highlighted row is the selected machine; a bright border marks the focused pane |
 | Machine details | One row per field for the selected machine. The status takes its color |
 | Help line | The keys for moving around |
@@ -212,16 +212,23 @@ over, such as Textual Web, show a message instead of starting SSH.
 ## Status
 
 Each machine shows its status as a symbol in the list and as a word in the
-details, with color on top; the header counts each status except Not
-checked:
+details, with color on top:
 
-| Symbol | Status | Meaning |
-| --- | --- | --- |
-| `◐` (turning) | Checking | A check is running |
-| `●` (pulsing) | Online | The SSH port answered. The details show the address that answered, or "via alias" |
-| `○` | Offline | No address answered. Each connection attempt waits up to 3 seconds; a refused connection or a name that doesn't resolve also counts as offline |
-| `◇` | Can't check | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, an added or edited alias waits for **R**, or the check itself failed |
-| `×` | Alias not found | The alias was in your SSH config at an earlier check and is gone now; see [Renamed aliases](#renamed-aliases) |
+| Symbol | Status | Color | Meaning |
+| --- | --- | --- | --- |
+| `▖` (turning) | checking | Blue | A check is running |
+| `●` | online | Green | The SSH port answered. The details show the address that answered, or "via alias" |
+| `○` | offline | Grey | No address answered. Each connection attempt waits up to 3 seconds; a refused connection or a name that doesn't resolve also counts as offline |
+| `◇` | can't check | Amber | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, an added or edited alias waits for **R**, or the check itself failed |
+| `×` | alias not found | Red | The alias was in your SSH config at an earlier check and is gone now; see [Renamed aliases](#renamed-aliases) |
+| `·` | not checked | Grey | Status checks are off |
+
+The header names each status your machines have, most urgent first: alias
+not found, can't check, offline, checking, then online, such as
+`5 machines · × 1 alias not found · ○ 1 offline · ● 3 online`. It says
+`all online` when nothing needs attention, or `not checked` when status
+checks are off. When the words don't fit beside the title, the entries drop
+from the end, then shrink to symbols: `5 · ×1 ○1 ●3`.
 
 Workbench checks at startup, when you press **R**, and every 30 seconds. A
 check looks up the machine's host name if it has one, then opens a TCP
@@ -241,14 +248,14 @@ on its screen. The details show "via alias" rather than the host.
 | Saving a machine while those alias checks run keeps their answers; an alias you add or change in that save waits for **R** | `ssh -G` runs only at startup, on **R** and for **K** |
 | A 30-second check waits for any check still running | A slow check still shows its result |
 
-The symbols turn and pulse only while animations are on; set
-`TEXTUAL_ANIMATIONS=none` to keep them still.
+Only the checking symbol moves, and only while animations are on; set
+`TEXTUAL_ANIMATIONS=none` to keep it still.
 
 ## Renamed aliases
 
 Workbench remembers the `Host` names it saw at each startup and **R**, and
 where each alias machine's alias pointed. When an alias that was in your SSH
-config is gone, the machine shows **Alias not found** and **C** is hidden for
+config is gone, the machine shows **alias not found** and **C** is hidden for
 it, so a connect never goes somewhere you didn't choose. Workbench runs
 neither `ssh -G` nor a status check for it.
 

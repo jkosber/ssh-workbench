@@ -6,7 +6,29 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+### 27. Colors, glyphs and states
+
+Jadon started this task on 2026-10-31, the first of four from
+[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md).
+
+- [ ] One table, `STATE_COLORS`, gives each state its symbol and word colors;
+  the list, the details and the header all use it.
+- [ ] Offline and not checked are muted grey and told apart by their symbols;
+  checking is blue; only alias not found is red.
+- [ ] State words are lowercase on screen: `checking`, `online`, `offline`,
+  `can't check`, `not checked`, `alias not found`.
+- [ ] Checking turns through the block glyphs `▖▘▝▗`, which common terminal
+  fonts have, and stays at `▖` with `TEXTUAL_ANIMATIONS=none`; online dots no
+  longer pulse.
+- [ ] The header names the states present, most urgent first, or one phrase
+  (`all online`, `not checked`) when that covers every machine. When the line
+  does not fit, entries drop from the end, then the symbol form is used;
+  tests cover the order, the trim and both fallbacks.
+- [ ] A test holds the foreground, the muted text and every state color at
+  4.5:1 or better against the background, surface and panel.
+- [ ] Docs, changelog and a validation entry with the sizes checked in
+  Ghostty.
+- [ ] Tests first; full checks; a fresh review.
 
 ## Next
 
@@ -28,9 +50,11 @@ request for later ones. Each needs its own task before work starts.
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
-| Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
 | When the local `TERM` is terminal-specific (`xterm-ghostty`, `xterm-kitty`), full-screen programs on a host without that terminfo entry may reject it, and Ghostty's shell integration does not apply because Workbench runs `ssh` directly (not observed); a proposal is to run `ssh` with `TERM=xterm-256color` in that case, which `SetEnv TERM=xterm-256color` in the user's SSH config already does | [#36](https://github.com/jkosber/ssh-workbench/pull/36) |
 | Keys Textual reads while C hands over the terminal (it keeps reading for up to 0.1 s) run as shortcuts when the child exits, however long it ran: a second C reconnects, Q quits, K opens key setup; seen only with synthetic typing (a `k` typed after `c` opened key setup when the child returned) | 24 |
+| A theme in the terminal's 16 ANSI colors would let Workbench follow the terminal's palette; it needs a new flag or setting | 27 |
+| Two-row list entries, a bold name over a muted second line, would show more per machine but fit fewer machines on screen | 27 |
+| Toast notifications could report connection and link results; the result line stays, because it survives a terminal handoff and toasts expire | 27 |
 
 ### Status and aliases
 

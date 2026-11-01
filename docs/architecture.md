@@ -147,8 +147,8 @@ through `store`.
 
 | Part | Rule |
 | --- | --- |
-| Theme | `WORKBENCH_THEME`, registered and selected in the app's constructor. Its design variables color the focus border, the list highlight and the footer keys. Status colors come from `$success`, `$error`, `$warning` and `$accent`, always on top of a distinct symbol |
-| Header | One row: the title and `#app-summary`, which counts machines by state (Not checked left out) in words when they fit beside the title, else as symbols. `_update_summary` runs after every status change, rebuild and resize. Only app-generated counts carry styles; no machine data reaches it |
+| Theme | `WORKBENCH_THEME`, registered and selected in the app's constructor. Its design variables color the focus border, the list highlight and the footer keys, and pin `text-muted` to a solid color so every text pair can be measured; a test holds the foreground, `text-muted` and every state color at 4.5:1 or better against the background, surface and panel. Status colors come from one table, `STATE_COLORS`, which gives each state a symbol color and a word color; `state_css()` turns it into the `StatusSymbol.state-*` and `#machine-status.state-*` rules that open the app's CSS. Symbols use the base colors and the details word the `$text-*` variants: online `$success`, checking `$secondary`, can't check `$warning`, alias not found `$error`. Offline and not checked both use `$text-muted`; their symbols tell them apart. Color always sits on top of a distinct symbol |
+| Header | One row: the title and `#app-summary`, which shows the machine count, then each state present in `SUMMARY_ORDER` (alias not found, can't check, offline, checking, online; not checked left out) as its symbol, count and word, separated by `·`. Only the first entry's word takes its state color; later words are muted, and every symbol keeps its color. When every machine is online or every one is not checked, one muted phrase replaces the entries: `all online` or `not checked`. Entries drop from the end until the line fits beside the title; when the count and the first entry still do not fit, the summary takes the symbol form, such as `4 · ◇1 ○1 ●2`. A phrase that does not fit falls back to `N machines`, then `N`. `_update_summary` runs after every status change, rebuild and resize. Only app-generated counts carry styles; no machine data reaches it |
 | List | A Textual `ListView` starts focused on the first machine. Rows shorten long names. Selection uses the list's highlight; focus uses the primary-colored border. Each row is a `StatusSymbol`, the name's `Static` and a `RowTarget` (the alias or first address), both small widgets rather than `Static`s so the name stays the row's only one |
 | Details | The list's `Highlighted` event updates literal `Static` values in a `VerticalScroll`, one `.field-row` per field: ID, name, status, connection kind, the alias or the addresses (one per line, under a label that changes with the kind), user, port, key and links (`name: URL` per line). The same handler resets the pane to the top with `scroll_home(immediate=True)`, so a new selection's first frame shows its top. Unset direct fields read `Not set`; alias machines read `From your SSH config`. Values wrap. `#machine-status` carries a `state-<name>` class for its color |
 | Layout | `HORIZONTAL_BREAKPOINTS` give the screen `-narrow` (under 60 columns), `-normal` or `-wide` (110 and up); `VERTICAL_BREAKPOINTS` give `-short` (under 20 rows) or `-tall`. CSS on those classes stacks the panes and wraps the footer when narrow, shows `RowTarget`s when wide, hides the help line when narrow or short, and gives the link status two rows when short |
@@ -306,11 +306,11 @@ and on R that also resolves aliases, and a round without resolving every
 | Connect | A direct machine connects to the address its latest status found online, else the first listed |
 
 `StatusSymbol` is a small widget, not a `Static`, so the name `Static` in a
-row stays the first one. Each state has its own shape (`◐`, `●`, `○`, `◇`,
+row stays the first one. Each state has its own shape (`▖`, `●`, `○`, `◇`,
 `×`, `·`) and a word in the details pane; color classes come on top. A 0.2 s
-timer turns the Checking symbol and dims Online every other 0.8 s, leaves the
-other symbols alone, and does nothing when `App.animation_level` is `none`
-(`TEXTUAL_ANIMATIONS=none`).
+timer turns only the checking spinner, through `▖▘▝▗`; nothing else moves.
+The timer does nothing when `App.animation_level` is `none`
+(`TEXTUAL_ANIMATIONS=none`), so the spinner stays at `▖`.
 
 ## Rename detection
 
@@ -561,6 +561,7 @@ changes.
 | Textual 8.2.8 | List selection events, focus, literal rendering and the details pane's scrolling bindings |
 | Textual 8.2.8 | `scroll_to`, `scroll_home` and `scroll_end` without `immediate=True` run when the screen is next idle, so a pending refresh, such as one `Static.update` asks for, paints its frame first. `Pilot.press` waits for queued messages and for the process to look idle, not for a screen refresh |
 | Textual 8.2.8 | `Screen._on_resize` sets the breakpoint classes from `App.HORIZONTAL_BREAKPOINTS` and `VERTICAL_BREAKPOINTS`; a browser resized behind an open form still had the right classes when the form closed, headless, in Windows Terminal and in Ghostty. `Theme` takes design variables (`border`, `border-blurred`, `footer-*`, `block-cursor-*`); `Content.assemble` keeps `$variable` styles as spans |
+| Textual 8.2.8 | `ColorSystem` derives `text-muted` as `auto 60%`, which is resolved against a background only while drawing; a `text-muted` entry in `Theme.variables` overrides the derived value, so the theme's solid color is what the contrast test measures |
 | Textual 8.2.8 | `Footer.compose` sets `grid_size_columns` to the number of keys before yielding them, so a subclass can override it after `super().compose()`; the footer's own layout is horizontal until CSS makes it a grid |
 | Textual 8.2.8 | `Binding.make_bindings` splits `"c,C"` into bindings with the same `show` and `priority`; `Footer.compose` groups by action and shows the first key; the parser names Shift+C and Caps Lock+C `C` (in kitty mode, flags 1\|8\|16, Shift is dropped when the text is printable and the Caps Lock bit is ignored; without flag 16 there is no text, and Textual would name the key `shift+c`) |
 | Python 3.14.7 | `webbrowser.WindowsDefault` uses `os.startfile`; asyncio and subprocess sources were read for signal handling; `argparse` formats an epilog with `%` only when it contains `%(prog)` |

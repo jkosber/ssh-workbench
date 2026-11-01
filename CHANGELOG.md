@@ -5,6 +5,20 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Changed
+
+- The header counts machines by status, worst first, such as
+  `5 machines · × 1 alias not found · ○ 1 offline · ● 3 online`, and says
+  `all online` when nothing needs attention. When the line doesn't fit, the
+  least urgent states drop first, then the counts shrink to symbols.
+- Offline machines show a grey ring instead of a red one; only a missing alias
+  is red. Checking machines are blue, so they no longer look like can't check.
+  Muted text, such as labels and the help line, is a little brighter.
+- Checking machines show a turning block glyph that common terminal fonts
+  have, and online dots no longer pulse.
+- Status words are lowercase, in the header and the details: `online`,
+  `offline`, `can't check`.
+
 ## 0.3.4 - 2026-10-31
 
 Letter keys work with Caps Lock on or typed as capitals, and a newly selected
