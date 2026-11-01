@@ -8,8 +8,8 @@ Results of manual checks go in [the validation log](validation.md).
 
 CI runs these on Windows and Ubuntu for every pull request and every push to
 `main` or a version tag; a branch without a pull request gets no CI run.
-GitHub runs no workflow for a pull request with a merge conflict, so a pull
-request with no CI run needs a rebase on `main` or a merge of `main` first.
+GitHub runs no workflow for a pull request with a merge conflict, so resolve
+the conflict first: rebase on `main` or merge `main`.
 Run them locally before opening a pull request:
 
 ```text
@@ -33,15 +33,15 @@ The package check installs the wheel with the locked runtime dependencies in
 a temporary environment. It compiles the dependencies to bytecode, so no timed
 step spends its limit compiling Textual, but not the wheel, so a
 `SyntaxWarning` in a module that `--help` loads (`ssh_workbench`, `cli`,
-`config`) fails the help check, and one in any other module but `__main__`,
-such as `app`, fails the loader check, the first to import it. It then runs
-`scripts/package_smoke.py` there with `python -I`, so the wheel is tested
-rather than the checkout. It covers help, version, missing-file errors,
-loading a fictional file, a headless app that selects and quits, Connect with
-a substituted SSH (success, failure, launch error, interruption), link
-outcomes, quitting while a browser request hangs, and a first save. A
-build alone proves nothing about SSH or a real terminal; the manual checks
-below do.
+`config`) fails the help check. It then runs `scripts/package_smoke.py` there
+with `python -I`, so the wheel is tested rather than the checkout. It covers
+help, version, missing-file errors, loading a fictional file, a headless app
+that selects and quits, Connect with a substituted SSH (success, failure,
+launch error, interruption), link outcomes, quitting while a browser request
+hangs, and a first save. The smoke script's loader check is the first to
+import the other modules, so a `SyntaxWarning` in any module but `__main__`,
+such as `app`, fails that check. A build alone proves nothing about SSH or a
+real terminal; the manual checks below do.
 
 The Windows key-install script's tests (`tests/test_keys.py`) run or parse
 that script with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without

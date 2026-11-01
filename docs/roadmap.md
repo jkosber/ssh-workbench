@@ -81,6 +81,8 @@ request for later ones. Each needs its own task before work starts.
 | `test_actions_wait_for_the_rebuilt_list` collects the active bindings without asserting them | 9 |
 | The failure paths of `write_exports` and `add_include` have few tests | 13 |
 | `test_windows_install_script_has_no_comment_lines` checks only lines that start with `#`, so it misses PowerShell `<# #>` block comments and trailing `#` comments | 23 |
+| Nothing keeps `PACKAGE_MODULES` in `scripts/package_smoke.py` complete: a new module left out of it and imported lazily would escape the loader check's `SyntaxWarning` test without notice | 26 |
+| `UV_COMPILE_BYTECODE=1` in the environment makes the package check's `uv pip install` compile the wheel, which hides a `SyntaxWarning` from both stderr checks; the precompile test checks only the flag | 26 |
 | `scripts/check_terminal.py` replaces only Connect: K reaches the real `ssh-keygen` and then SSH through the real SSH config, although the script's docstring says it never invokes SSH; a discarded manual run started ssh-keygen this way | 24 |
 | `test_return_preserves_scroll_and_literal_details` can check End's scroll before it starts: Textual defers it to the next refresh, `wait_for_scheduled_animations` then finds no animation to wait for, and `scroll_y` is still 0. [Task 25's emulation](validation.md#task-25-details-reset-before-the-next-frame-2026-10-30) with 30 ms late timers failed there in 6 of 60 cases with the fix and 12 of 60 before it | 25 |
 

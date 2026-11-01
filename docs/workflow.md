@@ -130,8 +130,8 @@ gh pr create --fill
 Put the new PR's number in the task's Done row, commit and push that one
 line before the review starts. Wait for CI on both systems and get a fresh
 review; fix every critical and important finding. GitHub runs no workflow for
-a pull request with a merge conflict, so a pull request with no CI run needs a
-rebase on `main` or a merge of `main` first. Merge on the tested commit only,
+a pull request with a merge conflict, so resolve the conflict first: rebase on
+`main` or merge `main`. Merge on the tested commit only,
 which also deletes the branch on GitHub:
 
 ```text
