@@ -228,6 +228,25 @@ async def test_summary_drops_entries_from_the_end() -> None:
         assert str(app._summary(len(first) + room - 1)) == SHORT_SUMMARY
 
 
+async def test_summary_phrases_fall_back_to_the_count() -> None:
+    for app, phrase in (
+        (
+            SSHWorkbenchApp(MACHINES[:1], checker=FakeChecker()),
+            "1 machine · all online",
+        ),
+        (SSHWorkbenchApp(MACHINES[:1]), "1 machine · not checked"),
+    ):
+        async with app.run_test(size=(80, 24)) as pilot:
+            await wait_for(pilot, lambda: summary(app) == phrase)
+            room = len(app.title) + 4
+            assert str(app._summary(len(phrase) + room)) == phrase
+            count = app._summary(len(phrase) + room - 1)
+            assert (str(count), count.spans) == ("1 machine", [])
+            assert str(app._summary(len("1 machine") + room)) == "1 machine"
+            number = app._summary(len("1 machine") + room - 1)
+            assert (str(number), number.spans) == ("1", [])
+
+
 @pytest.mark.parametrize("size", [(50, 24), (40, 16)])
 async def test_narrow_terminals_stack_the_list_above_the_details(
     size: tuple[int, int],
