@@ -89,8 +89,10 @@ def test_package_check_fails_when_the_loader_child_writes_to_stderr() -> None:
     # The loader child is the first to import the modules --help does not
     # load, and it writes their bytecode, so a SyntaxWarning in one of them,
     # such as app, reaches only that child's stderr (PR #35).
+    # Every loader call counts, and the exit status stays checked once the
+    # child no longer raises for it.
     source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
-    loader = {}
+    loaders = []
     for node in ast.walk(ast.parse(source)):
         body = getattr(node, "body", None)
         if not isinstance(body, list):
@@ -115,17 +117,24 @@ def test_package_check_fails_when_the_loader_child_writes_to_stderr() -> None:
                 if isinstance(statement, ast.Assign)
                 else None
             )
-            loader["stderr captured"] = (
-                keywords.get("capture_output") == "True"
-                or keywords.get("stderr") == "subprocess.PIPE"
+            parts = (
+                {ast.unparse(part) for part in ast.walk(following.test)}
+                if isinstance(following, ast.If)
+                else set()
             )
-            loader["stderr checked"] = (
-                isinstance(following, ast.If)
-                and f"{result}.stderr"
-                in {ast.unparse(part) for part in ast.walk(following.test)}
-                and isinstance(following.body[0], ast.Raise)
+            loaders.append(
+                {
+                    "stderr captured": keywords.get("capture_output") == "True"
+                    or keywords.get("stderr") == "subprocess.PIPE",
+                    "exit checked": keywords.get("check", "False") == "False"
+                    and f"{result}.returncode" in parts,
+                    "stderr checked": f"{result}.stderr" in parts
+                    and isinstance(following.body[0], ast.Raise),
+                }
             )
-    assert loader == {"stderr captured": True, "stderr checked": True}
+    assert loaders == [
+        {"stderr captured": True, "exit checked": True, "stderr checked": True}
+    ]
 
 
 def test_ci_uv_pin_matches_build_backend_range() -> None:
@@ -147,8 +156,8 @@ def test_ci_runs_once_for_a_push_to_a_pull_request() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     lines = workflow.splitlines()
     assert "on:" in lines, "on: should list each event with its filters"
-    # The block runs to the next top-level key; blank lines and comments in it
-    # change no trigger.
+    # The block runs to the next top-level key; blank lines and comment lines
+    # in it change no trigger.
     triggers = []
     for line in lines[lines.index("on:") + 1 :]:
         if line and not line[0].isspace() and not line.startswith("#"):
