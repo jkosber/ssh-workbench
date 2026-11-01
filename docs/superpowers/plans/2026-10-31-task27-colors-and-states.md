@@ -189,12 +189,16 @@ async def test_text_colors_reach_four_and_a_half_to_one() -> None:
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=(80, 24)):
         variables = app.get_css_variables()
-        foregrounds = {"foreground", "text-muted"} | {
-            word.lstrip("$") for _, word in STATE_COLORS.values()
-        } | {symbol.lstrip("$") for symbol, _ in STATE_COLORS.values()}
+        foregrounds = (
+            {"foreground", "text-muted"}
+            | {word.lstrip("$") for _, word in STATE_COLORS.values()}
+            | {symbol.lstrip("$") for symbol, _ in STATE_COLORS.values()}
+        )
         for name in foregrounds:
             for surface in ("background", "surface", "panel"):
-                ratio = contrast(Color.parse(variables[name]), Color.parse(variables[surface]))
+                ratio = contrast(
+                    Color.parse(variables[name]), Color.parse(variables[surface])
+                )
                 assert ratio >= 4.5, (name, surface, ratio)
 ```
 
@@ -265,14 +269,20 @@ async def test_summary_orders_states_by_urgency() -> None:
             "hop": status_of(State.OFFLINE),
         }
         content = app._summary(200)
-        assert str(content) == "4 machines · × 1 alias not found · ○ 1 offline · ▖ 1 checking · ● 1 online"
+        assert (
+            str(content)
+            == "4 machines · × 1 alias not found · ○ 1 offline · ▖ 1 checking · ● 1 online"
+        )
         styles = [span.style for span in content.spans]
         assert styles[:2] == ["$error", "$text-error"]
         assert "$text-muted" in styles and "$text-success" not in styles
         app._statuses["lab"] = status_of(State.ONLINE)
         app._statuses["hop"] = status_of(State.ONLINE)
         assert str(app._summary(200)) == "4 machines · ▖ 1 checking · ● 3 online"
-        assert [span.style for span in app._summary(200).spans][:2] == ["$secondary", "$text-secondary"]
+        assert [span.style for span in app._summary(200).spans][:2] == [
+            "$secondary",
+            "$text-secondary",
+        ]
 
 
 async def test_header_names_only_what_needs_attention() -> None:
