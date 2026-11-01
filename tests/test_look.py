@@ -4,10 +4,11 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.widgets import Footer, ListView, Static
 
-from ssh_workbench.app import SSHWorkbenchApp, StatusSymbol
+from ssh_workbench.app import STATE_COLORS, SSHWorkbenchApp, StatusSymbol, state_css
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
 from ssh_workbench.forms import ConfirmDelete, MachineForm
 from ssh_workbench.status import AliasTarget, State
@@ -71,6 +72,35 @@ def saved_app(tmp_path: Path, machines) -> SSHWorkbenchApp:
 
 def showing(app, kind) -> bool:
     return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
+def rule(selector: str) -> str:
+    """The single declaration of one generated rule, whitespace collapsed."""
+    body = state_css().split(f"{selector} {{", 1)[1].split("}", 1)[0]
+    return " ".join(body.split())
+
+
+def luminance(color: Color) -> float:
+    """WCAG 2 relative luminance."""
+
+    def linear(channel: int) -> float:
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    return (
+        0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
+    )
+
+
+def contrast(foreground: Color, background: Color) -> float:
+    """The WCAG 2 contrast ratio; a translucent foreground is first composited
+    onto the background."""
+    if foreground.a < 1:
+        foreground = background.tint(foreground)
+    lighter, darker = sorted(
+        (luminance(foreground), luminance(background)), reverse=True
+    )
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 async def test_the_workbench_theme_is_active() -> None:
@@ -229,6 +259,49 @@ async def test_the_status_value_is_colored_by_its_state() -> None:
         app.query_one(ListView).index = 2
         await wait_for(pilot, lambda: status.has_class("state-offline"))
         assert not status.has_class("state-online")
+
+
+def test_every_state_has_one_color_role() -> None:
+    assert set(STATE_COLORS) == set(State)
+    assert STATE_COLORS[State.OFFLINE] == ("$text-muted", "$text-muted")
+    assert STATE_COLORS[State.CHECKING] == ("$secondary", "$text-secondary")
+    assert len({symbol for symbol, _ in STATE_COLORS.values()} - {"$text-muted"}) == 4
+    assert SSHWorkbenchApp.CSS.startswith(state_css())
+    assert rule("StatusSymbol.state-not_found") == "color: $error;"
+    assert rule("#machine-status.state-online") == "color: $text-success;"
+    assert rule("#machine-status.state-offline") == "color: $text-muted;"
+
+
+async def test_the_details_status_takes_the_table_color() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await checked(app, pilot)
+        variables = app.get_css_variables()
+        status = app.query_one("#machine-status", Static)
+        await wait_for(pilot, lambda: status.has_class("state-online"))
+        assert status.styles.color == Color.parse(variables["text-success"])
+        symbol = app.query(StatusSymbol).first()
+        assert symbol.styles.color == Color.parse(variables["success"])
+        app.query_one(ListView).index = 2
+        await wait_for(pilot, lambda: status.has_class("state-offline"))
+        assert status.styles.color == Color.parse(variables["text-muted"])
+
+
+async def test_text_colors_reach_four_and_a_half_to_one() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)):
+        variables = app.get_css_variables()
+        foregrounds = (
+            {"foreground", "text-muted"}
+            | {word.lstrip("$") for _, word in STATE_COLORS.values()}
+            | {symbol.lstrip("$") for symbol, _ in STATE_COLORS.values()}
+        )
+        for name in foregrounds:
+            for surface in ("background", "surface", "panel"):
+                ratio = contrast(
+                    Color.parse(variables[name]), Color.parse(variables[surface])
+                )
+                assert ratio >= 4.5, (name, surface, ratio)
 
 
 @pytest.mark.parametrize(
