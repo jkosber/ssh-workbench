@@ -37,9 +37,9 @@ RECORD = AliasRecord("192.0.2.10", "dev", 22)
 SAME = AliasTarget("192.0.2.10", 22, proxied=False, user="dev")
 # At the last check old-host was a literal Host name pointing at RECORD.
 PREVIOUS = AliasMemory(("old-host",), {"old-host": RECORD}, {})
-OFFER = "× Alias not found. Looks like old-host became new-host. Press U to update."
+OFFER = "× alias not found. Looks like old-host became new-host. Press U to update."
 NO_OFFER = (
-    "× Alias not found. Fix your SSH config and press R, or press E and save to "
+    "× alias not found. Fix your SSH config and press R, or press E and save to "
     "keep or change the alias."
 )
 WARNING = (
@@ -180,7 +180,7 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
 
         updated = dataclasses.replace(GARDEN, alias="new-host")
         assert read_machines(path)[0] == [updated, LAB]
-        assert field(app, "status") == "● Online via alias"
+        assert field(app, "status") == "● online via alias"
         assert field(app, "target") == "new-host"
         assert connection_status(app) == (
             "Updated machine 1: garden now uses alias new-host."
@@ -277,7 +277,7 @@ async def test_no_state_file_once_the_machine_file_is_deleted(
             await wait_for(pilot, lambda: checker.resolved == ["garden-host"])
             path.unlink()
             hold.set()
-            # The answer that turns it Online is the one that writes the state.
+            # The answer that turns it online is the one that writes the state.
             await wait_for(pilot, lambda: symbols(app) == [State.ONLINE])
             await pilot.pause()
             assert not state_path(path, platform.node()).exists()
@@ -434,7 +434,7 @@ async def test_an_alias_that_returns_clears_alias_not_found_on_r(
         write_hosts(tmp_path / "ssh", ["new-host", "old-host"])
         await pilot.press("r")
         await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
-        assert field(app, "status") == "● Online via alias"
+        assert field(app, "status") == "● online via alias"
         assert app.check_action("connect", ()) is True
         await wait_for(
             pilot,
@@ -615,7 +615,7 @@ async def test_saving_the_machine_from_the_form_keeps_its_alias(
         await wait_for(pilot, lambda: showing(app, MachineForm))
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: symbols(app)[:1] == [State.UNKNOWN])
-        assert field(app, "status") == "◇ Can't check: press R to resolve this alias"
+        assert field(app, "status") == "◇ can't check: press R to resolve this alias"
         assert app.check_action("connect", ()) is True
         state = state_path(path, platform.node())
         await wait_for(
