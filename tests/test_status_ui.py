@@ -327,6 +327,7 @@ async def test_spinner_moves_only_when_animations_are_on() -> None:
                     for _ in range(8):
                         app._tick_animation()
                         seen.add(widget.render().plain)
+                    assert seen == {State.CHECKING.symbol}
                 assert (len(seen) > 1) is moves
                 assert seen <= {"▖", "▘", "▝", "▗"}
     finally:

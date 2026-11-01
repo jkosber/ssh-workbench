@@ -197,7 +197,16 @@ async def test_summary_orders_states_by_urgency() -> None:
         )
         styles = [span.style for span in content.spans]
         assert styles[:2] == ["$error", "$text-error"]
-        assert "$text-muted" in styles and "$text-success" not in styles
+        assert styles == [
+            "$error",
+            "$text-error",
+            "$text-muted",
+            "$text-muted",
+            "$secondary",
+            "$text-muted",
+            "$success",
+            "$text-muted",
+        ]
         app._statuses["lab"] = status_of(State.ONLINE)
         app._statuses["hop"] = status_of(State.ONLINE)
         assert str(app._summary(200)) == "4 machines · ▖ 1 checking · ● 3 online"
@@ -226,6 +235,11 @@ async def test_summary_drops_entries_from_the_end() -> None:
         first = "4 machines · ◇ 1 can't check"
         assert str(app._summary(len(first) + room)) == first
         assert str(app._summary(len(first) + room - 1)) == SHORT_SUMMARY
+        assert [span.style for span in app._summary(len(first) + room - 1).spans] == [
+            "$warning",
+            "$text-muted",
+            "$success",
+        ]
 
 
 async def test_summary_phrases_fall_back_to_the_count() -> None:
