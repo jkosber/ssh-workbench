@@ -333,21 +333,19 @@ async def test_spinner_moves_only_when_animations_are_on() -> None:
         hold.set()
 
 
-async def test_online_symbols_dim_for_half_of_each_pulse() -> None:
+async def test_online_symbols_never_change_with_the_frame() -> None:
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test() as pilot:
         await checked(app, pilot)
-        widgets = list(app.query(StatusSymbol))
-        dimmed: list[list[bool]] = [[] for _ in widgets]
+        widget = app.query(StatusSymbol).first()
+        assert widget.state is State.ONLINE
         for frame in range(8):
-            for widget, seen in zip(widgets, dimmed, strict=True):
-                widget.frame = frame
-                seen.append(widget.has_class("-dim"))
-        pulse = [False] * 4 + [True] * 4
-        assert dimmed == [pulse, pulse, [False] * 8, [False] * 8]
+            widget.frame = frame
+            assert not widget.has_class("-dim")
+            assert widget.render().plain == "●"
 
 
-async def test_the_animation_moves_only_checking_and_online_symbols() -> None:
+async def test_the_animation_moves_only_checking_symbols() -> None:
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     app.animation_level = "full"
     async with app.run_test() as pilot:
@@ -359,11 +357,14 @@ async def test_the_animation_moves_only_checking_and_online_symbols() -> None:
             State.UNKNOWN,
         ]
         widgets = list(app.query(StatusSymbol))
-        before = [widget.frame for widget in widgets]
-        app._tick_animation()
-        app._tick_animation()
-        moved = [w.frame - b for w, b in zip(widgets, before, strict=True)]
-        assert moved == [2, 2, 0, 0]
+        widgets[2].state = State.CHECKING
+        # The startup spinner may already have moved every symbol.
+        for widget in widgets:
+            widget.frame = 0
+        for _ in range(3):
+            app._tick_animation()
+        assert app._frame >= 3
+        assert [widget.frame for widget in widgets] == [0, 0, app._frame, 0]
 
 
 async def test_without_a_checker_nothing_is_checked(
