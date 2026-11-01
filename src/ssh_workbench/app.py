@@ -183,9 +183,6 @@ class StatusSymbol(Widget):
     StatusSymbol.state-online {
         color: $success;
     }
-    StatusSymbol.state-online.-dim {
-        color: $success 45%;
-    }
     StatusSymbol.state-offline {
         color: $error;
     }
@@ -213,10 +210,6 @@ class StatusSymbol(Widget):
     def watch_state(self, state: State) -> None:
         for other in State:
             self.set_class(other is state, f"state-{other.name.lower()}")
-
-    def watch_frame(self, frame: int) -> None:
-        # A gentle pulse: online symbols dim for 0.8 s in every 1.6 s.
-        self.set_class(self.state is State.ONLINE and frame // 4 % 2 == 1, "-dim")
 
     def render(self) -> Content:
         if self.state is State.CHECKING:
@@ -1163,8 +1156,8 @@ class SSHWorkbenchApp(App[None]):
             return
         self._frame += 1
         for symbol in self.query(StatusSymbol):
-            # Only the spinner and the Online pulse move.
-            if symbol.state in (State.CHECKING, State.ONLINE):
+            # Only the spinner moves.
+            if symbol.state is State.CHECKING:
                 symbol.frame = self._frame
 
     def _browsing(self) -> bool:
