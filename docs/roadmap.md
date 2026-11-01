@@ -136,7 +136,7 @@ in the pull request description.
 | 25 | Details reset before the next frame, so the scroll test's check after Down no longer depends on a refresh | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | 0.3.4 |
 | - | Release 0.3.4 | [#41](https://github.com/jkosber/ssh-workbench/pull/41) | 0.3.4 |
 | - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | Unreleased |
-| 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | - | Unreleased |
+| 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | Unreleased |
 
 ## Deferred ideas
 
