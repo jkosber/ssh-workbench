@@ -784,11 +784,20 @@ class SSHWorkbenchApp(App[None]):
             return Content("")
         label = f"{count} machine{'' if count == 1 else 's'}"
         states = [self._status_of(machine).state for machine in self.machines]
+        # The words must fit beside the title, with one cell of padding on each
+        # side of both.
+        room = width - len(self.title) - 4
         # All online, or checks off: one muted phrase stands in for the counts.
-        if set(states) == {State.ONLINE}:
-            return Content.assemble(label, " · ", ("all online", "$text-muted"))
-        if set(states) == {State.NOT_CHECKED}:
-            return Content.assemble(label, " · ", ("not checked", "$text-muted"))
+        # When it does not fit, the count alone, in words and then as a number.
+        phrases = {State.ONLINE: "all online", State.NOT_CHECKED: "not checked"}
+        if len(set(states)) == 1 and states[0] in phrases:
+            for words in (
+                Content.assemble(label, " · ", (phrases[states[0]], "$text-muted")),
+                Content(label),
+            ):
+                if words.cell_length <= room:
+                    return words
+            return Content(str(count))
         counts = [
             (state, states.count(state)) for state in SUMMARY_ORDER if state in states
         ]
@@ -804,9 +813,7 @@ class SSHWorkbenchApp(App[None]):
             )
             for index, (state, number) in enumerate(counts)
         ]
-        # The words must fit beside the title, with one cell of padding on each
-        # side of both. The least urgent entries drop first.
-        room = width - len(self.title) - 4
+        # The least urgent entries drop first.
         for shown in range(len(entries), 0, -1):
             words = Content(" · ").join([label, *entries[:shown]])
             if words.cell_length <= room:
