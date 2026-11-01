@@ -71,7 +71,7 @@ def test_package_check_precompiles_dependencies_but_not_the_wheel() -> None:
     # Windows runner exceeded (PR #23). The wheel stays uncompiled: compiling
     # hides a SyntaxWarning in Workbench's own code from the stderr checks.
     source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
-    compiles = {}
+    compiles = {"sync": set(), "install": set()}
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.List):
             words = [
@@ -80,8 +80,8 @@ def test_package_check_precompiles_dependencies_but_not_the_wheel() -> None:
                 if isinstance(item, ast.Constant) and isinstance(item.value, str)
             ]
             if words[:2] in (["pip", "sync"], ["pip", "install"]):
-                compiles[words[1]] = "--compile-bytecode" in words
-    assert compiles == {"sync": True, "install": False}
+                compiles[words[1]].add("--compile-bytecode" in words)
+    assert compiles == {"sync": {True}, "install": {False}}
 
 
 def test_package_check_fails_when_the_loader_child_writes_to_stderr() -> None:
