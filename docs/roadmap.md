@@ -6,7 +6,25 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+### 26. Tooling hygiene from the backlog
+
+Jadon started this task on 2026-10-31 with five rows from the Tests and
+tooling backlog.
+
+- [ ] The package check fails when the `loader` child writes to stderr, so a
+  `SyntaxWarning` in a module that `--help` does not load fails it too; Ruff
+  selects `W605` (invalid escapes).
+- [ ] `test_package_check_precompiles_dependencies_but_not_the_wheel` checks
+  every `uv pip sync` and every `uv pip install` call, not only the last of
+  each.
+- [ ] `test_ci_runs_once_for_a_push_to_a_pull_request` reads the whole `on:`
+  block across a blank line, names the actual difference when it fails and
+  keeps every line it checks today.
+- [ ] `docs/testing.md` and `docs/workflow.md` say GitHub runs no workflow for
+  a pull request with a merge conflict.
+- [ ] Step 6 of the release checklist keeps the output of `uv tool install`
+  with the evidence.
+- [ ] Tests first; full checks; docs; a fresh review.
 
 ## Next
 
