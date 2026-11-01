@@ -11,7 +11,7 @@ from textual.widgets import Footer, ListView, Static
 from ssh_workbench.app import STATE_COLORS, SSHWorkbenchApp, StatusSymbol, state_css
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
 from ssh_workbench.forms import ConfirmDelete, MachineForm
-from ssh_workbench.status import AliasTarget, State
+from ssh_workbench.status import AliasTarget, MachineStatus, State
 
 pytestmark = [
     pytest.mark.asyncio,
@@ -28,8 +28,9 @@ TARGETS = {
     "garden-host": AliasTarget("192.0.2.10", 22, proxied=False),
     "hop-host": AliasTarget("192.0.2.11", 22, proxied=True),
 }
-LONG_SUMMARY = "4 machines   ● 2 online   ○ 1 offline   ◇ 1 can't check"
-SHORT_SUMMARY = "4  ●2 ○1 ◇1"
+LONG_SUMMARY = "4 machines · ◇ 1 can't check · ○ 1 offline · ● 2 online"
+TRIMMED_SUMMARY = "4 machines · ◇ 1 can't check · ○ 1 offline"
+SHORT_SUMMARY = "4 · ◇1 ○1 ●2"
 
 
 class FakeChecker:
@@ -57,6 +58,10 @@ async def checked(app, pilot) -> None:
 
 def summary(app: SSHWorkbenchApp) -> str:
     return str(app.query_one("#app-summary", Static).content)
+
+
+def status_of(state: State) -> MachineStatus:
+    return MachineStatus(state)
 
 
 def panes(app: SSHWorkbenchApp) -> tuple[ListView, VerticalScroll]:
@@ -117,7 +122,12 @@ async def test_the_workbench_theme_is_active() -> None:
 
 @pytest.mark.parametrize(
     ("size", "expected"),
-    [((120, 40), LONG_SUMMARY), ((80, 24), LONG_SUMMARY), ((60, 20), SHORT_SUMMARY)],
+    [
+        ((120, 40), LONG_SUMMARY),
+        ((80, 24), LONG_SUMMARY),
+        ((60, 20), TRIMMED_SUMMARY),
+        ((40, 16), SHORT_SUMMARY),
+    ],
 )
 async def test_header_counts_machines_by_status(
     size: tuple[int, int], expected: str
@@ -136,7 +146,7 @@ async def test_header_follows_the_terminal_width() -> None:
     async with app.run_test(size=(120, 40)) as pilot:
         await checked(app, pilot)
         await wait_for(pilot, lambda: summary(app) == LONG_SUMMARY)
-        await pilot.resize_terminal(60, 20)
+        await pilot.resize_terminal(40, 16)
         await wait_for(pilot, lambda: summary(app) == SHORT_SUMMARY)
         await pilot.resize_terminal(120, 40)
         await wait_for(pilot, lambda: summary(app) == LONG_SUMMARY)
@@ -144,7 +154,12 @@ async def test_header_follows_the_terminal_width() -> None:
 
 @pytest.mark.parametrize(
     ("machines", "expected"),
-    [(MACHINES[:2], "2 machines"), (MACHINES[:1], "1 machine"), ([], ""), (None, "")],
+    [
+        (MACHINES[:2], "2 machines · not checked"),
+        (MACHINES[:1], "1 machine · not checked"),
+        ([], ""),
+        (None, ""),
+    ],
 )
 async def test_header_without_status_checks_counts_machines(
     machines, expected: str
@@ -159,12 +174,58 @@ async def test_header_follows_a_delete(tmp_path: Path) -> None:
     app = saved_app(tmp_path, MACHINES[:2])
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        assert summary(app) == "2 machines"
-        for remaining in ("1 machine", ""):
+        assert summary(app) == "2 machines · not checked"
+        for remaining in ("1 machine · not checked", ""):
             await pilot.press("x")
             await wait_for(pilot, lambda: showing(app, ConfirmDelete))
             await pilot.press("y")
             await wait_for(pilot, lambda: summary(app) == remaining)
+
+
+async def test_summary_orders_states_by_urgency() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(200, 24)):
+        app._statuses = {
+            "garden": status_of(State.ONLINE),
+            "studio": status_of(State.CHECKING),
+            "lab": status_of(State.NOT_FOUND),
+            "hop": status_of(State.OFFLINE),
+        }
+        content = app._summary(200)
+        assert str(content) == (
+            "4 machines · × 1 alias not found · ○ 1 offline · ▖ 1 checking · ● 1 online"
+        )
+        styles = [span.style for span in content.spans]
+        assert styles[:2] == ["$error", "$text-error"]
+        assert "$text-muted" in styles and "$text-success" not in styles
+        app._statuses["lab"] = status_of(State.ONLINE)
+        app._statuses["hop"] = status_of(State.ONLINE)
+        assert str(app._summary(200)) == "4 machines · ▖ 1 checking · ● 3 online"
+        assert [span.style for span in app._summary(200).spans][:2] == [
+            "$secondary",
+            "$text-secondary",
+        ]
+
+
+async def test_header_names_only_what_needs_attention() -> None:
+    app = SSHWorkbenchApp(MACHINES[:1], checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await checked(app, pilot)
+        await wait_for(pilot, lambda: summary(app) == "1 machine · all online")
+        content = app.query_one("#app-summary", Static).content
+        assert [span.style for span in content.spans] == ["$text-muted"]
+
+
+async def test_summary_drops_entries_from_the_end() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(120, 40)) as pilot:
+        await checked(app, pilot)
+        room = len(app.title) + 4
+        assert str(app._summary(len(LONG_SUMMARY) + room)) == LONG_SUMMARY
+        assert str(app._summary(len(LONG_SUMMARY) + room - 1)) == TRIMMED_SUMMARY
+        first = "4 machines · ◇ 1 can't check"
+        assert str(app._summary(len(first) + room)) == first
+        assert str(app._summary(len(first) + room - 1)) == SHORT_SUMMARY
 
 
 @pytest.mark.parametrize("size", [(50, 24), (40, 16)])
