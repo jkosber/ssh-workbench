@@ -9,7 +9,7 @@ Changes by release, newest first. Version numbers follow the policy in
 
 - The header counts machines by status, worst first, such as
   `5 machines · × 1 alias not found · ○ 1 offline · ● 3 online`, and says
-  `all online` when nothing needs attention. When the line doesn't fit, the
+  `all online` when every machine is online. When the line doesn't fit, the
   least urgent states drop first, then the counts shrink to symbols.
 - Offline machines show a grey ring instead of a red one; only a missing alias
   is red. Checking machines are blue, so they no longer look like can't check.

@@ -44,7 +44,7 @@ modeled on the tests, with ten fictional machines in every state.
 | Check | Observed |
 | --- | --- |
 | 80x24 | The header read `2 machines · ◇ 1 can't check · ○ 1 offline`, the `can't check` word amber and `offline` muted. Garden demo read `◇ can't check: SSH could not resolve the alias` (the empty SSH folder has no config file); Studio box's ring was grey |
-| R | The header showed `▖ 1 checking` in blue and the list row a blue quarter block, drawn by Ghostty; four seconds later the header read as before |
+| R | The header read `2 machines · ◇ 1 can't check · ▖ 1 checking`, the `▖` blue and `1 checking` muted, as can't check came first; Studio box's row showed a blue quarter block, drawn by Ghostty; four seconds later the header read as before |
 | 120x30 | The full header `2 machines · ◇ 1 can't check · ○ 1 offline` with room to spare, each row with its alias or address on the right |
 | 60x20 | The same two entries fit (59 of 60 columns) |
 | 40x16 | The symbol form `2 · ◇1 ○1` |

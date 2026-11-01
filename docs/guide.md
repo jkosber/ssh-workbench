@@ -262,7 +262,7 @@ neither `ssh -G` nor a status check for it.
 | Situation | What to do |
 | --- | --- |
 | Exactly one `Host` name added since the alias was last listed points at the same host, user and port, and no other missing alias matches it | The details say "Looks like old became new. Press U to update." **U** saves the selected machine with the new alias. If the file has comments or hand formatting, the first **U** says they will be dropped and the second saves |
-| No such offer | Fix your SSH config and press **R**, or press **E** and save the machine. Saving from the form keeps or changes its alias and clears Alias not found, for example after you moved the alias into a pattern on purpose |
+| No such offer | Fix your SSH config and press **R**, or press **E** and save the machine. Saving from the form keeps or changes its alias and clears **alias not found**, for example after you moved the alias into a pattern on purpose |
 
 Workbench checks again at each startup and **R**, so an offer can appear later,
 for example once a second matching name is gone. An alias that is not a

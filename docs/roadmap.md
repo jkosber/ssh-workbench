@@ -6,29 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-### 27. Colors, glyphs and states
-
-Jadon started this task on 2026-10-31, the first of four from
-[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md).
-
-- [ ] One table, `STATE_COLORS`, gives each state its symbol and word colors;
-  the list, the details and the header all use it.
-- [ ] Offline and not checked are muted grey and told apart by their symbols;
-  checking is blue; only alias not found is red.
-- [ ] State words are lowercase on screen: `checking`, `online`, `offline`,
-  `can't check`, `not checked`, `alias not found`.
-- [ ] Checking turns through the block glyphs `▖▘▝▗`, which common terminal
-  fonts have, and stays at `▖` with `TEXTUAL_ANIMATIONS=none`; online dots no
-  longer pulse.
-- [ ] The header names the states present, most urgent first, or one phrase
-  (`all online`, `not checked`) when that covers every machine. When the line
-  does not fit, entries drop from the end, then the symbol form is used;
-  tests cover the order, the trim and both fallbacks.
-- [ ] A test holds the foreground, the muted text and every state color at
-  4.5:1 or better against the background, surface and panel.
-- [ ] Docs, changelog and a validation entry with the sizes checked in
-  Ghostty.
-- [ ] Tests first; full checks; a fresh review.
+No task is in progress.
 
 ## Next
 
@@ -58,6 +36,7 @@ request for later ones. Each needs its own task before work starts.
 | A theme in the terminal's 16 ANSI colors would let Workbench follow the terminal's palette; it needs a new flag or setting | 27 |
 | Two-row list entries, a bold name over a muted second line, would show more per machine but fit fewer machines on screen | 27 |
 | Toast notifications could report connection and link results; the result line stays, because it survives a terminal handoff and toasts expire | 27 |
+| Timer rounds turn every machine to checking every 30 seconds, so the header leaves `all online` and every row spins each round; keeping the last result until the new one arrives would calm the screen | 27 |
 
 ### Status and aliases
 
@@ -166,6 +145,7 @@ in the pull request description.
 | - | Release 0.3.4 | [#41](https://github.com/jkosber/ssh-workbench/pull/41) | 0.3.4 |
 | - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | Unreleased |
 | 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | Unreleased |
+| 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | - | Unreleased |
 
 ## Deferred ideas
 
