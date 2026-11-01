@@ -84,6 +84,49 @@ def test_package_check_precompiles_dependencies_but_not_the_wheel() -> None:
     assert compiles == {"sync": True, "install": False}
 
 
+def test_package_check_fails_when_the_loader_child_writes_to_stderr() -> None:
+    # The loader child is the first to import the modules --help does not
+    # load, and it writes their bytecode, so a SyntaxWarning in one of them,
+    # such as app, reaches only that child's stderr (PR #35).
+    source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
+    loader = {}
+    for node in ast.walk(ast.parse(source)):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list):
+            continue
+        for statement, following in zip(body, [*body[1:], None], strict=True):
+            call = getattr(statement, "value", None)
+            if not (
+                isinstance(call, ast.Call)
+                and call.args
+                and isinstance(call.args[0], ast.List)
+                and any(
+                    isinstance(item, ast.Constant) and item.value == "loader"
+                    for item in call.args[0].elts
+                )
+            ):
+                continue
+            keywords = {
+                keyword.arg: ast.unparse(keyword.value) for keyword in call.keywords
+            }
+            result = (
+                ast.unparse(statement.targets[0])
+                if isinstance(statement, ast.Assign)
+                else None
+            )
+            loader["stderr captured"] = (
+                keywords.get("capture_output") == "True"
+                or keywords.get("stderr") == "subprocess.PIPE"
+            )
+            loader["stderr checked"] = (
+                isinstance(following, ast.If)
+                and f"{result}.stderr"
+                in {ast.unparse(part) for part in ast.walk(following.test)}
+                and isinstance(following.body[0], ast.Raise)
+            )
+    assert loader == {"stderr captured": True, "stderr checked": True}
+
+
 def test_ci_uv_pin_matches_build_backend_range() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     requires = project["build-system"]["requires"]
