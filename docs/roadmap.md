@@ -9,7 +9,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 ### 26. Tooling hygiene from the backlog
 
 Jadon started this task on 2026-10-31 with five rows from the Tests and
-tooling backlog.
+tooling backlog, and added the Windows check policy the same day.
 
 - [ ] The package check fails when the `loader` child writes to stderr, so a
   `SyntaxWarning` in a module that `--help` does not load fails it too; Ruff
@@ -24,6 +24,10 @@ tooling backlog.
   a pull request with a merge conflict.
 - [ ] Step 6 of the release checklist keeps the output of `uv tool install`
   with the evidence.
+- [ ] `docs/testing.md` says the manual checks run in Ghostty, and that a
+  Windows Terminal run is needed only for a change to the terminal handoff,
+  key handling or the Windows key-install script; otherwise the Windows CI
+  runner's test suite is the Windows coverage.
 - [ ] Tests first; full checks; docs; a fresh review.
 
 ## Next

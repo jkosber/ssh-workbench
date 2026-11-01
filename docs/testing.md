@@ -7,8 +7,10 @@ Results of manual checks go in [the validation log](validation.md).
 ## Automated checks
 
 CI runs these on Windows and Ubuntu for every pull request and every push to
-`main` or a version tag; a branch without a pull request gets no CI run. Run
-them locally before opening a pull request:
+`main` or a version tag; a branch without a pull request gets no CI run.
+GitHub runs no workflow for a pull request with a merge conflict, so a pull
+request with no CI run needs a rebase on `main` or a merge of `main` first.
+Run them locally before opening a pull request:
 
 ```text
 uv sync --locked
@@ -64,8 +66,15 @@ reach a real host or browser.
 ## Manual checks in a real terminal
 
 Run these in a real terminal: Ghostty on Linux or Microsoft Windows Terminal
-on Windows, the terminals the validation log records. Before a manual run, point
-Workbench at ignored folders so it cannot touch your real files. In bash:
+on Windows, the terminals the validation log records. Development is on Linux,
+so the manual checks run in Ghostty. A Windows Terminal run is needed only for
+a change to the terminal handoff (`App.suspend` and the return to the app),
+to key handling in the app's bindings or input parsing, or to the Windows
+key-install script (`keys.py` and the PowerShell it builds); otherwise the
+Windows CI runner's test suite is the Windows coverage.
+
+Before a manual run, point Workbench at ignored folders so it cannot touch
+your real files. In bash:
 
 ```bash
 export APPDATA="$PWD/.local/manual/appdata"
