@@ -55,8 +55,8 @@ def main() -> None:
         # Compile the dependencies here, untimed: otherwise the first child to
         # import Textual compiles them inside its timeout. The wheel stays
         # uncompiled, so a SyntaxWarning in a module --help loads (the package,
-        # cli, config) reaches the help check's stderr test, and one in another
-        # module the smoke script imports, such as app, the loader check's.
+        # cli, config) reaches the help check's stderr test, and one in any
+        # other module, such as app, reaches the loader check's.
         subprocess.run(
             [
                 uv,
@@ -126,7 +126,10 @@ def main() -> None:
             timeout=10,
         )
         if result.returncode != 0 or result.stderr:
-            raise SystemExit(f"Installed wheel loader check failed:\n{result.stderr}")
+            raise SystemExit(
+                "Installed wheel loader check failed "
+                f"(exit status {result.returncode}):\n{result.stderr}"
+            )
         browser_fixture = temporary / "browser-projects.toml"
         original = (
             b'schema_version = 1\n[[projects]]\nid = "package-first"\n'
