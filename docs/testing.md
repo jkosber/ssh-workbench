@@ -7,8 +7,10 @@ Results of manual checks go in [the validation log](validation.md).
 ## Automated checks
 
 CI runs these on Windows and Ubuntu for every pull request and every push to
-`main` or a version tag; a branch without a pull request gets no CI run. Run
-them locally before opening a pull request:
+`main` or a version tag; a branch without a pull request gets no CI run.
+GitHub runs no workflow for a pull request with a merge conflict, so resolve
+the conflict first: rebase on `main` or merge `main`.
+Run them locally before opening a pull request:
 
 ```text
 uv sync --locked
@@ -21,7 +23,7 @@ uv run --locked python scripts/check_package.py
 
 | Check | What it proves | When it fails |
 | --- | --- | --- |
-| `ruff check` | No unused imports or other selected code problems | Read the file and line in each message and fix the cause |
+| `ruff check` | No unused imports, invalid escapes or other selected code problems | Read the file and line in each message and fix the cause |
 | `ruff format --check` | Formatting matches Ruff's | Run `uv run --locked ruff format .`, review the result, check again |
 | `pytest` | Loader, CLI, boundaries and the UI (headless) behave as specified | A failed assertion is a behavior to investigate. Fix the code, never weaken the test |
 | `uv build` | A source archive and a wheel build under `dist/` | Read the build error; the backend is `uv_build` |
@@ -31,14 +33,15 @@ The package check installs the wheel with the locked runtime dependencies in
 a temporary environment. It compiles the dependencies to bytecode, so no timed
 step spends its limit compiling Textual, but not the wheel, so a
 `SyntaxWarning` in a module that `--help` loads (`ssh_workbench`, `cli`,
-`config`) still fails the help check; one in another module, such as `app`,
-does not. It then runs `scripts/package_smoke.py` there with `python -I`, so
-the wheel is tested rather than the checkout. It covers help, version,
-missing-file errors, loading a fictional file, a headless app that selects and
-quits, Connect with a substituted SSH (success, failure, launch error,
-interruption), link outcomes, quitting while a browser request hangs, and a
-first save. A build alone proves nothing about SSH or a real terminal; the
-manual checks below do.
+`config`) fails the help check. It then runs `scripts/package_smoke.py` there
+with `python -I`, so the wheel is tested rather than the checkout. It covers
+help, version, missing-file errors, loading a fictional file, a headless app
+that selects and quits, Connect with a substituted SSH (success, failure,
+launch error, interruption), link outcomes, quitting while a browser request
+hangs, and a first save. The smoke script's loader check is the first to
+import the other modules, so a `SyntaxWarning` in any module but `__main__`,
+such as `app`, fails that check. A build alone proves nothing about SSH or a
+real terminal; the manual checks below do.
 
 The Windows key-install script's tests (`tests/test_keys.py`) run or parse
 that script with PowerShell 7 (`pwsh`) or Windows PowerShell and fail without
@@ -64,8 +67,15 @@ reach a real host or browser.
 ## Manual checks in a real terminal
 
 Run these in a real terminal: Ghostty on Linux or Microsoft Windows Terminal
-on Windows, the terminals the validation log records. Before a manual run, point
-Workbench at ignored folders so it cannot touch your real files. In bash:
+on Windows, the terminals the validation log records. Development is on Linux,
+so the manual checks run in Ghostty. A Windows Terminal run is needed only for
+a change to the terminal handoff (`App.suspend` and the return to the app),
+to key handling in the app's bindings or input parsing, or to the Windows
+key-install script (`keys.py` and the PowerShell it builds); otherwise the
+Windows CI runner's test suite is the Windows coverage.
+
+Before a manual run, point Workbench at ignored folders so it cannot touch
+your real files. In bash:
 
 ```bash
 export APPDATA="$PWD/.local/manual/appdata"

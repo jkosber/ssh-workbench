@@ -28,6 +28,26 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 26: tooling hygiene, 2026-10-31
+
+Arch Linux, uv 0.13.4, Python 3.14.8, Textual 8.2.8, no terminal, no SSH, no
+browser: the package check's own temporary environments. A probe line
+`_TASK26_PROBE = "\d"` was appended to `src/ssh_workbench/app.py`, the wheel
+rebuilt and `scripts/check_package.py` run, once on `main` at `1bac677` and
+once on `ci/task26-tooling-hygiene` at `f8272f1`; the line was removed and
+the wheel rebuilt afterwards.
+
+| Check | Observed |
+| --- | --- |
+| `main` | The loader child printed `app.py:1987: SyntaxWarning: "\d" is an invalid escape sequence` to stderr, and the check still ended with `Built wheel: ... passed.` and exit status 0 |
+| This branch | The check ended with `Installed wheel loader check failed (exit status 0):` followed by that warning, exit status 1 |
+| Ruff | On `main`'s configuration `ruff check` on the probed file printed `All checks passed!`; on this branch it printed `Found 1 error.` for `W605` |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` without the probe | Passed; 1142 passed |
+
+Not checked: a `SyntaxWarning` in `__main__.py`, which no check imports; a
+loader child that exits nonzero with nothing on stderr (the test keeps the
+exit status checked, but no run forced that case).
+
 ## Caps Lock in Windows Terminal, 2026-10-31
 
 Windows 11, Windows Terminal at 80x24 running PowerShell 7, Python 3.14.8,

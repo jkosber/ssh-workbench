@@ -129,8 +129,10 @@ gh pr create --fill
 
 Put the new PR's number in the task's Done row, commit and push that one
 line before the review starts. Wait for CI on both systems and get a fresh
-review; fix every critical and important finding. Merge on the tested commit
-only, which also deletes the branch on GitHub:
+review; fix every critical and important finding. GitHub runs no workflow for
+a pull request with a merge conflict, so resolve the conflict first: rebase on
+`main` or merge `main`. Merge on the tested commit only,
+which also deletes the branch on GitHub:
 
 ```text
 gh pr merge <number> --merge --delete-branch --match-head-commit <full head SHA>
@@ -198,9 +200,9 @@ rows leave that out.
    day the tag will be made) and add an empty **Unreleased** above it.
 6. Run the full checks, a fresh `uv build` and the package check. Install the
    wheel as a tool in ignored folders (set `UV_TOOL_DIR` and
-   `UV_TOOL_BIN_DIR` under `.local/`) and run the
-   [app smoke check](testing.md#app-smoke-check) with it in
-   [a real terminal](testing.md#manual-checks-in-a-real-terminal).
+   `UV_TOOL_BIN_DIR` under `.local/`), with the install output kept for the
+   validation log, and run the [app smoke check](testing.md#app-smoke-check)
+   with it in [a real terminal](testing.md#manual-checks-in-a-real-terminal).
 7. Pull request, CI, review and merge, as for a task. The release gets a "-"
    row in Done with its PR.
 8. Tag the merge commit and push the tag (ask first; the tag is public as

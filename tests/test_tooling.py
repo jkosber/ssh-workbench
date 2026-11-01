@@ -1,4 +1,5 @@
 import ast
+import difflib
 import importlib
 import re
 import sys
@@ -71,7 +72,7 @@ def test_package_check_precompiles_dependencies_but_not_the_wheel() -> None:
     # Windows runner exceeded (PR #23). The wheel stays uncompiled: compiling
     # hides a SyntaxWarning in Workbench's own code from the stderr checks.
     source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
-    compiles = {}
+    compiles = {"sync": set(), "install": set()}
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.List):
             words = [
@@ -80,8 +81,60 @@ def test_package_check_precompiles_dependencies_but_not_the_wheel() -> None:
                 if isinstance(item, ast.Constant) and isinstance(item.value, str)
             ]
             if words[:2] in (["pip", "sync"], ["pip", "install"]):
-                compiles[words[1]] = "--compile-bytecode" in words
-    assert compiles == {"sync": True, "install": False}
+                compiles[words[1]].add("--compile-bytecode" in words)
+    assert compiles == {"sync": {True}, "install": {False}}
+
+
+def test_package_check_fails_when_the_loader_child_writes_to_stderr() -> None:
+    # The loader child is the first to import the modules --help does not
+    # load, and it writes their bytecode, so a SyntaxWarning in one of them,
+    # such as app, reaches only that child's stderr (PR #35).
+    # Every loader call counts, and the exit status stays checked once the
+    # child no longer raises for it.
+    source = (ROOT / "scripts" / "check_package.py").read_text(encoding="utf-8")
+    loaders = []
+    for node in ast.walk(ast.parse(source)):
+        body = getattr(node, "body", None)
+        if not isinstance(body, list):
+            continue
+        for statement, following in zip(body, [*body[1:], None], strict=True):
+            call = getattr(statement, "value", None)
+            if not (
+                isinstance(call, ast.Call)
+                and call.args
+                and isinstance(call.args[0], ast.List)
+                and any(
+                    isinstance(item, ast.Constant) and item.value == "loader"
+                    for item in call.args[0].elts
+                )
+            ):
+                continue
+            keywords = {
+                keyword.arg: ast.unparse(keyword.value) for keyword in call.keywords
+            }
+            result = (
+                ast.unparse(statement.targets[0])
+                if isinstance(statement, ast.Assign)
+                else None
+            )
+            parts = (
+                {ast.unparse(part) for part in ast.walk(following.test)}
+                if isinstance(following, ast.If)
+                else set()
+            )
+            loaders.append(
+                {
+                    "stderr captured": keywords.get("capture_output") == "True"
+                    or keywords.get("stderr") == "subprocess.PIPE",
+                    "exit checked": keywords.get("check", "False") == "False"
+                    and f"{result}.returncode" in parts,
+                    "stderr checked": f"{result}.stderr" in parts
+                    and isinstance(following.body[0], ast.Raise),
+                }
+            )
+    assert loaders == [
+        {"stderr captured": True, "exit checked": True, "stderr checked": True}
+    ]
 
 
 def test_ci_uv_pin_matches_build_backend_range() -> None:
@@ -101,11 +154,22 @@ def test_ci_runs_once_for_a_push_to_a_pull_request() -> None:
     # A branch push runs only as its pull request; `main` and version tags,
     # which the release checklist checks, run as pushes.
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    triggers = re.search(r"^on:\n((?:[ \t]+.*\n)+)", workflow, re.MULTILINE)
-    assert triggers is not None, "on: should list each event with its filters"
-    assert triggers.group(1).splitlines() == [
+    lines = workflow.splitlines()
+    assert "on:" in lines, "on: should list each event with its filters"
+    # The block runs to the next top-level key; blank lines and comment lines
+    # in it change no trigger.
+    triggers = []
+    for line in lines[lines.index("on:") + 1 :]:
+        if line and not line[0].isspace() and not line.startswith("#"):
+            break
+        if line.strip() and not line.lstrip().startswith("#"):
+            triggers.append(line)
+    expected = [
         "  push:",
         "    branches: [main]",
         '    tags: ["v*"]',
         "  pull_request:",
     ]
+    assert triggers == expected, "on: differs (- expected, + found):\n" + "\n".join(
+        difflib.ndiff(expected, triggers)
+    )
