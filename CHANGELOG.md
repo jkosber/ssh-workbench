@@ -16,8 +16,8 @@ Changes by release, newest first. Version numbers follow the policy in
   Muted text, such as labels and the help line, is a little brighter.
 - Checking machines show a turning block glyph that common terminal fonts
   have, and online dots no longer pulse.
-- Status words are lowercase, in the header and the details: `online`,
-  `offline`, `can't check`.
+- Status words in the details are lowercase now, as in the header:
+  `● online: 192.0.2.20`.
 
 ## 0.3.4 - 2026-10-31
 

@@ -21,7 +21,7 @@ stand-in checker.*
 | Feature | What it does |
 | --- | --- |
 | Connect | **C** hands the terminal to `ssh` and takes it back when the session ends |
-| Live status | Each machine shows its status as a symbol and a lowercase word: online, offline, checking, can't check or alias not found. The header counts machines by status, worst first, and says "all online" when nothing needs attention. Checks are TCP port checks, never logins, at startup, on **R** and every 30 seconds |
+| Live status | Each machine shows its status as a symbol, with the word in its details: online, offline, checking, can't check or alias not found. The header counts machines by status, worst first, and says "all online" when nothing needs attention. Checks are TCP port checks, never logins, at startup, on **R** and every 30 seconds |
 | Any terminal size | The layout rearranges itself for narrow and wide terminals, from 40 columns up |
 | Manage machines | **A**, **E** and **X** add, edit and delete machines in a form that checks every value. Saves keep a backup |
 | Key login setup | **K** picks or creates a key, installs it on a Linux, macOS or Windows target, and tests key-only login |

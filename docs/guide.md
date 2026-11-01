@@ -221,14 +221,14 @@ details, with color on top:
 | `○` | offline | Grey | No address answered. Each connection attempt waits up to 3 seconds; a refused connection or a name that doesn't resolve also counts as offline |
 | `◇` | can't check | Amber | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, an added or edited alias waits for **R**, or the check itself failed |
 | `×` | alias not found | Red | The alias was in your SSH config at an earlier check and is gone now; see [Renamed aliases](#renamed-aliases) |
-| `·` | not checked | Grey | Status checks are off |
+| `·` | not checked | Grey | Workbench runs without status checks. The `ssh-workbench` command always checks, so it never shows this |
 
 The header names each status your machines have, most urgent first: alias
 not found, can't check, offline, checking, then online, such as
 `5 machines · × 1 alias not found · ○ 1 offline · ● 3 online`. It says
-`all online` when nothing needs attention, or `not checked` when status
-checks are off. When the words don't fit beside the title, the entries drop
-from the end, then shrink to symbols: `5 · ×1 ○1 ●3`.
+`all online` when every machine is online, or `not checked` when Workbench
+runs without status checks. When the words don't fit beside the title, the
+entries drop from the end, then shrink to symbols: `5 · ×1 ○1 ●3`.
 
 Workbench checks at startup, when you press **R**, and every 30 seconds. A
 check looks up the machine's host name if it has one, then opens a TCP

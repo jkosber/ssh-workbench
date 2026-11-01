@@ -32,7 +32,10 @@ Jadon started this task on 2026-10-31, the first of four from
 
 ## Next
 
-Nothing is planned yet; the [backlog](#backlog) holds candidates.
+Tasks 28 to 30 follow from
+[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks):
+28 main-screen layout and breakpoints, 29 list and details content, 30 forms
+and pickers. Each starts as its own task.
 
 ## Backlog
 
