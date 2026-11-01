@@ -145,7 +145,7 @@ in the pull request description.
 | - | Release 0.3.4 | [#41](https://github.com/jkosber/ssh-workbench/pull/41) | 0.3.4 |
 | - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | Unreleased |
 | 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | Unreleased |
-| 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | - | Unreleased |
+| 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | [#45](https://github.com/jkosber/ssh-workbench/pull/45) | Unreleased |
 
 ## Deferred ideas
 
