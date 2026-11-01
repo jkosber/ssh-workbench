@@ -29,14 +29,15 @@ _DETACHED: dict[str, object] = (
 
 
 class State(Enum):
-    """Each state has a word and a distinct symbol, so color is never needed."""
+    """Each state has a word and a distinct symbol, so shape carries the meaning
+    and color is never needed. The checking symbol is the spinner's still frame."""
 
-    CHECKING = ("Checking", "◐")
-    ONLINE = ("Online", "●")
-    OFFLINE = ("Offline", "○")
-    UNKNOWN = ("Can't check", "◇")
-    NOT_CHECKED = ("Not checked", "·")
-    NOT_FOUND = ("Alias not found", "×")
+    CHECKING = ("checking", "▖")
+    ONLINE = ("online", "●")
+    OFFLINE = ("offline", "○")
+    UNKNOWN = ("can't check", "◇")
+    NOT_CHECKED = ("not checked", "·")
+    NOT_FOUND = ("alias not found", "×")
 
     def __init__(self, word: str, symbol: str) -> None:
         self.word = word

@@ -96,7 +96,7 @@ from ssh_workbench.store import (
 # Seconds between status rounds; the timer never runs ssh -G.
 STATUS_INTERVAL = 30.0
 ANIMATION_TICK = 0.2
-SPINNER = "◐◓◑◒"
+SPINNER = "▖▘▝▗"
 _NO_HANDOFF = "Cannot hand off this terminal. Run SSH Workbench in a local terminal."
 
 # Workbench's own colors; Textual derives every shade from these.
