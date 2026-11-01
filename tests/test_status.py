@@ -285,12 +285,12 @@ def test_state_words_and_symbols_are_all_different() -> None:
     words = [state.word for state in State]
     symbols = [state.symbol for state in State]
     assert words == [
-        "Checking",
-        "Online",
-        "Offline",
-        "Can't check",
-        "Not checked",
-        "Alias not found",
+        "checking",
+        "online",
+        "offline",
+        "can't check",
+        "not checked",
+        "alias not found",
     ]
     assert len(set(symbols)) == len(symbols)
     assert all(symbol.strip() for symbol in symbols)
@@ -298,7 +298,7 @@ def test_state_words_and_symbols_are_all_different() -> None:
 
 def test_alias_not_found_has_its_own_word_and_symbol() -> None:
     assert (State.NOT_FOUND.word, State.NOT_FOUND.symbol) == (
-        "Alias not found",
+        "alias not found",
         "×",
     )
 

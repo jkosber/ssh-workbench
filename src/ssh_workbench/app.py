@@ -96,7 +96,7 @@ from ssh_workbench.store import (
 # Seconds between status rounds; the timer never runs ssh -G.
 STATUS_INTERVAL = 30.0
 ANIMATION_TICK = 0.2
-SPINNER = "◐◓◑◒"
+SPINNER = "▖▘▝▗"
 _NO_HANDOFF = "Cannot hand off this terminal. Run SSH Workbench in a local terminal."
 
 # Workbench's own colors; Textual derives every shade from these.
@@ -124,17 +124,44 @@ WORKBENCH_THEME = Theme(
         "block-cursor-blurred-background": "#1F2A38",
         "block-cursor-blurred-foreground": "#D8DEE9",
         "block-cursor-blurred-text-style": "none",
+        # Solid, so every pair can be measured: Textual's own "auto 60%" is
+        # only resolved against a background while drawing.
+        "text-muted": "#AAB0BA",
     },
 )
-# The header counts these states, in this order. Not checked means status
-# checks are off, so it is left out.
-SUMMARY_STYLES = {
-    State.ONLINE: "$success",
-    State.OFFLINE: "$error",
-    State.CHECKING: "$accent",
-    State.UNKNOWN: "$warning",
-    State.NOT_FOUND: "$error",
+# Each state's colors, (symbol, word), as theme variables. Offline and not
+# checked share the muted color; their symbols tell them apart.
+STATE_COLORS: dict[State, tuple[str, str]] = {
+    State.ONLINE: ("$success", "$text-success"),
+    State.OFFLINE: ("$text-muted", "$text-muted"),
+    State.CHECKING: ("$secondary", "$text-secondary"),
+    State.UNKNOWN: ("$warning", "$text-warning"),
+    State.NOT_CHECKED: ("$text-muted", "$text-muted"),
+    State.NOT_FOUND: ("$error", "$text-error"),
 }
+# The states the header names, most urgent first. Not checked means status
+# checks are off, so it is left out.
+SUMMARY_ORDER = (
+    State.NOT_FOUND,
+    State.UNKNOWN,
+    State.OFFLINE,
+    State.CHECKING,
+    State.ONLINE,
+)
+
+
+def state_css() -> str:
+    """The color rules for each state's list symbol and details status."""
+    return "".join(
+        f"""
+    StatusSymbol.state-{state.name.lower()} {{
+        color: {symbol};
+    }}
+    #machine-status.state-{state.name.lower()} {{
+        color: {word};
+    }}"""
+        for state, (symbol, word) in STATE_COLORS.items()
+    )
 
 
 @dataclass
@@ -180,27 +207,6 @@ class StatusSymbol(Widget):
         width: 2;
         height: 1;
     }
-    StatusSymbol.state-online {
-        color: $success;
-    }
-    StatusSymbol.state-online.-dim {
-        color: $success 45%;
-    }
-    StatusSymbol.state-offline {
-        color: $error;
-    }
-    StatusSymbol.state-unknown {
-        color: $warning;
-    }
-    StatusSymbol.state-checking {
-        color: $accent;
-    }
-    StatusSymbol.state-not_checked {
-        color: $text-muted;
-    }
-    StatusSymbol.state-not_found {
-        color: $error;
-    }
     """
 
     state: reactive[State] = reactive(State.NOT_CHECKED)
@@ -213,10 +219,6 @@ class StatusSymbol(Widget):
     def watch_state(self, state: State) -> None:
         for other in State:
             self.set_class(other is state, f"state-{other.name.lower()}")
-
-    def watch_frame(self, frame: int) -> None:
-        # A gentle pulse: online symbols dim for 0.8 s in every 1.6 s.
-        self.set_class(self.state is State.ONLINE and frame // 4 % 2 == 1, "-dim")
 
     def render(self) -> Content:
         if self.state is State.CHECKING:
@@ -385,7 +387,9 @@ class SSHWorkbenchApp(App[None]):
         Binding("q,Q", "quit", "Quit"),
         Binding("ctrl+q", "quit", "Quit", show=False),
     ]
-    CSS = """
+    CSS = (
+        state_css()
+        + """
     #app-header {
         height: 1;
         background: $panel;
@@ -453,18 +457,6 @@ class SSHWorkbenchApp(App[None]):
     #machine-name {
         text-style: bold;
     }
-    #machine-status.state-online {
-        color: $success;
-    }
-    #machine-status.state-offline, #machine-status.state-not_found {
-        color: $error;
-    }
-    #machine-status.state-unknown {
-        color: $warning;
-    }
-    #machine-status.state-checking {
-        color: $accent;
-    }
     #navigation-help, #connection-status, #link-status {
         height: auto;
         padding: 0 1;
@@ -527,6 +519,7 @@ class SSHWorkbenchApp(App[None]):
         height: 2;
     }
     """
+    )
 
     def __init__(
         self,
@@ -784,38 +777,53 @@ class SSHWorkbenchApp(App[None]):
             found.first(Static).update(self._summary(width or self.size.width))
 
     def _summary(self, width: int) -> Content:
-        """Machines counted by status: in words when they fit beside the title,
-        else as symbols."""
+        """The machine count, then each state present, most urgent first: in
+        words when they fit beside the title, else as symbols."""
         count = len(self.machines)
         if not count:
             return Content("")
+        label = f"{count} machine{'' if count == 1 else 's'}"
         states = [self._status_of(machine).state for machine in self.machines]
-        counts = [
-            (state, style, states.count(state))
-            for state, style in SUMMARY_STYLES.items()
-            if state in states
-        ]
-        words = Content.assemble(
-            f"{count} machine{'' if count == 1 else 's'}",
-            *(
-                part
-                for state, style, number in counts
-                for part in (
-                    "   ",
-                    (f"{state.symbol} {number} {state.word.lower()}", style),
-                )
-            ),
-        )
         # The words must fit beside the title, with one cell of padding on each
         # side of both.
-        if not counts or words.cell_length + len(self.title) + 4 <= width:
-            return words
+        room = width - len(self.title) - 4
+        # All online, or checks off: one muted phrase stands in for the counts.
+        # When it does not fit, the count alone, in words and then as a number.
+        phrases = {State.ONLINE: "all online", State.NOT_CHECKED: "not checked"}
+        if len(set(states)) == 1 and states[0] in phrases:
+            for words in (
+                Content.assemble(label, " · ", (phrases[states[0]], "$text-muted")),
+                Content(label),
+            ):
+                if words.cell_length <= room:
+                    return words
+            return Content(str(count))
+        counts = [
+            (state, states.count(state)) for state in SUMMARY_ORDER if state in states
+        ]
+        # Only the first, most urgent word takes its state's color.
+        entries = [
+            Content.assemble(
+                (state.symbol, STATE_COLORS[state][0]),
+                " ",
+                (
+                    f"{number} {state.word}",
+                    "$text-muted" if index else STATE_COLORS[state][1],
+                ),
+            )
+            for index, (state, number) in enumerate(counts)
+        ]
+        # The least urgent entries drop first.
+        for shown in range(len(entries), 0, -1):
+            words = Content(" · ").join([label, *entries[:shown]])
+            if words.cell_length <= room:
+                return words
         return Content.assemble(
-            f"{count} ",
+            f"{count} ·",
             *(
                 part
-                for state, style, number in counts
-                for part in (" ", (f"{state.symbol}{number}", style))
+                for state, number in counts
+                for part in (" ", (f"{state.symbol}{number}", STATE_COLORS[state][0]))
             ),
         )
 
@@ -1163,8 +1171,8 @@ class SSHWorkbenchApp(App[None]):
             return
         self._frame += 1
         for symbol in self.query(StatusSymbol):
-            # Only the spinner and the Online pulse move.
-            if symbol.state in (State.CHECKING, State.ONLINE):
+            # Only the spinner moves.
+            if symbol.state is State.CHECKING:
                 symbol.frame = self._frame
 
     def _browsing(self) -> bool:

@@ -10,7 +10,10 @@ No task is in progress.
 
 ## Next
 
-Nothing is planned yet; the [backlog](#backlog) holds candidates.
+Tasks 28 to 30 follow from
+[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks):
+28 main-screen layout and breakpoints, 29 list and details content, 30 forms
+and pickers. Each starts as its own task.
 
 ## Backlog
 
@@ -28,9 +31,12 @@ request for later ones. Each needs its own task before work starts.
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
 | The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
 | The details pane does not show key-login state | 12 |
-| Status colors are defined in three places (`StatusSymbol` CSS, `#machine-status.state-*` CSS and `SUMMARY_STYLES`); consistent today, they could share one set of `.state-*` rules | 20 |
 | When the local `TERM` is terminal-specific (`xterm-ghostty`, `xterm-kitty`), full-screen programs on a host without that terminfo entry may reject it, and Ghostty's shell integration does not apply because Workbench runs `ssh` directly (not observed); a proposal is to run `ssh` with `TERM=xterm-256color` in that case, which `SetEnv TERM=xterm-256color` in the user's SSH config already does | [#36](https://github.com/jkosber/ssh-workbench/pull/36) |
 | Keys Textual reads while C hands over the terminal (it keeps reading for up to 0.1 s) run as shortcuts when the child exits, however long it ran: a second C reconnects, Q quits, K opens key setup; seen only with synthetic typing (a `k` typed after `c` opened key setup when the child returned) | 24 |
+| A theme in the terminal's 16 ANSI colors would let Workbench follow the terminal's palette; it needs a new flag or setting | 27 |
+| Two-row list entries, a bold name over a muted second line, would show more per machine but fit fewer machines on screen | 27 |
+| Toast notifications could report connection and link results; the result line stays, because it survives a terminal handoff and toasts expire | 27 |
+| Timer rounds turn every machine to checking every 30 seconds, so the header leaves `all online` and every row spins each round; keeping the last result until the new one arrives would calm the screen | 27 |
 
 ### Status and aliases
 
@@ -139,6 +145,7 @@ in the pull request description.
 | - | Release 0.3.4 | [#41](https://github.com/jkosber/ssh-workbench/pull/41) | 0.3.4 |
 | - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | Unreleased |
 | 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | Unreleased |
+| 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | [#45](https://github.com/jkosber/ssh-workbench/pull/45) | Unreleased |
 
 ## Deferred ideas
 

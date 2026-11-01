@@ -92,7 +92,7 @@ async def test_startup_shows_checking_then_each_result() -> None:
         async with app.run_test() as pilot:
             await pilot.pause()
             assert symbols(app) == [State.CHECKING] * 4
-            assert status_text(app) == "◐ Checking"
+            assert status_text(app) == "▖ checking"
             hold.set()
             await checked(app, pilot)
             assert symbols(app) == [
@@ -102,10 +102,10 @@ async def test_startup_shows_checking_then_each_result() -> None:
                 State.UNKNOWN,
             ]
             expected = [
-                "● Online via alias",
-                "● Online: 192.0.2.40",
-                "○ Offline",
-                "◇ Can't check: the alias uses ProxyJump or ProxyCommand",
+                "● online via alias",
+                "● online: 192.0.2.40",
+                "○ offline",
+                "◇ can't check: the alias uses ProxyJump or ProxyCommand",
             ]
             for index, text in enumerate(expected):
                 app.query_one(ListView).index = index
@@ -292,7 +292,7 @@ async def test_a_check_that_fails_says_so() -> None:
         await checked(app, pilot)
         app.query_one(ListView).index = 2
         await wait_for(pilot, lambda: details_id(app) == "lab")
-        assert status_text(app) == "◇ Can't check: the check failed"
+        assert status_text(app) == "◇ can't check: the check failed"
 
 
 @pytest.mark.parametrize("key", ["q", "ctrl+q"])
@@ -327,27 +327,26 @@ async def test_spinner_moves_only_when_animations_are_on() -> None:
                     for _ in range(8):
                         app._tick_animation()
                         seen.add(widget.render().plain)
+                    assert seen == {State.CHECKING.symbol}
                 assert (len(seen) > 1) is moves
-                assert seen <= {"◐", "◓", "◑", "◒"}
+                assert seen <= {"▖", "▘", "▝", "▗"}
     finally:
         hold.set()
 
 
-async def test_online_symbols_dim_for_half_of_each_pulse() -> None:
+async def test_online_symbols_never_change_with_the_frame() -> None:
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test() as pilot:
         await checked(app, pilot)
-        widgets = list(app.query(StatusSymbol))
-        dimmed: list[list[bool]] = [[] for _ in widgets]
+        widget = app.query(StatusSymbol).first()
+        assert widget.state is State.ONLINE
         for frame in range(8):
-            for widget, seen in zip(widgets, dimmed, strict=True):
-                widget.frame = frame
-                seen.append(widget.has_class("-dim"))
-        pulse = [False] * 4 + [True] * 4
-        assert dimmed == [pulse, pulse, [False] * 8, [False] * 8]
+            widget.frame = frame
+            assert not widget.has_class("-dim")
+            assert widget.render().plain == "●"
 
 
-async def test_the_animation_moves_only_checking_and_online_symbols() -> None:
+async def test_the_animation_moves_only_checking_symbols() -> None:
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     app.animation_level = "full"
     async with app.run_test() as pilot:
@@ -359,11 +358,14 @@ async def test_the_animation_moves_only_checking_and_online_symbols() -> None:
             State.UNKNOWN,
         ]
         widgets = list(app.query(StatusSymbol))
-        before = [widget.frame for widget in widgets]
-        app._tick_animation()
-        app._tick_animation()
-        moved = [w.frame - b for w, b in zip(widgets, before, strict=True)]
-        assert moved == [2, 2, 0, 0]
+        widgets[2].state = State.CHECKING
+        # The startup spinner may already have moved every symbol.
+        for widget in widgets:
+            widget.frame = 0
+        for _ in range(3):
+            app._tick_animation()
+        assert app._frame >= 3
+        assert [widget.frame for widget in widgets] == [0, 0, app._frame, 0]
 
 
 async def test_without_a_checker_nothing_is_checked(
@@ -375,7 +377,7 @@ async def test_without_a_checker_nothing_is_checked(
     async with app.run_test() as pilot:
         await pilot.pause()
         assert symbols(app) == [State.NOT_CHECKED] * 4
-        assert status_text(app) == "· Not checked"
+        assert status_text(app) == "· not checked"
         assert app.check_action("refresh", ()) is None
         await pilot.press("r")
         thread.assert_not_called()
@@ -417,7 +419,7 @@ async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
         assert "new-host" not in checker.resolved
         assert symbols(app)[4] is State.UNKNOWN
         assert app.query_one(ListView).index == 4
-        assert status_text(app) == "◇ Can't check: press R to resolve this alias"
+        assert status_text(app) == "◇ can't check: press R to resolve this alias"
         await pilot.press("r")
         await wait_for(pilot, lambda: "new-host" in checker.resolved)
 
@@ -464,7 +466,7 @@ async def test_a_save_while_ssh_g_runs_keeps_its_answers(tmp_path: Path) -> None
             assert symbols(app)[0] is State.ONLINE
             app.query_one(ListView).index = 0
             await wait_for(pilot, lambda: details_id(app) == "garden")
-            assert status_text(app) == "● Online via alias"
+            assert status_text(app) == "● online via alias"
             assert symbols(app)[3] is State.UNKNOWN
             assert sorted(checker.resolved) == ["garden-host", "hop-host"]
             assert state_path(path, platform.node()).exists()
@@ -515,7 +517,7 @@ async def test_changing_an_alias_while_ssh_g_runs_waits_for_r(
             await checked(app, pilot)
             app.query_one(ListView).index = 0
             await wait_for(pilot, lambda: details_id(app) == "garden")
-            assert status_text(app) == "◇ Can't check: press R to resolve this alias"
+            assert status_text(app) == "◇ can't check: press R to resolve this alias"
             assert "other-host" not in checker.resolved
     finally:
         hold.set()
@@ -540,7 +542,7 @@ async def test_an_alias_waiting_for_r_needs_no_thread(
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: len(app.query(StatusSymbol)) == 5)
         await wait_for(pilot, lambda: details_id(app) == "new")
-        assert status_text(app) == "◇ Can't check: press R to resolve this alias"
+        assert status_text(app) == "◇ can't check: press R to resolve this alias"
 
 
 class OneSlowHost(FakeChecker):
@@ -653,7 +655,7 @@ async def test_checks_that_cannot_start_leave_the_timer_and_r_working(
         await wait_for(pilot, lambda: symbols(app) == [State.UNKNOWN] * 4)
         app.query_one(ListView).index = 2
         await wait_for(pilot, lambda: details_id(app) == "lab")
-        assert status_text(app) == "◇ Can't check: the check could not start"
+        assert status_text(app) == "◇ can't check: the check could not start"
         assert app.check_action("refresh", ()) is True
         started = app._round
         app._timer_round()
