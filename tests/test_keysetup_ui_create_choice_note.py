@@ -237,7 +237,7 @@ async def test_an_alias_whose_config_could_not_be_read_says_so_on_every_choice(
         assert option_labels(screen) == LABELS
         assert [
             (choice.note, choice.hint, choice.failed_hint) for choice in screen.choices
-        ] == [(UNREAD, None, None)] * 3
+        ] == [(UNREAD, UNREAD, None)] * 3
         assert note(screen) == UNREAD
 
 
@@ -252,7 +252,10 @@ async def test_a_new_key_passing_the_test_when_the_config_could_not_be_read(
         await picker(app, pilot, checker)
         await pilot.press("down", "down", "enter")
         await finished(app, pilot)
-        assert connection_status(app) == "Key login works. Machine 1: garden"
+        assert connection_status(app) == (
+            "Key-only login works, but SSH may have used another key. "
+            f"{UNREAD} Machine 1: garden"
+        )
     assert [Native.step(call) for call in native.calls] == [
         "keygen",
         "install",
@@ -261,7 +264,7 @@ async def test_a_new_key_passing_the_test_when_the_config_could_not_be_read(
     assert path.read_text(encoding="utf-8") == text
 
 
-async def test_a_failed_test_when_the_config_could_not_be_read_adds_no_hint(
+async def test_a_failed_test_when_the_config_could_not_be_read_says_so(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     native = Native(statuses={"test": 255})
@@ -274,7 +277,7 @@ async def test_a_failed_test_when_the_config_could_not_be_read_adds_no_hint(
         await finished(app, pilot)
         assert connection_status(app) == (
             "The key was installed, but key-only login failed (SSH exited with "
-            "status 255). Machine 1: garden"
+            f"status 255). {UNREAD} Machine 1: garden"
         )
     assert [Native.step(call) for call in native.calls] == ["install", "test"]
 
