@@ -20,6 +20,7 @@ from unittest.mock import patch
 
 from ssh_workbench.app import SSHWorkbenchApp
 from ssh_workbench.config import Machine, format_machines, read_machines
+from ssh_workbench.ssh import SSHLaunchError
 from ssh_workbench.status import AliasTarget
 
 STEPS = ("keygen", "install", "test")
@@ -133,6 +134,10 @@ def main() -> int:
     path = prepare(folder.resolve())
     print(f"Working folder: {folder}")
     with (
+        patch(
+            "ssh_workbench.app.launch_ssh",
+            side_effect=SSHLaunchError("C does not start SSH in this key-setup check."),
+        ),
         patch("ssh_workbench.app.run_native", run_child),
         patch("ssh_workbench.app.find_ssh", return_value=SSH_FIXTURE),
         patch("ssh_workbench.keys.find_ssh_keygen", return_value=KEYGEN_FIXTURE),
