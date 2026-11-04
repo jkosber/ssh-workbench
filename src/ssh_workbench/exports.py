@@ -31,7 +31,10 @@ def format_exports(machines: Sequence[Machine], source: Path) -> str:
 
     The header names the machine file the blocks come from.
     """
-    if any(ord(c) < 32 or ord(c) == 127 for c in str(source)):
+    # A name byte that isn't UTF-8 reads as a lone surrogate, which UTF-8 can't hold.
+    if any(
+        ord(c) < 32 or ord(c) == 127 or 0xD800 <= ord(c) <= 0xDFFF for c in str(source)
+    ):
         raise ExportError(
             "Can't export: the machine file's path can't be written to an SSH config."
         )

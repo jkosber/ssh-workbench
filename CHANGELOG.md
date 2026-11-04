@@ -52,6 +52,10 @@ Changes by release, newest first. Version numbers follow the policy in
   a wildcard, such as `a<NUL>b/*`, made A and E crash Workbench, and the
   startup and R checks no longer said `alias not found` for an alias gone
   from the config.
+- A save while a machine is exported, from a machine file whose folder name
+  has a byte that isn't UTF-8, now shows `Can't export: the machine file's
+  path can't be written to an SSH config.` Before, Workbench crashed after
+  saving the machine file and never wrote `ssh-workbench.config`.
 
 ## 0.3.4 - 2026-10-31
 
