@@ -1427,6 +1427,14 @@ class SSHWorkbenchApp(App[None]):
             self._show_details(self._initial_index)
             # The browser may sit under a form; focus returns here when it closes.
             self.screen_stack[0].set_focus(machine_list)
+            # The list scrolled to its new index before it had a size; scroll
+            # again once the screen has laid it out.
+            if machine_list.highlighted_child is not None:
+                machine_list.call_after_refresh(
+                    machine_list.scroll_to_widget,
+                    machine_list.highlighted_child,
+                    animate=False,
+                )
         self.refresh_bindings()
         if self.checker is not None:
             self._start_round(resolve=False)

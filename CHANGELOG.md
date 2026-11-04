@@ -60,6 +60,9 @@ Changes by release, newest first. Version numbers follow the policy in
   fails while the terminal is handed over, such as to a closed pipe or a full
   disk; the `SSH Workbench:` line that failed is not shown. Before, Workbench
   crashed, even after creating a new key.
+- After a save or reload rebuilds a list longer than its pane, the selected
+  machine's row stays on screen. Before, the list scrolled back to the top,
+  so the row C and K act on could be hidden below it.
 
 ## 0.3.4 - 2026-10-31
 
