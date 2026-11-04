@@ -29,6 +29,10 @@ Changes by release, newest first. Version numbers follow the policy in
   installed.` when a machine's key is the other system's absolute form, such
   as `C:\Users\...` on Linux. Before, Workbench resolved that path against its
   working folder, so a key found there could be installed and tested.
+- K pressed while the startup or R check of aliases still runs no longer sets
+  up a key through an alias that check finds missing: the key picker doesn't
+  open, or closes if it is already open. Before, Enter installed and tested
+  the key through the old name, wherever SSH now sent it.
 
 ## 0.3.4 - 2026-10-31
 

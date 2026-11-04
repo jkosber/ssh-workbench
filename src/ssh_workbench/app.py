@@ -1043,6 +1043,11 @@ class SSHWorkbenchApp(App[None]):
                 self._pending_aliases.add(machine.alias)
         if not self._pending_aliases:
             self._round_resolved()
+        # A picker K opened while the review ran closes once its alias is
+        # missing, as Escape would close it.
+        screen = self.screen
+        if isinstance(screen, KeySetup) and screen.machine.alias in self._missing:
+            screen.action_cancel()
         self._show_statuses()
         self.refresh_bindings()
 
@@ -1662,9 +1667,14 @@ class SSHWorkbenchApp(App[None]):
             # The user moved on, or this is an earlier lookup's answer.
             return
         self._key_waiting = None
-        # U saves without opening a screen, so the machine may have changed.
+        # U saves without opening a screen, so the machine may have changed,
+        # and the review may have found its alias missing since K.
         index = self._selected_index()
-        if index is not None and self.machines[index] == waiting:
+        if (
+            index is not None
+            and self.machines[index] == waiting
+            and self.check_action("key_setup", ()) is True
+        ):
             self._open_key_setup(waiting, message.target)
 
     def _drop_key_wait(self, _: object = None) -> None:
