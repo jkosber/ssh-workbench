@@ -56,6 +56,10 @@ Changes by release, newest first. Version numbers follow the policy in
   has a byte that isn't UTF-8, now shows `Can't export: the machine file's
   path can't be written to an SSH config.` Before, Workbench crashed after
   saving the machine file and never wrote `ssh-workbench.config`.
+- K now finishes its steps and takes the terminal back when writing to stdout
+  fails while the terminal is handed over, such as to a closed pipe or a full
+  disk; the `SSH Workbench:` line that failed is not shown. Before, Workbench
+  crashed, even after creating a new key.
 
 ## 0.3.4 - 2026-10-31
 

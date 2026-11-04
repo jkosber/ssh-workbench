@@ -1849,7 +1849,7 @@ class SSHWorkbenchApp(App[None]):
             return status
 
         if choice.create:
-            print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
+            _note("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
             status = run(keygen_arguments(choice.private, machine.id), "ssh-keygen")
             if status is None:
                 return (
@@ -1872,7 +1872,7 @@ class SSHWorkbenchApp(App[None]):
                 "Key setup interrupted before the install; nothing was installed.",
                 False,
             )
-        print("SSH Workbench: installing the key; SSH may ask for the password.")
+        _note("SSH Workbench: installing the key; SSH may ask for the password.")
         status = run([ssh, *install_arguments(machine, address, command)])
         if status is None:
             return (
@@ -1885,7 +1885,7 @@ class SSHWorkbenchApp(App[None]):
                 "login was not tested."
             ), False
         tested = machine if setting is None else replace(machine, key=setting)
-        print("SSH Workbench: testing key-only login.")
+        _note("SSH Workbench: testing key-only login.")
         status = run([ssh, *login_test_arguments(tested, address)])
         if status == 0:
             # A hint means the alias's config doesn't name this key, so SSH
@@ -1913,6 +1913,16 @@ def _home() -> Path | None:
         return Path.home()
     except RuntimeError:
         return None
+
+
+def _note(line: str) -> None:
+    """Print an informational line while the terminal is handed over. A stdout
+    that fails loses the line, never the handoff: Textual 8.2.8 resumes only
+    when its suspend block exits normally."""
+    try:
+        print(line, flush=True)
+    except OSError, ValueError:
+        pass
 
 
 def _test_failed(
