@@ -1,12 +1,14 @@
 """Validate one URL and request a desktop browser without using terminal I/O."""
 
 import os
+import posixpath
 import shutil
 import subprocess
 import sys
 from enum import Enum
 
 from ssh_workbench.config import ConfigError, validate_http_url
+from ssh_workbench.ssh import _which_on_absolute_path
 
 
 class LinkResult(Enum):
@@ -38,6 +40,10 @@ def open_link(url: str | None) -> LinkResult:
             os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
         ):
             executable = shutil.which("gio")
+            if executable is not None and not posixpath.isabs(executable):
+                # A relative PATH entry searches the working folder. Never run
+                # a gio found so; this branch only runs on Linux.
+                executable = _which_on_absolute_path("gio")
             if executable is not None:
                 # GIO uses desktop associations. Avoid webbrowser/xdg-open's
                 # text-browser fallback; no child may inherit the live TUI.

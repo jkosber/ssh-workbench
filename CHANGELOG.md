@@ -33,6 +33,9 @@ Changes by release, newest first. Version numbers follow the policy in
   up a key through an alias that check finds missing: the key picker doesn't
   open, or closes if it is already open. Before, Enter installed and tested
   the key through the old name, wherever SSH now sent it.
+- O on Linux now runs `gio` only from an absolute PATH folder, and says the
+  browser is unavailable when none has it. Before, a `.` or empty PATH entry
+  let O run a `gio` from Workbench's working folder.
 
 ## 0.3.4 - 2026-10-31
 
