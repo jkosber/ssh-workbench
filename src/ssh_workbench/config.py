@@ -233,9 +233,12 @@ def is_valid_key_path(value: object) -> bool:
     ):
         return False
     if value.startswith(("~/", "~\\")):
-        # The rest stays inside the home folder: no second root and no drive.
+        # The rest stays inside the home folder: no second root, no drive and
+        # no `..`, `.` or empty part.
         rest = value[2:]
-        return bool(rest) and rest[0] not in "/\\" and not PureWindowsPath(rest).drive
+        return not PureWindowsPath(rest).drive and all(
+            part not in ("", ".", "..") for part in re.split(r"[\\/]", rest)
+        )
     # A root such as `/`, `C:\` or `\\server\share\` names no file.
     paths = [
         path

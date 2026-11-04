@@ -70,6 +70,11 @@ Changes by release, newest first. Version numbers follow the policy in
   holds U+2028, U+2029 or U+0085, now rewrites `ssh-workbench.config`. Before,
   every save after the first refused with `ssh-workbench.config holds the
   exports of ...`, naming the path cut short at that character.
+- A machine key starting with `~/` or `~\` that has a `..` or `.` part, or an
+  empty part from a doubled or trailing separator, such as `~/../../etc/x`,
+  is now a key error in the machine file and the edit form. Before, it loaded,
+  C passed SSH a key outside the home folder, and an exported machine wrote
+  that path to `ssh-workbench.config` as given.
 
 ## 0.3.4 - 2026-10-31
 
