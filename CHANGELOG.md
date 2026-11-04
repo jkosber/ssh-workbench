@@ -66,6 +66,10 @@ Changes by release, newest first. Version numbers follow the policy in
 - An alias whose SSH host name has an empty label or a label of 64 or more
   characters, such as `lab..example.test`, now shows `offline`. Before, every
   check said `can't check: the check failed`.
+- A save while a machine is exported, from a machine file whose folder name
+  holds U+2028, U+2029 or U+0085, now rewrites `ssh-workbench.config`. Before,
+  every save after the first refused with `ssh-workbench.config holds the
+  exports of ...`, naming the path cut short at that character.
 
 ## 0.3.4 - 2026-10-31
 

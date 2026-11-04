@@ -108,7 +108,8 @@ def _owner(path: Path) -> str | None:
     """The machine file named in an existing generated file, if any."""
     if not path.exists():
         return None
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+    # As for SSH, only LF ends a line: a path may hold U+2028, U+2029 or U+0085.
+    for line in path.read_text(encoding="utf-8", errors="replace").split("\n"):
         if line.startswith(_SOURCE):
             return line.removeprefix(_SOURCE)
     return None
