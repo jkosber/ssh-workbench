@@ -236,7 +236,13 @@ def is_valid_key_path(value: object) -> bool:
         # The rest stays inside the home folder: no second root and no drive.
         rest = value[2:]
         return bool(rest) and rest[0] not in "/\\" and not PureWindowsPath(rest).drive
-    return PureWindowsPath(value).is_absolute() or PurePosixPath(value).is_absolute()
+    # A root such as `/`, `C:\` or `\\server\share\` names no file.
+    paths = [
+        path
+        for path in (PureWindowsPath(value), PurePosixPath(value))
+        if path.is_absolute()
+    ]
+    return bool(paths) and all(path.name for path in paths)
 
 
 def _projects_as_machines(data: dict[str, object]) -> list[Machine]:
