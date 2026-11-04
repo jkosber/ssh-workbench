@@ -121,7 +121,7 @@ The [user guide](docs/guide.md#keys) has the full list.
 | [Testing](docs/testing.md) | Contributors | Automated checks and manual terminal checks |
 | [Architecture](docs/architecture.md) | Contributors | How the code is organized and why |
 | [Roadmap](docs/roadmap.md) | Everyone | What is next, the backlog and what is done |
-| [AGENTS.md](AGENTS.md) | Coding agents | Rules and commands for AI coding agents |
+| [AGENTS.md](AGENTS.md) | Coding agents | Rules for AI coding agents |
 
 ## License
 
