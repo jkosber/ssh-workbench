@@ -25,6 +25,10 @@ Changes by release, newest first. Version numbers follow the policy in
   shows `TOML: could not parse the file`. Before, Workbench crashed, and when
   the file had changed outside Workbench the crash could print its path and
   text.
+- K now says `This machine's key is a path for another system; nothing was
+  installed.` when a machine's key is the other system's absolute form, such
+  as `C:\Users\...` on Linux. Before, Workbench resolved that path against its
+  working folder, so a key found there could be installed and tested.
 
 ## 0.3.4 - 2026-10-31
 

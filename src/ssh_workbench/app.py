@@ -1709,6 +1709,17 @@ class SSHWorkbenchApp(App[None]):
     ) -> list[KeyChoice]:
         """The machine's own key; else the alias's keys, the folder's and a new one."""
         if machine.alias is None and machine.key is not None:
+            if (
+                not machine.key.startswith(("~/", "~\\"))
+                and not Path(machine.key).is_absolute()
+            ):
+                # A shared machine file may hold the other system's absolute
+                # form, which this one resolves against the working folder or
+                # its drive.
+                raise KeySetupError(
+                    "This machine's key is a path for another system; "
+                    "nothing was installed."
+                )
             private = Path(key_argument(machine.key))
             # Raises KeySetupError when its .pub is missing or not valid.
             read_public_key(private.with_name(f"{private.name}.pub"))
