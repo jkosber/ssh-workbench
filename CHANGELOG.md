@@ -47,6 +47,11 @@ Changes by release, newest first. Version numbers follow the policy in
   dots, such as `.pub` or `..pub`, and offers the SSH folder's other keys.
   Before, a `.pub` or `..pub` file holding a valid key made K crash Workbench
   on an alias machine or a machine without a key.
+- A NUL byte in an SSH config line now ends that line, as it does for SSH, so
+  `Host alpha<NUL>beta` lists `alpha`. Before, an `Include` with a NUL before
+  a wildcard, such as `a<NUL>b/*`, made A and E crash Workbench, and the
+  startup and R checks no longer said `alias not found` for an alias gone
+  from the config.
 
 ## 0.3.4 - 2026-10-31
 

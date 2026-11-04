@@ -73,7 +73,8 @@ def _read(
     except OSError, RuntimeError, ValueError:
         return
     for line in text.splitlines():
-        match = _KEYWORD.match(line)
+        # OpenSSH reads a line only up to its first NUL byte.
+        match = _KEYWORD.match(line.split("\x00", 1)[0])
         if match is None:
             continue
         keyword = match.group(1).lower()
