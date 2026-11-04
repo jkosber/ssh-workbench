@@ -75,6 +75,12 @@ Changes by release, newest first. Version numbers follow the policy in
   is now a key error in the machine file and the edit form. Before, it loaded,
   C passed SSH a key outside the home folder, and an exported machine wrote
   that path to `ssh-workbench.config` as given.
+- For an alias whose SSH config already names the key K would create, such as
+  `IdentityFile ~/.ssh/id_ed25519_<id>`, Create no longer says the config
+  doesn't name it, and a passing login test says `Key login works.` When
+  `ssh -G` can't answer for the alias, each key says the config couldn't be
+  read. Before, both cases told you to add an `IdentityFile` line, and a
+  passing test said SSH may have used another key.
 
 ## 0.3.4 - 2026-10-31
 

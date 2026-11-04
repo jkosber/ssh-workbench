@@ -1745,7 +1745,10 @@ class SSHWorkbenchApp(App[None]):
             return [KeyChoice(private, label)]
         home = _home() if ssh_folder_override() is None else None
         choices: list[KeyChoice] = []
+        named: list[Path] = []
+        by_key: list[Path] = []
         if target is not None:
+            named = identity_paths(target.identity_files, folder)
             # SSH reads a key named only by its .pub through an agent alone.
             by_key = identity_paths(
                 [
@@ -1755,7 +1758,7 @@ class SSHWorkbenchApp(App[None]):
                 ],
                 folder,
             )
-            for private in identity_paths(target.identity_files, folder):
+            for private in named:
                 if _has_public_key(private):
                     label = f"{private.name}.pub (your SSH config offers this)"
                     failed_hint = (
@@ -1772,7 +1775,14 @@ class SSHWorkbenchApp(App[None]):
         new = new_key_path(folder, machine.id)
         if not new.exists() and not Path(f"{new}.pub").exists():
             label = f"Create a new key: {new.name}"
-            choices.append(_key_choice(machine, target, new, label, home, True))
+            if new in named:
+                # The config already names the key Create would make.
+                failed_hint = (
+                    None if new in by_key else _agent_hint(machine.alias, new, home)
+                )
+                choices.append(KeyChoice(new, label, True, failed_hint=failed_hint))
+            else:
+                choices.append(_key_choice(machine, target, new, label, home, True))
         return choices
 
     def _key_plan_chosen(self, machine_id: str, plan: KeyPlan | None) -> None:
@@ -2014,6 +2024,13 @@ def _key_choice(
     alias = machine.alias
     if alias is None:
         return KeyChoice(private, label, create)
+    if target is None:
+        # Without an answer from ssh -G, which keys the config names is unknown.
+        note = (
+            f"Your SSH config couldn't be read for {alias}, so Workbench can't "
+            "tell whether it names this key."
+        )
+        return KeyChoice(private, label, create, note)
     line = f"IdentityFile {_identity_value(private, home)}"
     note = (
         f"Your SSH config doesn't name this key for {alias}. Add this line under "
