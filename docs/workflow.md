@@ -191,7 +191,7 @@ rows leave that out.
    The lockfile should change only in Workbench's own version.
 4. Update every line that names the current release:
    `git grep -n "<previous version>" -- . ":!CHANGELOG.md" ":!docs/archive"`
-   finds AGENTS.md and the install commands in the README and the user guide.
+   finds the install commands in the README and the user guide.
    Add a row for the new version to the table above; a new minor version
    also renumbers the Policy rows after it (0.3.0 made them 0.3.x and
    0.4.0). Change **Unreleased** in the roadmap's Done table to the new
