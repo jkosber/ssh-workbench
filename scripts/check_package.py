@@ -140,13 +140,17 @@ def main() -> None:
             b'name = "Package second"\nssh_alias = "fictional-second"\n'
         )
         browser_fixture.write_bytes(original)
-        subprocess.run(
+        result = subprocess.run(
             [*smoke_command, "app"],
             cwd=temporary,
             env=isolated_environment,
+            capture_output=True,
+            text=True,
             check=True,
             timeout=30,
         )
+        if result.stderr:
+            raise SystemExit(f"Installed wheel app check failed:\n{result.stderr}")
         if browser_fixture.read_bytes() != original:
             raise SystemExit("Installed wheel modified its machine file")
         for key in ("q", "ctrl+q"):
@@ -175,6 +179,8 @@ def main() -> None:
             check=True,
             timeout=30,
         )
+        if result.stderr:
+            raise SystemExit(f"Installed wheel save check failed:\n{result.stderr}")
         if result.stdout.strip() != "Saved machine file: created and loaded back":
             raise SystemExit("Installed wheel save check failed")
     print(
