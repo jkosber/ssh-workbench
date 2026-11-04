@@ -12,6 +12,7 @@ __pycache__/
 htmlcov/
 build/
 dist/
+mutants/
 
 # Private local configuration, credentials and workspace notes
 .local/
