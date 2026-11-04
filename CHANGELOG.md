@@ -18,6 +18,8 @@ Changes by release, newest first. Version numbers follow the policy in
   have, and online dots no longer pulse.
 - Status words in the details are lowercase now, as in the header:
   `● online: 192.0.2.20`.
+- The form's Addresses label says which address is used: the one the latest
+  status check found online, else the first. It said the first one was used.
 
 ### Fixed
 
