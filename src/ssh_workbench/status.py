@@ -68,7 +68,9 @@ def port_open(host: str, port: int, timeout: float = 3.0) -> bool:
     """Whether a TCP connection to the port opens; the connection is closed unused."""
     try:
         connection = socket.create_connection((host, port), timeout=timeout)
-    except OSError:
+    except OSError, UnicodeError:
+        # UnicodeError: the IDNA codec rejects a name with an empty or
+        # over-long label, which `ssh -G` can print, before any lookup.
         return False
     connection.close()
     return True

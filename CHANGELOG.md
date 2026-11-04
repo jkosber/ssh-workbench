@@ -63,6 +63,9 @@ Changes by release, newest first. Version numbers follow the policy in
 - After a save or reload rebuilds a list longer than its pane, the selected
   machine's row stays on screen. Before, the list scrolled back to the top,
   so the row C and K act on could be hidden below it.
+- An alias whose SSH host name has an empty label or a label of 64 or more
+  characters, such as `lab..example.test`, now shows `offline`. Before, every
+  check said `can't check: the check failed`.
 
 ## 0.3.4 - 2026-10-31
 
