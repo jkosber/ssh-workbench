@@ -164,7 +164,10 @@ class MachineForm(ModalScreen[None]):
                     yield Static(self._hosts_text(), id="form-hosts", markup=False)
                 with Vertical(id="direct-fields"):
                     for field, label in (
-                        ("addresses", "Addresses (the first one is used)"),
+                        (
+                            "addresses",
+                            "Addresses (the one found online is used, else the first)",
+                        ),
                         ("user", "User (optional)"),
                         ("port", "Port (optional)"),
                         ("key", "Key: path of the private key (optional)"),

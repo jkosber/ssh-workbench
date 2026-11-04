@@ -40,9 +40,10 @@ Changes by release, newest first. Version numbers follow the policy in
   `authorized_keys` file, such as `hosts.conf` linked to `id_ed25519`, is no
   longer read. Before, Workbench opened that file and listed any `Host` names
   in it.
-- A machine key that names only a root, such as `/`, `C:\` or
-  `\\server\share\`, is now a key error in the machine file and the edit form.
-  Before, it loaded, and K on that machine crashed Workbench.
+- A machine key that names only a root, such as `/`, `C:\`,
+  `\\server\share\` or `//server/share`, is now a key error in the machine
+  file and the edit form. Before, it loaded, and K on that machine crashed
+  Workbench.
 - K no longer offers a `.pub` file whose name before `.pub` is empty or only
   dots, such as `.pub` or `..pub`, and offers the SSH folder's other keys.
   Before, a `.pub` or `..pub` file holding a valid key made K crash Workbench

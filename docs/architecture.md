@@ -83,8 +83,9 @@ flowchart LR
 
 `cli` imports `config` and, after argument parsing, `app`. `app` uses `forms`,
 `store`, `sshconfig`, `status`, `aliases`, `keys`, `exports`, `display`, `ssh`
-and `links`, which reuse validation from `config`; `aliases` writes through
-`store`. Only `__main__` imports `cli`.
+and `links`, which reuse validation from `config`; `links` also uses `ssh` for
+its absolute-`PATH` executable lookup, and `aliases` writes through `store`.
+Only `__main__` imports `cli`.
 
 ## Decisions
 
@@ -205,7 +206,7 @@ format. Policy choices:
 | Require exact integer version 1 or 2 and unique, case-sensitive IDs | Python booleans are integers too; explicit checks preserve the TOML contract |
 | Either `alias` or `addresses`; `user`, `port` and `key` only with `addresses` | An alias's SSH config already decides those values; mixing them would hide which one SSH uses |
 | `user` and addresses never start with `-` and contain no whitespace, controls or `@`; addresses are hostnames, IPv4 or IPv6 without a `%` zone; digits-and-dots values must be valid IPv4 | Each value stays one SSH argument and cannot become an option or a second destination |
-| Accept either platform's absolute key path, or `~/` and `~\` | A machine file in a synced folder can serve Windows and Linux |
+| Accept either platform's absolute key path, or `~/` and `~\` | A machine file in a synced folder can serve Windows and Linux. A key without `~` is the running system's absolute path: on the other system K refuses it ("This machine's key is a path for another system; nothing was installed.") while C still passes it to SSH as given, so a machine file used from both systems should name its keys with `~/` |
 | Reject `"`, `%`, `${`, controls and `.pub` in key paths | OpenSSH would expand `%` and `${}` after checking the raw path; a `.pub` file is never a private key |
 | Unique link names within a machine; URLs keep the 0.1.0 rule | Names identify picker entries; the browser boundary rechecks the same URL rule |
 | Validate HTTP/HTTPS scheme, host presence, credentials and port syntax and range | `urlsplit` separates components but is not a full URL validator |
@@ -281,9 +282,12 @@ The add form lists literal `Host` names from `sshconfig.host_names`. It reads
 meaning its parent, globs in sorted order, up to OpenSSH's depth of 16, each
 file once and at most 1 MB. Only `Host` and `Include` keywords are
 interpreted; names with `*`, `?` or `!`, or that fail the alias rule, are
-skipped. Include targets named `id_*`, `*.pub`, `*.pem`, `*.ppk`, `*.key`,
-`known_hosts*` or `authorized_keys*` are never opened. Unreadable files are
-skipped silently, because the names are only suggestions.
+skipped. An Include target whose own name, or whose resolved name when it is
+a symbolic link, matches `id_*`, `*.pub`, `*.pem`, `*.ppk`, `*.key`,
+`known_hosts*` or `authorized_keys*`, ignoring case, is never opened. The rule
+goes by name only: a key file with an ordinary name that a glob `Include`
+matches, or a hard link to a key, is read like any Include target. Unreadable
+files are skipped silently, because the names are only suggestions.
 
 ## Live status
 
@@ -298,8 +302,8 @@ and on R that also resolves aliases, and a round without resolving every
 | Round | Each machine becomes Checking and gets one daemon thread, as the link worker does (in a resolving round, alias machines only after the [rename review](#rename-detection)), so quitting never waits for a check stuck on DNS or a dropped connection. In a round without resolving, an alias with no `ssh -G` answer gets no thread and reads `can't check: press R to resolve this alias`. Results come back through `post_message` as `StatusFinished`; a status from an older round, or for a machine no longer listed, is dropped |
 | Save during a resolving round | The round a save starts leaves the aliases that the startup or R review, or its `ssh -G`, still has to answer Checking, with no check of their own. The review and every `ssh -G` answer still apply whatever their round: R waits for all of them, so they always belong to the latest startup or R round. A late answer starts the port check of the machines still waiting for that alias; an alias the save added or changed waits for R |
 | Direct machine | `check_machine` tries the addresses in listed order on the machine's port (22 when unset) and stops at the first that answers |
-| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, standard output captured, standard error discarded and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. It runs detached from the terminal (`CREATE_NO_WINDOW` on Windows, a new session on POSIX), so a `Match exec` command cannot draw over the screen. Only `hostname`, `user`, `port`, `proxyjump` and `proxycommand` are read; the host and user are never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
-| Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` is offline |
+| Alias machine | `resolve_alias` runs `[ssh, "-G", "--", alias]` without a shell, with standard input closed, standard output captured, standard error discarded and a 10 s timeout; with `SSH_WORKBENCH_SSH_DIR` set it adds `-F <dir>/config`. It runs detached from the terminal (`CREATE_NO_WINDOW` on Windows, a new session on POSIX), so a `Match exec` command cannot draw over the screen. Only `hostname`, `user`, `port`, `proxyjump`, `proxycommand`, `identityfile` and `identitiesonly` are read, the last two for key setup; the host and user are never displayed. A proxied alias is Can't check, because a direct port test would say nothing about the real route |
+| Port check | `port_open` opens a TCP connection with a 3 s timeout and closes it at once; any `OSError` or `UnicodeError` is offline. The IDNA codec raises `UnicodeError` for a host name with an empty or over-long label, which `ssh -G` can print, before any lookup |
 | Timer rounds | Reuse the saved `ssh -G` answers. An alias added or changed since the last resolve stays Can't check until R, because `ssh -G` evaluates `Match exec` lines; Workbench runs it only at startup and on R. A timer round is skipped while the current round still reviews aliases or has a check that hasn't reported, so a check slower than the interval still shows its result |
 | R | Dimmed while a review or resolving check of any round, one a save replaced included, is still running, so R never starts a second set of `ssh -G` runs beside them; K's own `ssh -G` is not counted |
 | Teardown | Timer rounds, animation ticks, status and link results and a pending rebuild do nothing once `App.is_running` is False: when Pilot's `run_test` tears the app down, Textual removes the screens while app timers and messages still run. A normal exit stops both first |
@@ -404,10 +408,13 @@ IPv4 and IPv6 destinations, and still refuse `-- -oProxyCommand=x` as an
 invalid hostname. `HostKeyAlias` checks one `known_hosts` entry per machine,
 whichever address is used. A key starting with `~/` or `~\` is expanded with
 `Path.home()`, splitting the rest on either separator, because OpenSSH expands
-only `~/`; the rules keep that rest inside the home folder (no second root or
-drive). Other keys pass unchanged. OpenSSH checks that the raw `-i` path
-exists before expanding `%` and `${}` codes, so the rules reject those
-characters rather than escaping them. Workbench never opens the key file.
+only `~/`; the rules keep that rest inside the home folder: no second root or
+drive, and no `..`, `.` or empty part. Other keys pass unchanged, and a key
+that names only a root in either system's reading, such as `/`, `C:\`,
+`\\server\share\` or `//server/share` (a UNC root on Windows), is rejected.
+OpenSSH checks that the raw `-i` path exists before expanding `%` and `${}`
+codes, so the rules reject those characters rather than escaping them.
+Workbench never opens the key file.
 
 | Step | Rule |
 | --- | --- |
@@ -447,7 +454,7 @@ fetching, redirect handling or page-existence check.
 | Platform | Dispatch |
 | --- | --- |
 | Windows | `os.startfile(url)` dispatches through the URL association, as Python's `webbrowser.WindowsDefault` does |
-| Linux with `DISPLAY` or `WAYLAND_DISPLAY` | `shutil.which("gio")` finds the desktop helper, and `subprocess.run([executable, "open", "--", url], shell=False, check=False, ...)` waits for its dispatch result. All three streams use `DEVNULL` and the helper starts a separate session. A zero status is acceptance, not page loading |
+| Linux with `DISPLAY` or `WAYLAND_DISPLAY` | The desktop helper `gio` comes only from an absolute `PATH` entry, through the lookup SSH uses: a relative `shutil.which("gio")` result is discarded and only the absolute entries are searched, so a relative `PATH` entry never yields a `gio`. Then `subprocess.run([executable, "open", "--", url], shell=False, check=False, ...)` waits for its dispatch result. All three streams use `DEVNULL` and the helper starts a separate session. A zero status is acceptance, not page loading |
 | Others, or Linux without a desktop or GIO | Unavailable |
 
 OS errors become safe results; no exception text or helper output is shown. No
