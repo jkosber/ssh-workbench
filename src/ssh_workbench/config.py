@@ -85,6 +85,9 @@ def _parse_toml(text: str) -> dict[str, object]:
         raise ConfigError(
             f"TOML: invalid syntax at line {error.lineno}, column {error.colno}"
         ) from None
+    except RecursionError, ValueError:
+        # Nesting, dotted keys or integer digits beyond the parser's limits.
+        raise ConfigError("TOML: could not parse the file") from None
 
 
 def load_machines(path: Path) -> list[Machine]:

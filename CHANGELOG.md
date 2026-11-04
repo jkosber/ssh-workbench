@@ -19,6 +19,13 @@ Changes by release, newest first. Version numbers follow the policy in
 - Status words in the details are lowercase now, as in the header:
   `● online: 192.0.2.20`.
 
+### Fixed
+
+- A machine file nested too deeply, or with an integer too long to read, now
+  shows `TOML: could not parse the file`. Before, Workbench crashed, and when
+  the file had changed outside Workbench the crash could print its path and
+  text.
+
 ## 0.3.4 - 2026-10-31
 
 Letter keys work with Caps Lock on or typed as capitals, and a newly selected
