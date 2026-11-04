@@ -19,6 +19,7 @@ import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from threading import Event
 from unittest.mock import patch
 
@@ -115,13 +116,23 @@ def install_fixture_guards() -> None:
         "ssh_workbench.app.launch_ssh",
         side_effect=SSHLaunchError("SSH is disabled in this link fixture."),
     ).start()
+    # K looks each native tool up before running it; this error becomes K's
+    # result line, so the terminal comes back.
+    for lookup in ("ssh_workbench.app.find_ssh", "ssh_workbench.keys.find_ssh_keygen"):
+        patch(
+            lookup,
+            side_effect=SSHLaunchError("Key setup is disabled in this link fixture."),
+        ).start()
 
 
 def main() -> int:
     argparse.ArgumentParser(description=__doc__).parse_args()
     install_fixture_guards()
-    app = SSHWorkbenchApp(MACHINES)
-    app.run()
+    # K lists keys from this empty folder, never from the user's SSH folder.
+    with tempfile.TemporaryDirectory(prefix="ssh-workbench-links-") as folder:
+        patch.dict(os.environ, {"SSH_WORKBENCH_SSH_DIR": folder}).start()
+        app = SSHWorkbenchApp(MACHINES)
+        app.run()
     return app.return_code
 
 

@@ -173,7 +173,11 @@ Run at 80x24. Every browser and operating-system opener is substituted.
 3. On the picker case, O opens the list: Enter opens the first link, Down
    then Enter the second, and Escape closes it with the same selection and
    focus.
-4. Last, on the blocked case, O reports pending and a second O reports "still
+4. On any case, K lists only the fixture's empty temporary SSH folder, so the
+   picker offers just **Create a new key**; Enter hands the terminal over and
+   back and ends in the result line "Key setup is disabled in this link
+   fixture."
+5. Last, on the blocked case, O reports pending and a second O reports "still
    pending". Change the selection and focus, then quit with Q or Ctrl+Q: the
    process exits at once.
 
@@ -185,7 +189,8 @@ uv run --locked python scripts/check_keys.py
 
 Select a machine and press K. The app works in a temporary folder with
 fictional keys; local children stand in for `ssh-keygen` and SSH, say which
-step they are, and wait for `return` or Ctrl+C.
+step they are, and wait for `return` or Ctrl+C. C hands the terminal over and
+back, starts nothing and shows "C does not start SSH in this key-setup check."
 
 | Option | Effect |
 | --- | --- |

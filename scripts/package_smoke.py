@@ -1,9 +1,10 @@
 """Installed-wheel checks that check_package.py runs with ``python -I``.
 
 Usage: ``python -I package_smoke.py ENVIRONMENT MODE [KEY]``, where MODE is
-``loader``, ``app`` or ``quit`` and KEY is ``q`` or ``ctrl+q`` for ``quit``.
-Every mode first checks that each loaded ``ssh_workbench`` module comes from the
-installed ENVIRONMENT, never from the checkout that PYTHONPATH names.
+``loader``, ``app``, ``quit`` or ``save`` and KEY is ``q`` or ``ctrl+q`` for
+``quit``. Every mode first checks that each loaded ``ssh_workbench`` module
+comes from the installed ENVIRONMENT, never from the checkout that PYTHONPATH
+names.
 """
 
 import asyncio

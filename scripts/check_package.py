@@ -83,11 +83,14 @@ def main() -> None:
                 env=cli_environment,
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,
                 timeout=10,
             )
-            if expected not in result.stdout or result.stderr:
-                raise SystemExit(f"Installed wheel CLI check failed: {option}")
+            if result.returncode != 0 or expected not in result.stdout or result.stderr:
+                raise SystemExit(
+                    f"Installed wheel CLI check failed: {option} "
+                    f"(exit status {result.returncode}):\n{result.stderr}"
+                )
         missing = temporary / "missing-private-marker.toml"
         result = subprocess.run(
             [str(cli), "--config", str(missing)],
@@ -140,13 +143,20 @@ def main() -> None:
             b'name = "Package second"\nssh_alias = "fictional-second"\n'
         )
         browser_fixture.write_bytes(original)
-        subprocess.run(
+        result = subprocess.run(
             [*smoke_command, "app"],
             cwd=temporary,
             env=isolated_environment,
-            check=True,
+            capture_output=True,
+            text=True,
+            check=False,
             timeout=30,
         )
+        if result.returncode != 0 or result.stderr:
+            raise SystemExit(
+                f"Installed wheel app check failed: exit status {result.returncode}\n"
+                f"{result.stderr}"
+            )
         if browser_fixture.read_bytes() != original:
             raise SystemExit("Installed wheel modified its machine file")
         for key in ("q", "ctrl+q"):
@@ -156,15 +166,17 @@ def main() -> None:
                 env=isolated_environment,
                 capture_output=True,
                 text=True,
-                check=True,
+                check=False,
                 timeout=10,
             )
             if (
-                result.stdout.strip() != "Blocked opener: quit completed"
+                result.returncode != 0
+                or result.stdout.strip() != "Blocked opener: quit completed"
                 or result.stderr
             ):
                 raise SystemExit(
-                    f"Installed wheel blocked-opener quit check failed: {key}"
+                    f"Installed wheel blocked-opener quit check failed: {key} "
+                    f"(exit status {result.returncode}):\n{result.stderr}"
                 )
         result = subprocess.run(
             [*smoke_command, "save"],
@@ -172,9 +184,14 @@ def main() -> None:
             env=isolated_environment,
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
             timeout=30,
         )
+        if result.returncode != 0 or result.stderr:
+            raise SystemExit(
+                f"Installed wheel save check failed: exit status {result.returncode}\n"
+                f"{result.stderr}"
+            )
         if result.stdout.strip() != "Saved machine file: created and loaded back":
             raise SystemExit("Installed wheel save check failed")
     print(

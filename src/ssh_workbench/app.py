@@ -1043,6 +1043,11 @@ class SSHWorkbenchApp(App[None]):
                 self._pending_aliases.add(machine.alias)
         if not self._pending_aliases:
             self._round_resolved()
+        # A picker K opened while the review ran closes once its alias is
+        # missing, as Escape would close it.
+        screen = self.screen
+        if isinstance(screen, KeySetup) and screen.machine.alias in self._missing:
+            screen.action_cancel()
         self._show_statuses()
         self.refresh_bindings()
 
@@ -1422,6 +1427,14 @@ class SSHWorkbenchApp(App[None]):
             self._show_details(self._initial_index)
             # The browser may sit under a form; focus returns here when it closes.
             self.screen_stack[0].set_focus(machine_list)
+            # The list scrolled to its new index before it had a size; scroll
+            # again once the screen has laid it out.
+            if machine_list.highlighted_child is not None:
+                machine_list.call_after_refresh(
+                    machine_list.scroll_to_widget,
+                    machine_list.highlighted_child,
+                    animate=False,
+                )
         self.refresh_bindings()
         if self.checker is not None:
             self._start_round(resolve=False)
@@ -1662,9 +1675,14 @@ class SSHWorkbenchApp(App[None]):
             # The user moved on, or this is an earlier lookup's answer.
             return
         self._key_waiting = None
-        # U saves without opening a screen, so the machine may have changed.
+        # U saves without opening a screen, so the machine may have changed,
+        # and the review may have found its alias missing since K.
         index = self._selected_index()
-        if index is not None and self.machines[index] == waiting:
+        if (
+            index is not None
+            and self.machines[index] == waiting
+            and self.check_action("key_setup", ()) is True
+        ):
             self._open_key_setup(waiting, message.target)
 
     def _drop_key_wait(self, _: object = None) -> None:
@@ -1709,6 +1727,17 @@ class SSHWorkbenchApp(App[None]):
     ) -> list[KeyChoice]:
         """The machine's own key; else the alias's keys, the folder's and a new one."""
         if machine.alias is None and machine.key is not None:
+            if (
+                not machine.key.startswith(("~/", "~\\"))
+                and not Path(machine.key).is_absolute()
+            ):
+                # A shared machine file may hold the other system's absolute
+                # form, which this one resolves against the working folder or
+                # its drive.
+                raise KeySetupError(
+                    "This machine's key is a path for another system; "
+                    "nothing was installed."
+                )
             private = Path(key_argument(machine.key))
             # Raises KeySetupError when its .pub is missing or not valid.
             read_public_key(private.with_name(f"{private.name}.pub"))
@@ -1716,7 +1745,10 @@ class SSHWorkbenchApp(App[None]):
             return [KeyChoice(private, label)]
         home = _home() if ssh_folder_override() is None else None
         choices: list[KeyChoice] = []
+        named: list[Path] = []
+        by_key: list[Path] = []
         if target is not None:
+            named = identity_paths(target.identity_files, folder)
             # SSH reads a key named only by its .pub through an agent alone.
             by_key = identity_paths(
                 [
@@ -1726,7 +1758,7 @@ class SSHWorkbenchApp(App[None]):
                 ],
                 folder,
             )
-            for private in identity_paths(target.identity_files, folder):
+            for private in named:
                 if _has_public_key(private):
                     label = f"{private.name}.pub (your SSH config offers this)"
                     failed_hint = (
@@ -1743,7 +1775,14 @@ class SSHWorkbenchApp(App[None]):
         new = new_key_path(folder, machine.id)
         if not new.exists() and not Path(f"{new}.pub").exists():
             label = f"Create a new key: {new.name}"
-            choices.append(_key_choice(machine, target, new, label, home, True))
+            if new in named:
+                # The config already names the key Create would make.
+                failed_hint = (
+                    None if new in by_key else _agent_hint(machine.alias, new, home)
+                )
+                choices.append(KeyChoice(new, label, True, failed_hint=failed_hint))
+            else:
+                choices.append(_key_choice(machine, target, new, label, home, True))
         return choices
 
     def _key_plan_chosen(self, machine_id: str, plan: KeyPlan | None) -> None:
@@ -1828,7 +1867,7 @@ class SSHWorkbenchApp(App[None]):
             return status
 
         if choice.create:
-            print("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
+            _note("SSH Workbench: creating the key; ssh-keygen asks for a passphrase.")
             status = run(keygen_arguments(choice.private, machine.id), "ssh-keygen")
             if status is None:
                 return (
@@ -1851,7 +1890,7 @@ class SSHWorkbenchApp(App[None]):
                 "Key setup interrupted before the install; nothing was installed.",
                 False,
             )
-        print("SSH Workbench: installing the key; SSH may ask for the password.")
+        _note("SSH Workbench: installing the key; SSH may ask for the password.")
         status = run([ssh, *install_arguments(machine, address, command)])
         if status is None:
             return (
@@ -1864,11 +1903,12 @@ class SSHWorkbenchApp(App[None]):
                 "login was not tested."
             ), False
         tested = machine if setting is None else replace(machine, key=setting)
-        print("SSH Workbench: testing key-only login.")
+        _note("SSH Workbench: testing key-only login.")
         status = run([ssh, *login_test_arguments(tested, address)])
         if status == 0:
-            # A hint means the alias's config doesn't name this key, so SSH
-            # offered other keys and the test cannot show which one worked.
+            # A hint means the alias's config doesn't name this key, or couldn't
+            # be read, so SSH may have offered other keys and the test cannot
+            # show which one worked.
             if choice.hint:
                 return (
                     "Key-only login works, but SSH may have used another key. "
@@ -1892,6 +1932,16 @@ def _home() -> Path | None:
         return Path.home()
     except RuntimeError:
         return None
+
+
+def _note(line: str) -> None:
+    """Print an informational line while the terminal is handed over. A stdout
+    that fails loses the line, never the handoff: Textual 8.2.8 resumes only
+    when its suspend block exits normally."""
+    try:
+        print(line, flush=True)
+    except OSError, ValueError:
+        pass
 
 
 def _test_failed(
@@ -1975,6 +2025,13 @@ def _key_choice(
     alias = machine.alias
     if alias is None:
         return KeyChoice(private, label, create)
+    if target is None:
+        # Without an answer from ssh -G, which keys the config names is unknown.
+        note = (
+            f"Your SSH config couldn't be read for {alias}, so Workbench can't "
+            "tell whether it names this key."
+        )
+        return KeyChoice(private, label, create, note, note)
     line = f"IdentityFile {_identity_value(private, home)}"
     note = (
         f"Your SSH config doesn't name this key for {alias}. Add this line under "

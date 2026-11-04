@@ -85,6 +85,9 @@ def _parse_toml(text: str) -> dict[str, object]:
         raise ConfigError(
             f"TOML: invalid syntax at line {error.lineno}, column {error.colno}"
         ) from None
+    except RecursionError, ValueError:
+        # Nesting, dotted keys or integer digits beyond the parser's limits.
+        raise ConfigError("TOML: could not parse the file") from None
 
 
 def load_machines(path: Path) -> list[Machine]:
@@ -230,10 +233,19 @@ def is_valid_key_path(value: object) -> bool:
     ):
         return False
     if value.startswith(("~/", "~\\")):
-        # The rest stays inside the home folder: no second root and no drive.
+        # The rest stays inside the home folder: no second root, no drive and
+        # no `..`, `.` or empty part.
         rest = value[2:]
-        return bool(rest) and rest[0] not in "/\\" and not PureWindowsPath(rest).drive
-    return PureWindowsPath(value).is_absolute() or PurePosixPath(value).is_absolute()
+        return not PureWindowsPath(rest).drive and all(
+            part not in ("", ".", "..") for part in re.split(r"[\\/]", rest)
+        )
+    # A root such as `/`, `C:\` or `\\server\share\` names no file.
+    paths = [
+        path
+        for path in (PureWindowsPath(value), PurePosixPath(value))
+        if path.is_absolute()
+    ]
+    return bool(paths) and all(path.name for path in paths)
 
 
 def _projects_as_machines(data: dict[str, object]) -> list[Machine]:

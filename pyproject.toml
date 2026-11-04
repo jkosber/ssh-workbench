@@ -34,3 +34,19 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.10",
 ]
+
+# Mutation testing, run by hand on Linux: uv run --locked --with mutmut mutmut run "ssh_workbench.<module>*"
+# mutmut is not a dependency. It copies the sources and tests into mutants/ (ignored) and runs pytest there.
+[tool.mutmut]
+source_paths = ["src/ssh_workbench/"]
+# test_link_fixture.py starts an isolated interpreter that cannot see this config;
+# test_keysetup_ui_print_failure.py replaces sys.__stdout__, which mutmut's progress output writes to.
+pytest_add_cli_args_test_selection = [
+    "tests/",
+    "--deselect", "tests/test_link_fixture.py",
+    "--deselect", "tests/test_keysetup_ui_print_failure.py",
+]
+# Everything the tests read from the repo root besides src/ and tests/.
+also_copy = ["scripts/", "examples/", "docs/", ".github/", "pyproject.toml", "README.md", "CHANGELOG.md"]
+# The default fork isolation inherits the Textual event loop state left by the stats run.
+process_isolation = "forkserver"

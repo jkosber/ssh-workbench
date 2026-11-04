@@ -28,6 +28,26 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Audit fixes, 2026-11-04
+
+Arch Linux (Omarchy), uv 0.13.4, Python 3.14.8, Textual 8.2.8, headless
+pytest; no real terminal run. Branch `fix/audit-20261103-findings` on
+`d4201ae`: 20 test/fix pairs and one test-only commit.
+
+| Check | Observed |
+| --- | --- |
+| Full suite at `d4201ae`, the audit's baseline | 1151 passed, 0 skipped, 0 warnings |
+| Full suite at the branch head, with this entry | 1275 passed, 0 skipped, 0 warnings; ruff check and format clean |
+| The audit's three-arm check of the first 19 pairs, at `6e1a36d` | Every new test file failed at its test commit, passed at `6e1a36d` and failed again with its fix reverse-applied there. The fixes in `34a8de7` and `6804d2e` overlap later fixes, so they were reverted at their own fix commits and failed there |
+| The same check for `133f84a` and `f4a704b` | `tests/test_keysetup_ui_create_choice_note.py`: 3 failed at `133f84a`, 7 passed at `f4a704b`, and 3 failed at `ea3d204` with `f4a704b`'s `app.py` change reverse-applied |
+| `ea3d204` | Test-only: it pins behavior the code already had (a save keeps the machine file's mode and gives the backup `0o600`), so it has no failing arm |
+| `uv build` and `scripts/check_package.py`, at `6e1a36d` | Both exited 0; the package check ended with `a first save passed.` |
+| K with stdout on `/dev/full` (`23a60fc`) | A headless probe outside the repository ran the CLI with fictional SSH and `ssh-keygen` stand-ins, `PYTHONUNBUFFERED=1` and stdout redirected to `/dev/full`. At `ea3d204`, K on a machine with its own key ended with `Key login works.`, and K creating a key with `Key login works. The key is saved as this machine's key.`; the driver recorded suspend, then resume. At `8e8c0f7`, before the fix, both stopped on `OSError: [Errno 28] No space left on device` with only suspend recorded and return code 1 |
+
+Not checked: the fixtures in a real terminal (Ghostty, Windows Terminal);
+Windows CI, which runs after a push; the manual K flows against a real
+target; `uv build` and the package check after `6e1a36d`.
+
 ## Task 27: colors, glyphs and states, 2026-11-01
 
 Arch Linux (Omarchy, Hyprland, Wayland), Ghostty at 80x24 (the wrapper

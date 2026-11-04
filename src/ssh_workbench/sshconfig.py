@@ -1,7 +1,9 @@
 """List literal Host names from the user's SSH config; read nothing else.
 
-Only `Host` and `Include` lines are interpreted. Key files, `known_hosts` and
-`authorized_keys` are never opened, even when an `Include` names them.
+Only `Host` and `Include` lines are interpreted. An `Include` target whose name,
+or whose resolved name when it is a symbolic link, looks like a key file,
+`known_hosts` or `authorized_keys` is never opened; the rule goes by name, so a
+key file with an ordinary name, or a hard link to one, is read like any target.
 """
 
 import glob
@@ -64,6 +66,8 @@ def _read(
         return
     try:
         resolved = path.resolve()
+        if _NEVER_READ.fullmatch(resolved.name):
+            return
         if resolved in seen or not path.is_file() or path.stat().st_size > _MAX_BYTES:
             return
         seen.add(resolved)
@@ -71,7 +75,8 @@ def _read(
     except OSError, RuntimeError, ValueError:
         return
     for line in text.splitlines():
-        match = _KEYWORD.match(line)
+        # OpenSSH reads a line only up to its first NUL byte.
+        match = _KEYWORD.match(line.split("\x00", 1)[0])
         if match is None:
             continue
         keyword = match.group(1).lower()

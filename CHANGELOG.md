@@ -18,6 +18,73 @@ Changes by release, newest first. Version numbers follow the policy in
   have, and online dots no longer pulse.
 - Status words in the details are lowercase now, as in the header:
   `● online: 192.0.2.20`.
+- The form's Addresses label says which address is used: the one the latest
+  status check found online, else the first. It said the first one was used.
+
+### Fixed
+
+- A machine file nested too deeply, or with an integer too long to read, now
+  shows `TOML: could not parse the file`. Before, Workbench crashed, and when
+  the file had changed outside Workbench the crash could print its path and
+  text.
+- K now says `This machine's key is a path for another system; nothing was
+  installed.` when a machine's key is the other system's absolute form, such
+  as `C:\Users\...` on Linux. Before, Workbench resolved that path against its
+  working folder, so a key found there could be installed and tested.
+- K pressed while the startup or R check of aliases still runs no longer sets
+  up a key through an alias that check finds missing: the key picker doesn't
+  open, or closes if it is already open. Before, Enter installed and tested
+  the key through the old name, wherever SSH now sent it.
+- O on Linux now runs `gio` only from an absolute PATH folder, and says the
+  browser is unavailable when none has it. Before, a `.` or empty PATH entry
+  let O run a `gio` from Workbench's working folder.
+- An `Include` whose file is a link to a key, `known_hosts` or
+  `authorized_keys` file, such as `hosts.conf` linked to `id_ed25519`, is no
+  longer read. Before, Workbench opened that file and listed any `Host` names
+  in it.
+- A machine key that names only a root, such as `/`, `C:\`,
+  `\\server\share\` or `//server/share`, is now a key error in the machine
+  file and the edit form. Before, it loaded, and K on that machine crashed
+  Workbench.
+- K no longer offers a `.pub` file whose name before `.pub` is empty or only
+  dots, such as `.pub` or `..pub`, and offers the SSH folder's other keys.
+  Before, a `.pub` or `..pub` file holding a valid key made K crash Workbench
+  on an alias machine or a machine without a key.
+- A NUL byte in an SSH config line now ends that line, as it does for SSH, so
+  `Host alpha<NUL>beta` lists `alpha`. Before, an `Include` with a NUL before
+  a wildcard, such as `a<NUL>b/*`, made A and E crash Workbench, and the
+  startup and R checks no longer said `alias not found` for an alias gone
+  from the config.
+- A save while a machine is exported, from a machine file whose folder name
+  has a byte that isn't UTF-8, now shows `Can't export: the machine file's
+  path can't be written to an SSH config.` Before, Workbench crashed after
+  saving the machine file and never wrote `ssh-workbench.config`.
+- K now finishes its steps and takes the terminal back when writing to stdout
+  fails while the terminal is handed over, such as to a closed pipe or a full
+  disk; the `SSH Workbench:` line that failed is not shown. Before, Workbench
+  crashed, even after creating a new key.
+- After a save or reload rebuilds a list longer than its pane, the selected
+  machine's row stays on screen. Before, the list scrolled back to the top,
+  so the row C and K act on could be hidden below it.
+- An alias whose SSH host name has an empty label or a label of 64 or more
+  characters, such as `lab..example.test`, now shows `offline`. Before, every
+  check said `can't check: the check failed`.
+- A save while a machine is exported, from a machine file whose folder name
+  holds U+2028, U+2029 or U+0085, now rewrites `ssh-workbench.config`. Before,
+  every save after the first refused with `ssh-workbench.config holds the
+  exports of ...`, naming the path cut short at that character.
+- A machine key starting with `~/` or `~\` that has a `..` or `.` part, or an
+  empty part from a doubled or trailing separator, such as `~/../../etc/x`,
+  is now a key error in the machine file and the edit form. Before, it loaded,
+  C passed SSH a key outside the home folder, and an exported machine wrote
+  that path to `ssh-workbench.config` as given.
+- For an alias whose SSH config already names the key K would create, such as
+  `IdentityFile ~/.ssh/id_ed25519_<id>`, Create no longer says the config
+  doesn't name it, and a passing login test says `Key login works.` instead of
+  saying SSH may have used another key. When `ssh -G` can't answer for the
+  alias, each key says the config couldn't be read, and so does the login
+  test's result; a passing test still says SSH may have used another key.
+  Before, both cases told you to add an `IdentityFile` line.
 
 ## 0.3.4 - 2026-10-31
 

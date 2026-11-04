@@ -108,7 +108,7 @@ kinds.
 | `alias` | Starts with an ASCII letter or digit; only ASCII letters, digits, dots, underscores and hyphens |
 | Address | A hostname made of letters, digits, hyphens and underscores between dots, an IPv4 address, or an IPv6 address without brackets or a `%` zone |
 | `user` | Starts with an ASCII letter, digit or underscore; only ASCII letters, digits, dots, underscores and hyphens |
-| `key` | An absolute path, or one starting with `~/` (or `~\`) inside your home folder. On Windows, use single quotes so backslashes stay literal: `key = 'C:\Users\you\.ssh\id_ed25519_lab'`. No double quotes, `%` or `${`, because SSH would read them as substitutions, and not the `.pub` file |
+| `key` | An absolute path, or one starting with `~/` (or `~\`) inside your home folder. On Windows, use single quotes so backslashes stay literal: `key = 'C:\Users\you\.ssh\id_ed25519_lab'`. No double quotes, `%` or `${`, because SSH would read them as substitutions, and not the `.pub` file. A path without `~` belongs to the system it is written for: on the other system **K** refuses it, so a machine file shared between Windows and Linux should use `~/`. After `~/`, no `..` or `.` part and no doubled or trailing separator |
 | Link `name` | Any text with at least one non-space character, unique within the machine |
 | Link `url` | An absolute `http://` or `https://` URL without a username or password |
 
@@ -141,7 +141,7 @@ the first problem under its field. **Ctrl+S** saves only a valid machine;
 | --- | --- |
 | ID, Name | As in the file. The ID must be unique |
 | SSH alias | A `Host` name. The form lists the literal `Host` names in your SSH config and completes them as you type (Right accepts); any other name is allowed too |
-| Addresses | One or more, separated by commas or spaces. Workbench connects to the first |
+| Addresses | One or more, separated by commas or spaces. Workbench connects to the first one the latest status check found online, else the first listed |
 | User, Port, Key | Optional. Leave them empty to use SSH's defaults |
 | Export as an SSH alias | Optional, for direct machines. See [Exported aliases](#exported-aliases) |
 | Links | One per line: the name, then the URL, such as `Dashboard https://192.168.1.20:8006` |
@@ -317,16 +317,16 @@ What to know about the result:
 
 | Case | Behavior |
 | --- | --- |
-| Another key passes the test | The test can pass with another key SSH offers: any key `ssh <alias>` would use, or one named in a `Host` entry that matches a direct machine's address. When the alias's config doesn't name the key you picked, a passing test says SSH may have used another key |
+| Another key passes the test | The test can pass with another key SSH offers: any key `ssh <alias>` would use, or one named in a `Host` entry that matches a direct machine's address. When the alias's config doesn't name the key you picked, a passing test says SSH may have used another key. When `ssh -G` gives no answer for the alias, so its SSH config couldn't be read, each key says so, and the test's result says it too; a passing test also says SSH may have used another key |
 | Ctrl+C | Stops the setup: Workbench reports it as interrupted, whatever the tool's exit status, says at which step (while creating the key, before the install, during the install or during the login test) and starts no later step |
 | Ctrl+C at ssh-keygen's passphrase prompt on Windows | That prompt takes Ctrl+C as a key, so Workbench never sees it; ssh-keygen then exits 255, which shows as that status. SSH's own password and passphrase prompts have not been checked |
 | Direct machine | The chosen key is saved as its `key` once the login test passes |
 | Alias machine | Its SSH config decides its keys, and Workbench never edits that config: when you pick a key the alias doesn't name, Workbench shows the `IdentityFile` line to add under its `Host` entry |
 
-Workbench reads only `.pub` files and never opens a private key. To type a
-passphrase once per session instead of at every login, load the key into
-ssh-agent. On Windows the agent service is disabled by default; in an elevated
-PowerShell:
+Workbench reads only `.pub` files and never opens any other file named like a
+key, or a symbolic link to one. To type a passphrase once per session instead
+of at every login, load the key into ssh-agent. On Windows the agent service is
+disabled by default; in an elevated PowerShell:
 
 ```powershell
 Get-Service ssh-agent | Set-Service -StartupType Automatic
