@@ -64,6 +64,8 @@ def _read(
         return
     try:
         resolved = path.resolve()
+        if _NEVER_READ.fullmatch(resolved.name):
+            return
         if resolved in seen or not path.is_file() or path.stat().st_size > _MAX_BYTES:
             return
         seen.add(resolved)

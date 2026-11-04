@@ -36,6 +36,10 @@ Changes by release, newest first. Version numbers follow the policy in
 - O on Linux now runs `gio` only from an absolute PATH folder, and says the
   browser is unavailable when none has it. Before, a `.` or empty PATH entry
   let O run a `gio` from Workbench's working folder.
+- An `Include` whose file is a link to a key, `known_hosts` or
+  `authorized_keys` file, such as `hosts.conf` linked to `id_ed25519`, is no
+  longer read. Before, Workbench opened that file and listed any `Host` names
+  in it.
 
 ## 0.3.4 - 2026-10-31
 
