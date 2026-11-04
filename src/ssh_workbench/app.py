@@ -1906,8 +1906,9 @@ class SSHWorkbenchApp(App[None]):
         _note("SSH Workbench: testing key-only login.")
         status = run([ssh, *login_test_arguments(tested, address)])
         if status == 0:
-            # A hint means the alias's config doesn't name this key, so SSH
-            # offered other keys and the test cannot show which one worked.
+            # A hint means the alias's config doesn't name this key, or couldn't
+            # be read, so SSH may have offered other keys and the test cannot
+            # show which one worked.
             if choice.hint:
                 return (
                     "Key-only login works, but SSH may have used another key. "
@@ -2030,7 +2031,7 @@ def _key_choice(
             f"Your SSH config couldn't be read for {alias}, so Workbench can't "
             "tell whether it names this key."
         )
-        return KeyChoice(private, label, create, note)
+        return KeyChoice(private, label, create, note, note)
     line = f"IdentityFile {_identity_value(private, home)}"
     note = (
         f"Your SSH config doesn't name this key for {alias}. Add this line under "
