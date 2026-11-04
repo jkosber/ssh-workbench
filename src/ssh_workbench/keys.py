@@ -125,6 +125,9 @@ def public_key_files(folder: Path) -> list[Path]:
     except OSError:
         return found
     for path in candidates:
+        # `.pub`, `..pub` and the like name no private key.
+        if not path.name.removesuffix(".pub").strip("."):
+            continue
         try:
             if path.is_file():
                 read_public_key(path)

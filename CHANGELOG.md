@@ -43,6 +43,10 @@ Changes by release, newest first. Version numbers follow the policy in
 - A machine key that names only a root, such as `/`, `C:\` or
   `\\server\share\`, is now a key error in the machine file and the edit form.
   Before, it loaded, and K on that machine crashed Workbench.
+- K no longer offers a `.pub` file whose name before `.pub` is empty or only
+  dots, such as `.pub` or `..pub`, and offers the SSH folder's other keys.
+  Before, a `.pub` or `..pub` file holding a valid key made K crash Workbench
+  on an alias machine or a machine without a key.
 
 ## 0.3.4 - 2026-10-31
 
