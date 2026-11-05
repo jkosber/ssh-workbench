@@ -8,10 +8,10 @@ Changes by release, newest first. Version numbers follow the policy in
 ### Added
 
 - An app icon in `docs/images/icon/`: the full icon (`ssh-workbench.svg`),
-  a bolder version for desktop launchers (`ssh-workbench-launcher.svg`, with
-  a 256 px PNG), a version that stays inside its tile
-  (`ssh-workbench-contained.svg`) and a Windows `.ico` built from it. The
-  README shows the icon.
+  a bolder version for desktop launchers (`ssh-workbench-launcher.svg` and
+  `ssh-workbench-launcher-256.png`), a version whose screwdriver stays inside
+  the tile (`ssh-workbench-contained.svg`) and a Windows icon built from it
+  (`ssh-workbench.ico`). The README shows the icon.
 
 ### Changed
 

@@ -28,6 +28,21 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## App icon, 2026-11-05
+
+Arch Linux (Omarchy 4.5, Hyprland, Qt 6.12), rsvg-convert 2.63.3,
+ImageMagick 7.1.2-34. Branch `docs/app-icon`.
+
+| Check | Observed |
+| --- | --- |
+| Launcher PNG installed with `omarchy tui install`, seen in the dock next to Docker and Ghostty | Jadon: a little small next to the other icons. The launcher drawing was scaled by 1.09; its visible area went from 224x222 to 244x242 of 256, with no pixel on the canvas edge |
+| The three SVGs rendered by Qt SVG 6.12 (`qml6`, offscreen) and by librsvg | Within 0.26% RMSE at 256 px |
+| `ssh-workbench-launcher-256.png` against a fresh render of its SVG | Byte-identical |
+| `ssh-workbench.ico` | Six frames: 16 to 64 px as 32-bit BMP and 256 px as PNG, each pixel-identical to a render of `ssh-workbench-contained.svg` at that size |
+
+Not checked: the enlarged icon in the dock by eye; the `.ico` on Windows; the
+README on github.com in a browser.
+
 ## Audit fixes, 2026-11-04
 
 Arch Linux (Omarchy), uv 0.13.4, Python 3.14.8, Textual 8.2.8, headless
