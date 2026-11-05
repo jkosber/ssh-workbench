@@ -1,6 +1,6 @@
-# SSH Workbench: agent guide
-
 **Extends ~/.claude/CLAUDE.md**
+
+# SSH Workbench: agent guide
 
 When these rules and a task disagree, stop and ask Jadon.
 
@@ -11,6 +11,7 @@ When these rules and a task disagree, stop and ask Jadon.
 | Modules, boundaries and design decisions | [Architecture](docs/architecture.md) |
 | Checks and manual terminal fixtures | [Testing](docs/testing.md) |
 | What users see | [User guide](docs/guide.md) |
+| Setup, everyday commands, dependencies | [Contributing](CONTRIBUTING.md) |
 
 ## Working rules
 
