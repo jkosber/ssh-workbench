@@ -1,3 +1,5 @@
+<img src="docs/images/icon/ssh-workbench.svg" alt="" width="96">
+
 # SSH Workbench
 
 A keyboard-driven terminal app for the machines you SSH into.

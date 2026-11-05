@@ -5,6 +5,14 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Added
+
+- An app icon in `docs/images/icon/`: the full icon (`ssh-workbench.svg`),
+  a bolder version for desktop launchers (`ssh-workbench-launcher.svg`, with
+  a 256 px PNG), a version that stays inside its tile
+  (`ssh-workbench-contained.svg`) and a Windows `.ico` built from it. The
+  README shows the icon.
+
 ### Changed
 
 - The header counts machines by status, worst first, such as
