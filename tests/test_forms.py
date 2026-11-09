@@ -4,6 +4,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from test_app import empty_text
 from textual import events
 from textual.containers import VerticalScroll
 from textual.widgets import Footer, Input, ListView, RadioButton, Static, TextArea
@@ -131,8 +132,7 @@ async def test_add_first_alias_machine_creates_the_file(tmp_path: Path) -> None:
     path = tmp_path / "new folder" / "ssh-workbench" / "machines.toml"
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test() as pilot:
-        content = str(app.query_one("#empty-state", Static).content)
-        assert "Press A to add your first machine" in content
+        assert "no machine file yet · a to add" in empty_text(app)
         form = await open_form(app, pilot, "a")
         assert form.query_one("#kind-alias", RadioButton).value
         fill(form, id="web", name="Web server", alias="web-host")
@@ -151,9 +151,7 @@ async def test_add_first_alias_machine_creates_the_file(tmp_path: Path) -> None:
 async def test_add_direct_machine_with_links(tmp_path: Path) -> None:
     app, path = saved_app(tmp_path, machines=())
     async with app.run_test() as pilot:
-        assert "Press A to add one." in str(
-            app.query_one("#empty-state", Static).content
-        )
+        assert "no machines in this file yet · a to add" in empty_text(app)
         form = await open_form(app, pilot, "a")
         form.query_one("#kind-direct", RadioButton).value = True
         await pilot.pause()
@@ -492,9 +490,7 @@ async def test_deleting_the_last_machine_shows_the_empty_screen(
         await wait_for(pilot, lambda: len(app.screen_stack) == 1)
         await wait_for(pilot, lambda: bool(app.query("#empty-state")))
         assert parse_machines(path.read_text(encoding="utf-8")) == []
-        assert "Press A to add one." in str(
-            app.query_one("#empty-state", Static).content
-        )
+        assert "no machines in this file yet · a to add" in empty_text(app)
 
 
 COMMENTED = (

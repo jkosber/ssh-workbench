@@ -6,9 +6,10 @@ from unittest.mock import Mock
 
 import pytest
 from test_app import MACHINES as APP_MACHINES
+from test_app import empty_lines, empty_text
 from test_exports_ui import LAB, add_exported_box, workspace
 from textual.color import Color
-from textual.containers import VerticalScroll
+from textual.containers import Vertical, VerticalScroll
 from textual.content import Span
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, HelpPanel, Input, KeyPanel, ListView, Static
@@ -984,8 +985,8 @@ async def test_no_file_screen_names_the_user_guide(path: Path | None) -> None:
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        content = str(app.query_one("#empty-state", Static).content)
-        assert content.endswith("The user guide describes the format.")
+        content = empty_text(app)
+        assert content.endswith("--config PATH · the user guide describes the format")
         assert "README" not in content
 
 
@@ -995,13 +996,49 @@ async def test_no_file_screen_fits_narrow_terminals(size: tuple[int, int]) -> No
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        # The message may be taller than a short screen, which scrolls; it
-        # must never be wider, which nothing can scroll to.
-        empty = app.query_one("#empty-state", Static)
-        screen = app.screen.region
-        assert screen.x <= empty.region.x and empty.region.right <= screen.right
-        lines = [empty.render_line(y).text.rstrip() for y in range(empty.region.height)]
-        assert any(line.endswith("format.") for line in lines)
+        # Every line wraps inside the screen, the path included, and the
+        # whole message sits above the result line.
+        empty = app.query_one("#empty-state", Vertical)
+        assert app.query_one("#panes").region.contains_region(empty.region)
+        rows = []
+        for line in empty_lines(app):
+            assert app.screen.region.contains_region(line.region)
+            rows.append(
+                [line.render_line(y).text.rstrip() for y in range(line.region.height)]
+            )
+        assert len(rows[2]) > 1
+        assert "".join(rows[2]) == str(path)
+        assert rows[3][-1].endswith("format")
+
+
+async def test_empty_screen_is_muted_with_a_footer_style_key() -> None:
+    app = SSHWorkbenchApp(None, config_path=Path("fictional") / "machines.toml")
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        muted = Color.parse(app.get_css_variables()["text-muted"])
+        lines = empty_lines(app)
+        assert [line.styles.color for line in lines] == [muted] * 4
+        footer_key = next(key for key in app.query(FooterKey) if key.action == "add")
+        (key_style,) = [
+            segment.style
+            for segment in footer_key.render_line(0)
+            if segment.text.strip() == "a"
+        ]
+        segments = [
+            (segment.text, segment.style)
+            for line in lines
+            for segment in line.render_line(0)
+            if segment.text.strip()
+        ]
+        styled = [(text, style) for text, style in segments if style.bold]
+        assert [(text, style.color) for text, style in styled] == [
+            ("a", key_style.color)
+        ]
+        assert all(
+            style.color.triplet == muted.rgb
+            for text, style in segments
+            if (text, style) not in styled
+        )
 
 
 @pytest.mark.parametrize("size", [(40, 16), (200, 50)])
@@ -1009,8 +1046,8 @@ async def test_empty_screen_fits_any_size(size: tuple[int, int]) -> None:
     app = SSHWorkbenchApp([])
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        empty = app.query_one("#empty-state", Static)
-        assert "Press A to add one." in str(empty.content)
+        empty = app.query_one("#empty-state", Vertical)
+        assert empty_text(app) == "no machines in this file yet · a to add"
         assert app.screen.region.contains_region(empty.region)
         # The panes' resize handler finds no list here and must not raise.
         await pilot.resize_terminal(40, 16)
