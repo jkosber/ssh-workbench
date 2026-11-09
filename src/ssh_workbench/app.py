@@ -3,6 +3,7 @@
 import platform
 from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, replace
+from enum import StrEnum
 from pathlib import Path
 from threading import Event, Thread
 
@@ -399,6 +400,120 @@ class KeyFooter(Footer):
             self.styles.grid_size_columns = self.columns_for(self.app.size.width, keys)
 
 
+class Glyph(StrEnum):
+    """The mark before each result."""
+
+    SUCCESS = "●"
+    FAILURE = "×"
+    OPENED = "›"
+    OTHER = "·"
+
+
+GLYPH_STYLES: dict[Glyph, str] = {
+    Glyph.SUCCESS: "$success",
+    Glyph.FAILURE: "$error",
+    Glyph.OPENED: "$success",
+    Glyph.OTHER: "$text-muted",
+}
+
+
+class ResultSlot(Static):
+    """One result: a glyph, then the message as literal text, wrapped to the
+    slot's width and cut with an ellipsis after its last allowed row.
+    Hidden until set."""
+
+    DEFAULT_CSS = """
+    ResultSlot {
+        display: none;
+        height: auto;
+        text-wrap: nowrap;
+    }
+    """
+
+    def __init__(self, *, id: str) -> None:
+        super().__init__(id=id, markup=False)
+        self._message = ""
+        self._glyph = Glyph.OTHER
+
+    @property
+    def message(self) -> str:
+        """The text without the glyph; empty when unset."""
+        return self._message
+
+    def set(self, message: str, glyph: Glyph) -> None:
+        self._message = message
+        self._glyph = glyph
+        self.display = True
+        self.update(Content.assemble((glyph, GLYPH_STYLES[glyph]), " ", message))
+
+    def clear(self) -> None:
+        self._message = ""
+        self.display = False
+        self.update("")
+        # The other slot may take more rows now.
+        for slot in self.siblings:
+            slot.refresh(layout=True)
+
+    def _cap(self) -> int:
+        """Rows this slot may take. On a tall screen the newest takes 3 alone
+        and 2 above the older one; otherwise each takes 1."""
+        if not self.has_class("-newest") or self.screen.has_class("-short"):
+            return 1
+        older = any(
+            isinstance(slot, ResultSlot) and slot.message for slot in self.siblings
+        )
+        return 2 if older else 3
+
+    def render(self) -> Content:
+        width = self.size.width
+        # Textual renders at width 0 first, and Content.wrap(0) raises.
+        if width <= 0 or not self._message:
+            return Content("")
+        text = Content.assemble(
+            (self._glyph, GLYPH_STYLES[self._glyph]), " ", self._message
+        )
+        lines = text.wrap(width)
+        cap = self._cap()
+        if len(lines) > cap:
+            # The wrap drops the spaces where it broke the lines.
+            cut = Content(" ").join(lines[cap - 1 :])
+            lines = [*lines[: cap - 1], cut.truncate(width, ellipsis=True)]
+        return Content("\n").join(lines)
+
+
+class ResultLine(Vertical):
+    """The last connection result and the last link result, newest first:
+    a link result that arrives during an SSH session never erases its exit
+    status. One blank row until something happens."""
+
+    def compose(self) -> ComposeResult:
+        yield ResultSlot(id="connection-status")
+        yield ResultSlot(id="link-status")
+
+    @property
+    def connection(self) -> ResultSlot:
+        """Connections, key setup, saves, deletes, U and Include answers."""
+        return self.query_one("#connection-status", ResultSlot)
+
+    @property
+    def link(self) -> ResultSlot:
+        return self.query_one("#link-status", ResultSlot)
+
+    def show(self, slot: ResultSlot, message: str, glyph: Glyph) -> None:
+        """Show `message` in `slot`, which becomes the newest, at the top."""
+        for other in self.query(ResultSlot):
+            other.set_class(other is slot, "-newest")
+        self.move_child(slot, before=0)
+        slot.set(message, glyph)
+        self.refresh_slots()
+
+    def refresh_slots(self) -> None:
+        """Wrap and cut both slots again: their rows depend on the width, the
+        screen's height class and which one is newest."""
+        for slot in self.query(ResultSlot):
+            slot.refresh(layout=True)
+
+
 # The keys the key panel lists before Workbench's own, with Textual's
 # descriptions. Textual's other keys are left out, so these five show without
 # scrolling in the smallest panel.
@@ -475,6 +590,9 @@ class MachinePanes(Vertical):
     def on_resize(self) -> None:
         # The screen's breakpoint classes are already updated here.
         self.cap_list()
+        # A height-only resize changes no width in the result line, so it
+        # gets no resize of its own, yet the height class sets its rows.
+        self.app.result.refresh_slots()
 
     def cap_list(self) -> None:
         """Stacked, the list and its two-row label take at most 40% of the
@@ -496,8 +614,8 @@ class SSHWorkbenchApp(App[None]):
     ENABLE_COMMAND_PALETTE = False
     # Screen classes for the layout: the list stacks above the details when
     # narrow, rows show their target when wide or wider, the list's width cap
-    # rises when extra wide, and link results take two rows when short. The
-    # footer's rows follow the width itself.
+    # rises when extra wide, and the result line takes at most two rows when
+    # short. The footer's rows follow the width itself.
     HORIZONTAL_BREAKPOINTS = [
         (0, "-narrow"),
         (60, "-normal"),
@@ -640,13 +758,12 @@ class SSHWorkbenchApp(App[None]):
     #machine-name {
         text-style: bold;
     }
-    #connection-status, #link-status {
+    #result-line {
         height: auto;
-        padding: 0 1;
+        min-height: 1;
+        max-height: 3;
         background: $surface;
-    }
-    #link-status {
-        height: 3;
+        padding: 0 1;
     }
     #empty-content {
         align: center middle;
@@ -685,8 +802,8 @@ class SSHWorkbenchApp(App[None]):
     Screen.-wide RowTarget, Screen.-xwide RowTarget {
         display: block;
     }
-    Screen.-short #link-status {
-        height: 2;
+    Screen.-short #result-line {
+        max-height: 2;
     }
     """
     )
@@ -765,19 +882,17 @@ class SSHWorkbenchApp(App[None]):
             yield Static(self.title, id="app-title", markup=False)
             yield Static(id="app-summary", markup=False)
         yield MachinePanes(id="panes")
-        yield Static(
-            "C: connect to the selected machine."
-            if self.machines
-            else "No machines to connect to.",
-            id="connection-status",
-            markup=False,
-        )
-        yield Static(
-            "O: open a link of the selected machine. Opens in this environment.",
-            id="link-status",
-            markup=False,
-        )
+        yield ResultLine(id="result-line")
         yield KeyFooter(compact=True)
+
+    @property
+    def result(self) -> ResultLine:
+        return self.query_one(ResultLine)
+
+    def _show_result(self, message: str, glyph: Glyph) -> None:
+        """Show a connection, key setup, save or Include result."""
+        result = self.result
+        result.show(result.connection, message, glyph)
 
     def compose_panes(self) -> ComposeResult:
         """The list and details, or the empty screen; rebuilt after each save."""
@@ -1537,9 +1652,13 @@ class SSHWorkbenchApp(App[None]):
             problem = self._save(
                 remaining, min(index, len(remaining) - 1), retry="delete"
             )
-            self.query_one("#connection-status", Static).update(
-                problem or f"Deleted machine {index + 1}: {_display_text(machine.id)}."
-            )
+            if problem:
+                self._show_result(problem, Glyph.FAILURE)
+            else:
+                self._show_result(
+                    f"Deleted machine {index + 1}: {_display_text(machine.id)}.",
+                    Glyph.OTHER,
+                )
 
         self.push_screen(ConfirmDelete(machine, self._rewrite_warning()), answered)
 
@@ -1549,21 +1668,23 @@ class SSHWorkbenchApp(App[None]):
             return
         machine = self.machines[index]
         new = self._rename_offer(machine)
-        status = self.query_one("#connection-status", Static)
         warning = self._rewrite_warning()
         if warning is not None and self._update_armed != (machine.id, new):
             self._update_armed = (machine.id, new)
-            status.update(f"{warning} Press U again to update.")
+            self._show_result(f"{warning} Press U again to update.", Glyph.OTHER)
             return
         self._update_armed = None
         machines = list(self.machines)
         machines[index] = replace(machine, alias=new)
         problem = self._save(machines, index, retry="update")
-        status.update(
-            problem
-            or f"Updated machine {index + 1}: {_display_text(machine.id)} "
-            f"now uses alias {_display_text(new)}."
-        )
+        if problem:
+            self._show_result(problem, Glyph.FAILURE)
+        else:
+            self._show_result(
+                f"Updated machine {index + 1}: {_display_text(machine.id)} "
+                f"now uses alias {_display_text(new)}.",
+                Glyph.OTHER,
+            )
 
     def _save_one(self, machines: list[Machine], position: int) -> str | None:
         problem = self._save(machines, position)
@@ -1573,9 +1694,8 @@ class SSHWorkbenchApp(App[None]):
                 self._forget_alias(machines[position].alias)
             # Offered after the rebuild, once the form has closed.
             self._include_offer = machines[position].export_alias
-            self.query_one("#connection-status", Static).update(
-                f"Saved machine {position + 1}: {_display_text(machines[position].id)}."
-            )
+            saved = _display_text(machines[position].id)
+            self._show_result(f"Saved machine {position + 1}: {saved}.", Glyph.OTHER)
         return problem
 
     def _save(
@@ -1662,8 +1782,8 @@ class SSHWorkbenchApp(App[None]):
         if self.checker is not None:
             self._start_round(resolve=False)
         if self._export_problem is not None:
-            status = self.query_one("#connection-status", Static)
-            status.update(f"{status.content} {self._export_problem}")
+            saved = self.result.connection.message
+            self._show_result(f"{saved} {self._export_problem}", Glyph.FAILURE)
             self._export_problem = None
             # The Include line would only point at a file that wasn't written,
             # and answering the question would hide this message.
@@ -1705,24 +1825,25 @@ class SSHWorkbenchApp(App[None]):
         )
 
     def _include_answered(self, config: Path, exists: bool, add: bool) -> None:
-        status = self.query_one("#connection-status", Static)
         if not add:
             self._include_declined = True
-            status.update(
+            self._show_result(
                 "Exported aliases work once your SSH config starts with: "
-                f"{INCLUDE_LINE}"
+                f"{INCLUDE_LINE}",
+                Glyph.OTHER,
             )
             return
         try:
             add_include(config)
         except ExportError as error:
-            status.update(str(error))
+            self._show_result(str(error), Glyph.FAILURE)
             return
         path = _display_text(str(config))
-        status.update(
+        self._show_result(
             f'Added "{INCLUDE_LINE}" to {path}; a copy is in {BACKUP_NAME}.'
             if exists
-            else f'Created {path} with "{INCLUDE_LINE}".'
+            else f'Created {path} with "{INCLUDE_LINE}".',
+            Glyph.OTHER,
         )
 
     def action_open_link(self) -> None:
@@ -1733,7 +1854,9 @@ class SSHWorkbenchApp(App[None]):
             return
         if self._link_request is not None:
             self._show_link_result(
-                self._link_request, "browser request still pending. Wait or Q to quit."
+                self._link_request,
+                "browser request still pending. Wait or Q to quit.",
+                Glyph.OTHER,
             )
             return
         machine = self.machines[index]
@@ -1753,14 +1876,16 @@ class SSHWorkbenchApp(App[None]):
         if self._links_closed.is_set() or self._link_request is not None:
             return
         self._link_request = request
-        self._show_link_result(request, "browser request pending. Q still quits.")
+        self._show_link_result(
+            request, "browser request pending. Q still quits.", Glyph.OTHER
+        )
         # Textual's executor workers can delay interpreter shutdown. One daemon
         # thread lets Q finish even when the OS opener does not return.
         try:
             Thread(target=self._launch_link, args=(request,), daemon=True).start()
         except RuntimeError:
             self._link_request = None
-            self._show_link_result(request, LinkResult.FAILED.value)
+            self._show_link_result(request, LinkResult.FAILED.value, Glyph.FAILURE)
 
     def _launch_link(self, request: LinkRequest) -> None:
         if self._links_closed.is_set():
@@ -1786,12 +1911,21 @@ class SSHWorkbenchApp(App[None]):
         ):
             return
         self._link_request = None
-        self._show_link_result(message.request, message.result.value)
+        self._show_link_result(
+            message.request,
+            message.result.value,
+            Glyph.OPENED if message.result is LinkResult.ACCEPTED else Glyph.FAILURE,
+        )
 
-    def _show_link_result(self, request: LinkRequest, result: str) -> None:
-        self.query_one("#link-status", Static).update(
+    def _show_link_result(
+        self, request: LinkRequest, result: str, glyph: Glyph
+    ) -> None:
+        line = self.result
+        line.show(
+            line.link,
             f"{_display_text(request.link.name)} {result} "
-            f"Machine {request.position}: {_display_text(request.machine.id)}"
+            f"Machine {request.position}: {_display_text(request.machine.id)}",
+            glyph,
         )
 
     def on_unmount(self) -> None:
@@ -1805,7 +1939,7 @@ class SSHWorkbenchApp(App[None]):
             return
         machine = self.machines[index]
 
-        def connect() -> str:
+        def connect() -> tuple[str, Glyph]:
             try:
                 address = self._online_address(machine)
                 status = (
@@ -1814,23 +1948,24 @@ class SSHWorkbenchApp(App[None]):
                     else launch_ssh(machine)
                 )
             except SSHLaunchError as error:
-                return str(error)
+                return str(error), Glyph.FAILURE
             except KeyboardInterrupt:
-                return "SSH interrupted. Press C to retry or Q to quit."
+                return "SSH interrupted. Press C to retry or Q to quit.", Glyph.FAILURE
             message = f"SSH exited with status {status}."
-            if status != 0:
-                message += (
-                    " Check the SSH client's message and alias; C retries."
-                    if machine.alias is not None
-                    else " Check the SSH client's message and the "
-                    "machine's settings; C retries."
-                )
-            return message
+            if status == 0:
+                return message, Glyph.SUCCESS
+            message += (
+                " Check the SSH client's message and alias; C retries."
+                if machine.alias is not None
+                else " Check the SSH client's message and the "
+                "machine's settings; C retries."
+            )
+            return message, Glyph.FAILURE
 
         with ssh_handoff():
-            message = self._hand_off(connect, _NO_HANDOFF)
-            self.query_one("#connection-status", Static).update(
-                f"{message} Machine {index + 1}: {_display_text(machine.id)}"
+            message, glyph = self._hand_off(connect, (_NO_HANDOFF, Glyph.FAILURE))
+            self._show_result(
+                f"{message} Machine {index + 1}: {_display_text(machine.id)}", glyph
             )
 
     def _hand_off[T](self, steps: Callable[[], T], unsupported: T) -> T:
@@ -1864,7 +1999,9 @@ class SSHWorkbenchApp(App[None]):
             return
         if self._key_waiting == machine:
             self._show_key_result(
-                machine, f"Still looking up {machine.alias} in your SSH config."
+                machine,
+                f"Still looking up {machine.alias} in your SSH config.",
+                Glyph.OTHER,
             )
             return
         # Key setup is one of the moments ssh -G may run: it names the keys
@@ -1914,7 +2051,9 @@ class SSHWorkbenchApp(App[None]):
     def _open_key_setup(self, machine: Machine, target: AliasTarget | None) -> None:
         folder = ssh_folder()
         if folder is None:
-            self._show_key_result(machine, "Could not find your SSH folder.")
+            self._show_key_result(
+                machine, "Could not find your SSH folder.", Glyph.FAILURE
+            )
             return
         # Only a direct machine without a key gets a key saved into the file.
         warning = (
@@ -1926,7 +2065,7 @@ class SSHWorkbenchApp(App[None]):
             choices = self._key_choices(machine, target, folder)
         except (SSHLaunchError, KeySetupError) as error:
             # A machine key under "~" needs the home folder, and a valid .pub.
-            self._show_key_result(machine, str(error))
+            self._show_key_result(machine, str(error), Glyph.FAILURE)
             return
         unlisted = _unlisted_text(_unlisted_keys(target, folder))
         if not choices:
@@ -1938,7 +2077,7 @@ class SSHWorkbenchApp(App[None]):
             )
             if unlisted:
                 message += f" {unlisted}"
-            self._show_key_result(machine, message)
+            self._show_key_result(machine, message, Glyph.FAILURE)
             return
         self.push_screen(
             KeySetup(machine, choices, warning, unlisted),
@@ -2022,7 +2161,7 @@ class SSHWorkbenchApp(App[None]):
             try:
                 setting = key_setting(plan.choice.private, home)
             except KeySetupError as error:
-                self._show_key_result(machine, str(error))
+                self._show_key_result(machine, str(error), Glyph.FAILURE)
                 return
         if plan.windows and not plan.choice.create:
             # cmd.exe limits the command's length, so a large RSA key is refused
@@ -2033,7 +2172,7 @@ class SSHWorkbenchApp(App[None]):
                     read_public_key(private.with_name(f"{private.name}.pub"))
                 )
             except KeySetupError as error:
-                self._show_key_result(machine, str(error))
+                self._show_key_result(machine, str(error), Glyph.FAILURE)
                 return
         # Counted from here, so a Ctrl+C while the terminal is handed over
         # stops the first step too.
@@ -2057,6 +2196,7 @@ class SSHWorkbenchApp(App[None]):
             if works and ctrl_c_count() != pressed:
                 works = False
                 message = _test_failed(machine, setting, None, None)
+        glyph = Glyph.SUCCESS if works else Glyph.FAILURE
         if works and setting != machine.key:
             machines = list(self.machines)
             machines[index] = replace(machine, key=setting)
@@ -2066,7 +2206,10 @@ class SSHWorkbenchApp(App[None]):
                 if problem
                 else (" The key is saved as this machine's key.")
             )
-        self._show_key_result(machine, message)
+            if problem:
+                # Login works, but the key was not saved as the machine's.
+                glyph = Glyph.FAILURE
+        self._show_key_result(machine, message, glyph)
 
     def _key_steps(
         self, machine: Machine, plan: KeyPlan, setting: str | None, pressed: int
@@ -2142,11 +2285,12 @@ class SSHWorkbenchApp(App[None]):
             machine, setting, status, choice.hint or choice.failed_hint
         ), False
 
-    def _show_key_result(self, machine: Machine, message: str) -> None:
+    def _show_key_result(self, machine: Machine, message: str, glyph: Glyph) -> None:
         ids = [item.id for item in self.machines]
         position = ids.index(machine.id) + 1 if machine.id in ids else "?"
-        self.query_one("#connection-status", Static).update(
-            f"{_display_text(message)} Machine {position}: {_display_text(machine.id)}"
+        self._show_result(
+            f"{_display_text(message)} Machine {position}: {_display_text(machine.id)}",
+            glyph,
         )
 
 
