@@ -149,6 +149,7 @@ in the pull request description.
 | - | AGENTS.md keeps only the repository-specific rules and adds the plan-location and test-guard rules | [#47](https://github.com/jkosber/ssh-workbench/pull/47) | Unreleased |
 | - | AGENTS.md opens with its Extends line and links CONTRIBUTING.md for setup, commands and dependencies | [#48](https://github.com/jkosber/ssh-workbench/pull/48) | Unreleased |
 | - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | Unreleased |
+| - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | Unreleased |
 
 ## Deferred ideas
 

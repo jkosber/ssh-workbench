@@ -28,6 +28,25 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## App icon centering, 2026-11-09
+
+Arch Linux (Omarchy 4.5), rsvg-convert 2.63.3, ImageMagick 7.1.2-34. Branch
+`docs/icon-center-s`.
+
+| Check | Observed |
+| --- | --- |
+| Center of the S's cyan and green pixels at 256 px, faint glow excluded | Full: 118.5, 139.5 before and 128.5, 127.5 after. Contained: 112.5, 143.5 before and 128.5, 127.5 after. The half pixel left over is the art: the pad ring is wider than the end node |
+| Launcher with the S centered and the screwdriver moved with it, scaled to 0.81 about its tip | S center 115.5, 142.5 before and 128.5, 127.5 after. The handle ends 4.37 px inside the top and right canvas edges after the 1.09 scale. Visible area 244x242 at +10+4 before, 242x242 at +10+4 after. In a 4x enlargement of the 18 px and 36 px renders the S and the screwdriver were still recognizable to the agent that made the change; the dock check by eye is below |
+| `ssh-workbench-launcher-256.png` against a fresh render of its SVG | Byte-identical |
+| Screwdriver tip on the pad ring | Full and contained: in a 48 px crop around the pad, the cyan and shaft-grey pixels match the before render moved by the S's shift, pixel for pixel. Launcher: its shift is not a whole pixel and the screwdriver is smaller, so that crop differs in 59 of 2304 pixels; 7 cyan pixels lie within 1 px of shaft-grey ones, the same count as before, and a control render with the screwdriver 3 units off the ring gives 0 such pixels |
+| Canvas edges and visible area (`magick -trim`) | No pixel on any canvas edge in any version, the launcher included. Full: 226x224 at +20+12 before, 232x232 at +20+4 after; its handle, shortened from 52 to 47 units, ends 4 px from the top and right edges. Contained: 240x240 at +8+8 before and after; its handle, shortened from 40 to 32 units, shares no pixel with the rim |
+| `ssh-workbench.ico` | Six frames: 16 to 64 px as 32-bit BMP and 256 px as PNG, each pixel-identical to a render of `ssh-workbench-contained.svg` at that size. In an 8x enlargement the 16 px frame still shows the S |
+| Automated checks | 1275 passed; ruff check and format clean; `uv build` and the package check passed |
+
+Not checked: the icon in the dock by eye (needs a shell restart, left to
+Jadon); the `.ico` on Windows (Windows runs are limited to the terminal
+handoff, keys and the install script).
+
 ## App icon, 2026-11-05
 
 Arch Linux (Omarchy 4.5, Hyprland, Qt 6.12), rsvg-convert 2.63.3,

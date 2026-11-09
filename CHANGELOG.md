@@ -11,7 +11,8 @@ Changes by release, newest first. Version numbers follow the policy in
   a bolder version for desktop launchers (`ssh-workbench-launcher.svg` and
   `ssh-workbench-launcher-256.png`), a version whose screwdriver stays inside
   the tile (`ssh-workbench-contained.svg`) and a Windows icon built from it
-  (`ssh-workbench.ico`). The README shows the icon.
+  (`ssh-workbench.ico`). In every version the circuit S sits at the center
+  of the tile. The README shows the icon.
 
 ### Changed
 
