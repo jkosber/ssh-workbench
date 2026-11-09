@@ -21,7 +21,7 @@ from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, Input, ListView, Static
 
-from ssh_workbench.app import LinkPicker, SSHWorkbenchApp
+from ssh_workbench.app import LinkPicker, ResultSlot, SSHWorkbenchApp
 from ssh_workbench.cli import main as cli_main
 from ssh_workbench.config import Link, Machine, load_machines
 from ssh_workbench.forms import MachineForm
@@ -166,11 +166,14 @@ async def check_browser(app):
                 await pilot.press(*picks)
                 await wait_until(pilot, lambda: app._link_request is None)
                 open_link.assert_called_once_with(url)
-            status = app.query_one("#link-status", Static)
-            assert expected in str(status.content)
-            assert "private-marker" not in str(status.content)
-            assert "package-first" in str(status.content)
-            assert not status.render().spans
+            status = app.query_one("#link-status", ResultSlot)
+            assert expected in status.message
+            assert "private-marker" not in status.message
+            assert "package-first" in status.message
+            # Only the glyph is styled; machine data never becomes markup.
+            assert [(span.start, span.end) for span in status.render().spans] == [
+                (0, 1)
+            ]
             assert machines.index == 0 and app.focused is focused
         await pilot.press("down")
         assert machines.index == 1
@@ -178,11 +181,11 @@ async def check_browser(app):
         alias = app.query_one("#machine-target", Static)
         assert "fictional-second" in str(alias.content)
         assert str(app.query_one("#machine-links", Static).content) == "None"
-        before = str(app.query_one("#link-status", Static).content)
+        before = app.query_one("#link-status", ResultSlot).message
         with patch("ssh_workbench.app.open_link") as open_link:
             await pilot.press("o")
             await pilot.pause()
-            assert str(app.query_one("#link-status", Static).content) == before
+            assert app.query_one("#link-status", ResultSlot).message == before
             open_link.assert_not_called()
         # Use installed App.suspend with a recording driver, never a terminal
         # or a real SSH executable in this isolated package smoke check.
@@ -224,7 +227,7 @@ async def check_browser(app):
                 )
                 assert machines.index == 1
                 assert app.focused is machines
-                status = str(app.query_one("#connection-status", Static).content)
+                status = app.query_one("#connection-status", ResultSlot).message
                 assert expected in status and "private-marker" not in status
             assert lifecycle == ["suspend", "resume"] * 4
         await pilot.press("up", "down")

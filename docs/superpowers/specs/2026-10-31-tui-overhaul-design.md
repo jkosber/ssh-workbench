@@ -203,7 +203,7 @@ Bold may decorate but never carries meaning on its own.
 
 | Class | Range | Layout |
 | --- | --- | --- |
-| `-narrow` | under 60 columns | Stacked panes, symbol-form header, stacked detail labels |
+| `-narrow` | under 60 columns | Stacked panes, symbol-form header when the words do not fit, stacked detail labels |
 | `-normal` | 60 to 99 | Side by side; rows show symbol and name; the footer takes two rows under 80 columns |
 | `-wide` | 100 to 129 | Adds the row target |
 | `-xwide` | 130 and up | Adds the column header and the user column |

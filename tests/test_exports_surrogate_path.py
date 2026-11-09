@@ -8,10 +8,10 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from textual.widgets import Checkbox, Input, RadioButton, Static
+from textual.widgets import Checkbox, Input, RadioButton
 
 from ssh_workbench import app as app_module
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp
 from ssh_workbench.config import Machine, format_machines, read_machines
 from ssh_workbench.exports import (
     EXPORT_NAME,
@@ -59,7 +59,7 @@ def test_a_machine_file_path_without_a_surrogate_is_written(
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 async def wait_for(pilot, predicate) -> None:

@@ -68,26 +68,56 @@ def details(app: SSHWorkbenchApp) -> dict[str, str]:
     }
 
 
+def empty_lines(app: SSHWorkbenchApp) -> list[Static]:
+    """The empty screen's lines, one Static each."""
+    return list(app.query_one("#empty-state", VerticalScroll).query_children(Static))
+
+
+def empty_text(app: SSHWorkbenchApp) -> str:
+    return "\n".join(str(line.content) for line in empty_lines(app))
+
+
+def empty_spans(app: SSHWorkbenchApp) -> list[tuple[int, str, str]]:
+    """Every span on the empty screen: its line, its text and its style."""
+    spans = []
+    for number, line in enumerate(empty_lines(app)):
+        content = line.content
+        assert isinstance(content, Content)
+        spans += [
+            (number, content.plain[span.start : span.end], span.style)
+            for span in content.spans
+        ]
+    return spans
+
+
+GUIDE = "the user guide describes the format"
+# The key A, styled like a footer key; nothing else on the screen is styled.
+ADD_KEY = (0, "a", "$primary bold")
+
+
 @pytest.mark.parametrize("size", [(80, 24), (120, 40), (60, 20)])
 @pytest.mark.parametrize(
-    ("machines", "message", "hint"),
+    ("machines", "lines", "spans"),
     [
-        (None, "No machine file selected.", "--config PATH"),
-        ([], "No machines in this file yet.", "Press A to add one."),
+        (
+            None,
+            ["no machine file selected", f"restart with --config PATH · {GUIDE}"],
+            [],
+        ),
+        ([], ["no machines in this file yet · a to add"], [ADD_KEY]),
     ],
 )
 async def test_empty_states(
-    machines, message: str, hint: str, size: tuple[int, int]
+    machines, lines: list[str], spans: list, size: tuple[int, int]
 ) -> None:
     app = SSHWorkbenchApp(machines)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
         assert app.is_running
         assert app.title == "SSH Workbench"
-        status = app.query_one("#empty-state", Static)
-        assert status.visible
-        assert message in str(status.content)
-        assert hint in str(status.content)
+        assert app.query_one("#empty-state", VerticalScroll).visible
+        assert empty_text(app).split("\n") == lines
+        assert empty_spans(app) == spans
         assert not app.query(ListView)
         await pilot.press("down", "tab", "up", "q")
         assert not app.is_running
@@ -99,34 +129,39 @@ async def test_no_config_screen_names_default_path() -> None:
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        content = str(app.query_one("#empty-state", Static).content)
-        assert "No machine file yet." in content
-        assert f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml" in content
-        assert "\x1b" not in content
-        assert "--config PATH" in content
-        assert "Press A to add your first machine" in content
+        assert empty_text(app).split("\n") == [
+            "no machine file yet · a to add",
+            "workbench creates the file at:",
+            f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml",
+            f"or restart with --config PATH · {GUIDE}",
+        ]
+        assert empty_spans(app) == [ADD_KEY]
 
 
 async def test_no_config_screen_without_default_path() -> None:
     app = SSHWorkbenchApp(None)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        content = str(app.query_one("#empty-state", Static).content)
-        assert "Restart with --config PATH" in content
+        content = empty_text(app)
+        assert content == (
+            f"no machine file selected\nrestart with --config PATH · {GUIDE}"
+        )
         assert "None" not in content
+        assert empty_spans(app) == []
 
 
 async def test_empty_file_screen_names_the_file_without_config_hint() -> None:
-    path = Path("fictional") / "odd\x1bname" / "machines.toml"
+    path = Path("fictional") / "odd\x1bname" / "[b]machines.toml"
     app = SSHWorkbenchApp([], config_path=path)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        content = str(app.query_one("#empty-state", Static).content)
-        assert "No machines in this file yet:" in content
-        assert f"fictional{os.sep}odd\\x1bname{os.sep}machines.toml" in content
-        assert "\x1b" not in content
+        content = empty_text(app)
+        assert content.split("\n") == [
+            "no machines in this file yet · a to add",
+            f"fictional{os.sep}odd\\x1bname{os.sep}[b]machines.toml",
+        ]
         assert "--config" not in content
-        assert "Press A to add one." in content
+        assert empty_spans(app) == [ADD_KEY]
 
 
 async def test_initial_selection_order_and_keyboard_details() -> None:
@@ -135,7 +170,7 @@ async def test_initial_selection_order_and_keyboard_details() -> None:
         machine_list = app.query_one(ListView)
         assert app.focused is machine_list
         assert machine_list.index == 0
-        assert machine_list.border_title == "Machines"
+        assert str(app.query_one("#list-title", Static).content) == "machines"
         assert [str(widget.content) for widget in machine_list.query(Static)] == [
             "Garden demo",
             "Studio box",
@@ -149,9 +184,12 @@ async def test_initial_selection_order_and_keyboard_details() -> None:
         pane = app.query_one("#machine-details", VerticalScroll)
         assert app.focused is pane
         assert machine_list.index == 0
-        assert pane.styles.border.top != machine_list.styles.border.top
+        assert app.query_one("#details-pane").has_class("-focused")
+        assert not app.query_one("#list-pane").has_class("-focused")
         await pilot.press("shift+tab")
         assert app.focused is machine_list
+        assert app.query_one("#list-pane").has_class("-focused")
+        assert not app.query_one("#details-pane").has_class("-focused")
 
 
 async def test_direct_machine_without_optional_fields_shows_not_set() -> None:
@@ -315,17 +353,6 @@ async def test_many_machines_keep_keyboard_selection_visible() -> None:
         assert machine_list.scrollable_content_region.contains_region(
             machine_list.highlighted_child.region
         )
-
-
-async def test_help_line_fits_60_columns() -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(60, 20)) as pilot:
-        await pilot.pause()
-        help_line = app.query_one("#navigation-help", Static)
-        assert str(help_line.content) == (
-            "Up/Down: select   Tab: switch pane   PgUp/PgDn: scroll"
-        )
-        assert help_line.region.height == 1
 
 
 @pytest.mark.parametrize("key", ["q", "ctrl+q"])

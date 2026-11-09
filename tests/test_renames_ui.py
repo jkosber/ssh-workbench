@@ -21,7 +21,12 @@ from ssh_workbench.aliases import (
     load_state,
     state_path,
 )
-from ssh_workbench.app import AliasesReviewed, SSHWorkbenchApp, StatusSymbol
+from ssh_workbench.app import (
+    AliasesReviewed,
+    ResultSlot,
+    SSHWorkbenchApp,
+    StatusSymbol,
+)
 from ssh_workbench.config import Machine, format_machines, read_machines
 from ssh_workbench.forms import MachineForm
 from ssh_workbench.status import AliasTarget, State
@@ -109,7 +114,7 @@ def field(app: SSHWorkbenchApp, name: str) -> str:
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 def footer_actions(app: SSHWorkbenchApp) -> set[str]:
@@ -170,7 +175,7 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
         await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
         keys = app.query_one(Footer).query("FooterKey")
         update = [item.render().plain for item in keys if item.action == "update_alias"]
-        assert update == ["u Update"]
+        assert update == ["u update"]
         assert "connect" not in footer_actions(app)
         assert checker.resolved == ["new-host"]
         assert checker.checked == [("192.0.2.50", 22)]

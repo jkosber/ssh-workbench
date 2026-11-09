@@ -1,16 +1,47 @@
 """The look: theme, header summary and the layout at each terminal size."""
 
 import asyncio
+import importlib.util
 from pathlib import Path
+from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
+from test_app import MACHINES as APP_MACHINES
+from test_app import empty_lines, empty_text
+from test_exports_ui import LAB, add_exported_box, workspace
 from textual.color import Color
 from textual.containers import VerticalScroll
-from textual.widgets import Footer, ListView, Static
+from textual.content import Span
+from textual.drivers.headless_driver import HeadlessDriver
+from textual.widgets import (
+    Footer,
+    HelpPanel,
+    Input,
+    KeyPanel,
+    ListItem,
+    ListView,
+    Static,
+)
+from textual.widgets._footer import FooterKey
+from textual.widgets._key_panel import BindingsTable
 
-from ssh_workbench.app import STATE_COLORS, SSHWorkbenchApp, StatusSymbol, state_css
+from ssh_workbench import app as app_module
+from ssh_workbench.app import (
+    STATE_COLORS,
+    Glyph,
+    KeyFooter,
+    KeyTable,
+    ResultLine,
+    ResultSlot,
+    SSHWorkbenchApp,
+    StatusSymbol,
+    state_css,
+)
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
+from ssh_workbench.exports import ExportError
 from ssh_workbench.forms import ConfirmDelete, MachineForm
+from ssh_workbench.links import LinkResult
 from ssh_workbench.status import AliasTarget, MachineStatus, State
 
 pytestmark = [
@@ -261,19 +292,169 @@ async def test_summary_phrases_fall_back_to_the_count() -> None:
             assert (str(number), number.spans) == ("1", [])
 
 
-@pytest.mark.parametrize("size", [(50, 24), (40, 16)])
-async def test_narrow_terminals_stack_the_list_above_the_details(
-    size: tuple[int, int],
-) -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=size) as pilot:
+async def test_panes_have_label_rows_and_no_borders() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        assert str(app.query_one("#list-title", Static).content) == "machines"
+        assert str(app.query_one("#list-position", Static).content) == "1/4"
+        assert str(app.query_one("#details-name", Static).content) == "Garden"
+        assert str(app.query_one("#details-id", Static).content) == "garden"
+        # An unset border and `border: none` both read back as edge type "" in
+        # 8.2.8; only the type is meaningful.
+        for selector in ("#machine-list", "#machine-details", "#list-pane"):
+            assert all(kind == "" for kind, _ in app.query_one(selector).styles.border)
+        assert app.query_one("#details-pane").styles.border_left[0] == "solid"
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert list_pane.has_class("-focused")
+        assert not details_pane.has_class("-focused")
+        assert app.query_one("#list-label").styles.border_bottom[0] == "heavy"
+        assert app.query_one("#details-label").styles.border_bottom[0] == "solid"
+        assert app.query_one("#list-label").region.height == 2
+        # A container renders nothing itself (N3); the padding indents by one.
+        assert app.query_one("#list-title").region.x == 1
+        await pilot.press("tab")
+        assert details_pane.has_class("-focused")
+        assert not list_pane.has_class("-focused")
+        assert app.query_one("#details-label").styles.border_bottom[0] == "heavy"
+        # The details label keeps the name.
+        assert str(app.query_one("#details-name", Static).content) == "Garden"
+        await pilot.press("shift+tab", "down")
+        assert str(app.query_one("#list-position", Static).content) == "2/4"
+
+
+async def test_a_long_name_keeps_the_id_in_the_details_label() -> None:
+    name = "A sixty-column machine name that fills the label to its edge"
+    app = SSHWorkbenchApp([Machine("long-name", name, addresses=("192.0.2.60",))])
+    async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        machine_list, pane = panes(app)
-        assert machine_list.region.bottom <= pane.region.y
-        assert machine_list.region.x == pane.region.x
-        assert machine_list.region.width == pane.region.width
-        assert machine_list.region.height >= 4
-        assert app.screen.region.contains_region(pane.region)
+        label = app.query_one("#details-label")
+        name_region = app.query_one("#details-name").region
+        id_region = app.query_one("#details-id").region
+        assert len(name) == 60
+        assert label.region.contains_region(id_region)
+        assert id_region.right == label.content_region.right
+        assert id_region.width == len("long-name")
+        assert not name_region.overlaps(id_region)
+
+
+@pytest.mark.parametrize(
+    ("width", "list_width"),
+    [
+        (60, 24),
+        (80, 32),
+        (100, 40),
+        (120, 48),
+        (129, 51),
+        (130, 52),
+        (160, 64),
+        (200, 80),
+        (300, 80),
+    ],
+)
+async def test_list_width_is_two_fifths_clamped(width: int, list_width: int) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(width, 30)):
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert list_pane.region.width == list_width
+        assert list_pane.region.width <= width // 2
+        assert details_pane.region.right == width
+        assert details_pane.region.x == list_pane.region.right
+
+
+async def test_scrollbars_are_one_column() -> None:
+    # Size (80, 16) with tests/test_app.py's MACHINES: the details overflow, so
+    # the scrollbar is drawn.
+    app = SSHWorkbenchApp(APP_MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 16)) as pilot:
+        await pilot.pause()
+        details = app.query_one("#machine-details", VerticalScroll)
+        assert details.max_scroll_y > 0
+        assert details.styles.scrollbar_size_vertical == 1
+        assert details.styles.scrollbar_gutter == "stable"
+        # Padding 1 + 1 and the gutter (I3).
+        assert details.scrollable_content_region.width == details.region.width - 3
+        machine_list = app.query_one("#machine-list", ListView)
+        assert machine_list.styles.scrollbar_size_vertical == 1
+
+
+THIRTY = tuple(
+    Machine(f"m{i:02}", f"Machine {i:02}", addresses=(f"192.0.2.{i}",))
+    for i in range(1, 31)
+)
+
+
+@pytest.mark.parametrize(
+    ("size", "min_rows"), [((50, 24), 3), ((40, 16), 2), ((50, 17), 2)]
+)
+async def test_narrow_terminals_stack_the_panes(
+    size: tuple[int, int], min_rows: int
+) -> None:
+    app = SSHWorkbenchApp(THIRTY, checker=FakeChecker())
+    async with app.run_test(size=size) as pilot:
+        await checked(app, pilot)
+        # Textual 8.2.8 keeps #browser's side-by-side arrangement cached when
+        # only its own layout changes; the next layout pass stacks the panes.
+        await pilot.pause()
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert app.query_one("#browser").styles.layout.name == "vertical"
+        assert list_pane.region.bottom == details_pane.region.y
+        assert list_pane.region.height <= int(0.4 * size[1])
+        machine_list = app.query_one("#machine-list", ListView)
+        assert machine_list.region.height >= min_rows
+        assert details_pane.styles.border_left[0] == ""
+        for _ in range(20):
+            await pilot.press("down")
+        await pilot.pause()
+        highlighted = machine_list.children[machine_list.index]
+        # C4: the capped list scrolls to keep the selection on screen.
+        assert list_pane.region.contains_region(highlighted.region)
+
+
+def rebuilt(app: SSHWorkbenchApp, old_list: ListView) -> bool:
+    """The rebuild replaced the list and gave the new one focus."""
+    lists = app.query("#machine-list")
+    return (
+        len(lists) == 1
+        and lists.first() is not old_list
+        and app.focused is lists.first()
+    )
+
+
+async def rename_first(app: SSHWorkbenchApp, pilot, name: str) -> None:
+    """Edit the selected machine's name through the form, save, and wait for
+    the rebuilt list."""
+    old_list = app.query_one("#machine-list", ListView)
+    await pilot.press("e")
+    await wait_for(pilot, lambda: showing(app, MachineForm))
+    app.screen.query_one("#form-name", Input).value = name
+    await pilot.press("ctrl+s")
+    await wait_for(pilot, lambda: rebuilt(app, old_list))
+    await pilot.pause()
+
+
+async def test_label_rows_survive_a_rebuild(tmp_path: Path) -> None:
+    app = saved_app(tmp_path, MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await rename_first(app, pilot, "Garden two")
+        assert str(app.query_one("#details-name", Static).content) == "Garden two"
+        assert str(app.query_one("#list-position", Static).content) == "1/4"
+        assert app.query_one("#list-label").has_class("pane-label")
+
+
+async def test_a_rebuild_keeps_the_stacked_list_capped(tmp_path: Path) -> None:
+    # The rebuild mounts a new list; the cap must follow it, or the stacked
+    # list grows to all thirty rows and the details lose their space.
+    app = saved_app(tmp_path, THIRTY)
+    async with app.run_test(size=(50, 24)) as pilot:
+        await rename_first(app, pilot, "Machine one")
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert list_pane.region.height <= int(0.4 * 24)
+        assert list_pane.region.bottom == details_pane.region.y
+        assert app.query_one("#machine-list", ListView).region.height >= 3
 
 
 async def test_resizing_while_a_form_is_open_updates_the_layout(
@@ -406,69 +587,550 @@ async def test_text_colors_reach_four_and_a_half_to_one() -> None:
                 assert ratio >= 4.5, (name, surface, ratio)
 
 
-@pytest.mark.parametrize(
-    ("size", "shown"),
-    [((80, 16), False), ((80, 20), True), ((50, 24), False), ((60, 24), True)],
-)
-async def test_short_or_narrow_terminals_hide_the_help_line(
-    size: tuple[int, int], shown: bool
+async def test_divider_reaches_three_to_one() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)):
+        variables = app.get_css_variables()
+        for surface in ("background", "surface"):
+            ratio = contrast(
+                Color.parse(variables["divider"]), Color.parse(variables[surface])
+            )
+            assert ratio >= 3, (surface, ratio)
+
+
+@pytest.mark.parametrize("size", [(80, 16), (80, 23), (80, 24), (50, 24), (60, 24)])
+async def test_no_help_line_and_the_details_keep_five_rows(
+    size: tuple[int, int],
 ) -> None:
+    # The ? key panel replaces the help line at every size.
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        assert app.query_one("#navigation-help").display is shown
+        assert not app.query("#navigation-help")
         _, pane = panes(app)
         assert pane.region.height >= 5
 
 
-async def test_the_footer_shows_each_letter_key_once_in_lowercase() -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(80, 24)) as pilot:
-        footer = app.query_one(Footer)
-        await wait_for(pilot, lambda: len(footer.query("FooterKey")) == 8)
-        assert [key.render().plain for key in footer.query("FooterKey")] == [
-            "c Connect",
-            "o Link",
-            "a Add",
-            "e Edit",
-            "x Delete",
-            "k Key",
-            "r Check",
-            "q Quit",
-        ]
+@pytest.mark.parametrize(
+    ("size", "classes"),
+    [
+        ((59, 24), {"-narrow", "-tall"}),
+        ((60, 23), {"-normal", "-short"}),
+        ((99, 24), {"-normal", "-tall"}),
+        ((100, 24), {"-wide", "-tall"}),
+        ((129, 30), {"-wide", "-tall"}),
+        ((130, 30), {"-xwide", "-tall"}),
+    ],
+)
+async def test_breakpoint_classes(size, classes) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=size):
+        assert classes <= set(app.screen.classes)
+
+
+async def test_footer_columns_for_width() -> None:
+    assert KeyFooter.columns_for(80, 9) == 9
+    assert KeyFooter.columns_for(79, 9) == 5
+    assert KeyFooter.columns_for(45, 9) == 5
+    assert KeyFooter.columns_for(44, 9) == 3
+    assert KeyFooter.columns_for(40, 9) == 3
+
+
+KEYS = [
+    "c connect",
+    "o link",
+    "a add",
+    "e edit",
+    "x delete",
+    "k key",
+    "r check",
+    "? keys",
+    "q quit",
+]
 
 
 @pytest.mark.parametrize(
-    ("size", "rows"), [((40, 16), 2), ((50, 20), 2), ((60, 20), 1)]
+    ("size", "rows"),
+    [
+        ((40, 16), 3),
+        ((44, 24), 3),
+        ((45, 24), 2),
+        ((60, 20), 2),
+        ((79, 24), 2),
+        ((80, 24), 1),
+        ((120, 30), 1),
+    ],
 )
-async def test_narrow_footers_show_every_key_on_two_rows(
-    size: tuple[int, int], rows: int
-) -> None:
-    app = SSHWorkbenchApp(MACHINES)
+async def test_footer_rows_follow_width(size, rows) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test(size=size) as pilot:
+        # a bindings change recomposes the footer; the columns must survive it
+        await pilot.press("tab")
+        await wait_for(pilot, lambda: all(k.region.width for k in app.query(FooterKey)))
         footer = app.query_one(Footer)
-        await wait_for(
-            pilot,
-            lambda: (
-                len(footer.query("FooterKey")) == 8
-                and all(key.region.width for key in footer.query("FooterKey"))
-            ),
-        )
+        keys = list(app.query(FooterKey))
         assert footer.region.height == rows
-        for key in footer.query("FooterKey"):
-            assert app.screen.region.contains_region(key.region), key.action
-        machine_list, _ = panes(app)
-        assert machine_list.region.height >= 4
+        assert [k.render().plain for k in keys] == KEYS
+        assert max(k.region.right for k in keys) <= size[0]
+        assert all(k.region.width == len(k.render().plain) for k in keys)
+        # columns are content-sized: the gap between a column's widest key and
+        # the next column is 2 (N2)
+        xs = sorted({k.region.x for k in keys})
+        right = {x: max(k.region.right for k in keys if k.region.x == x) for x in xs}
+        assert all(n - right[x] == 2 for x, n in zip(xs, xs[1:]))
 
 
-@pytest.mark.parametrize(("height", "rows"), [(16, 2), (20, 3)])
-async def test_short_terminals_give_link_results_two_rows(
-    height: int, rows: int
+async def test_footer_labels_are_muted_and_keys_accented() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)):
+        variables = app.get_css_variables()
+        assert variables["footer-description-foreground"] == variables["text-muted"]
+        assert variables["footer-key-foreground"] == variables["primary"]
+
+
+def panel_text(app) -> str:
+    """The key panel's text inside its viewport: what shows without scrolling."""
+    view = app.screen.query_one(KeyPanel).scrollable_content_region
+    table = app.screen.query_one(BindingsTable)
+    rows = range(
+        max(view.y - table.region.y, 0),
+        min(view.bottom - table.region.y, table.region.height),
+    )
+    return "\n".join(table.render_line(y).text for y in rows)
+
+
+async def open_key_panel(app, pilot) -> list[list[str]]:
+    """Press ? and return the words of each row the panel shows."""
+    await pilot.press("question_mark")
+    await wait_for(
+        pilot,
+        lambda: (
+            bool(app.screen.query(BindingsTable))
+            and app.screen.query_one(BindingsTable).region.height > 0
+        ),
+    )
+    return [line.split() for line in panel_text(app).splitlines()]
+
+
+NAVIGATION_KEYS = ("↑", "↓", "tab", "pgup", "pgdn")
+STOCK_KEYS = ("home", "end", "⏎", "enter", "^c", "ctrl+c", "←", "→")
+APP_KEYS = (
+    ("c", "connect"),
+    ("o", "link"),
+    ("a", "add"),
+    ("e", "edit"),
+    ("x", "delete"),
+    ("k", "key"),
+    ("r", "check"),
+    ("?", "keys"),
+    ("q", "quit"),
+)
+
+
+@pytest.mark.parametrize("size", [(40, 16), (60, 20), (80, 24), (120, 18)])
+async def test_the_key_panel_shows_the_navigation_keys_at_every_size(
+    size: tuple[int, int],
 ) -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(80, height)) as pilot:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=size) as pilot:
+        rows = await open_key_panel(app, pilot)
+        for key in NAVIGATION_KEYS:
+            assert any(row[:1] == [key] for row in rows), key
+        text = panel_text(app)
+        for key in STOCK_KEYS:
+            assert key not in text, key
+
+
+async def test_question_mark_toggles_the_key_panel() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        rows = await open_key_panel(app, pilot)
+        for key, label in APP_KEYS:
+            assert any(key in row[:-1] and row[-1:] == [label] for row in rows), key
+        # The navigation keys, then Workbench's in the footer's order with the
+        # footer's one key per action; every description lowercase.
+        assert rows == [
+            [],
+            ["↑", "cursor", "up"],
+            ["↓", "cursor", "down"],
+            ["tab", "focus", "next"],
+            ["pgup", "page", "up"],
+            ["pgdn", "page", "down"],
+            [],
+            *(key.split() for key in KEYS),
+        ]
+        footer = app.query_one(Footer)
+        assert footer.region.width == 80 and footer.region.height == 1
+        assert [k.render().plain for k in app.query(FooterKey)] == KEYS
+        assert app.query_one("#app-header").region.width == 80
+        assert "-normal" in app.screen.classes
+        panel = app.query_one(HelpPanel)
+        assert app.query_one("#panes").region.contains_region(panel.region)
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: not app.query(HelpPanel))
+
+
+async def test_the_key_panel_keys_take_the_footer_key_color() -> None:
+    # Textual's KeyPanel CSS draws keys in $text-accent; Workbench draws keys
+    # in $primary everywhere else.
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await open_key_panel(app, pilot)
+        primary = Color.parse(app.get_css_variables()["primary"])
+        table = app.screen.query_one(KeyTable)
+        assert table.get_visual_style("bindings-table--key").foreground == primary
+        footer_key = app.query(FooterKey).first()
+        assert footer_key.get_visual_style("footer-key--key").foreground == primary
+        # The first drawn cell of every row is its key, in that color.
+        keys = [
+            next(segment for segment in strip if segment.text.strip())
+            for strip in map(table.render_line, range(table.region.height))
+            if strip.text.strip()
+        ]
+        assert len(keys) == len(NAVIGATION_KEYS) + len(APP_KEYS)
+        for key in keys:
+            assert key.style is not None and key.style.color is not None, key.text
+            assert tuple(key.style.color.get_truecolor()) == primary.rgb, key.text
+
+
+async def test_question_mark_is_inert_in_modals(tmp_path) -> None:
+    # ConfirmDelete, not MachineForm: a form's focused Input would swallow "?"
+    # and the test would pass without the gate (N7).
+    # Under a modal, Textual's binding chain stops at the modal screen, so the
+    # app's "?" binding never runs there and no panel mounts, gate or not. The
+    # gate's own effect is on the browser screen's footer, which App.query
+    # searches: "? keys" is dimmed while the modal is open.
+    app = saved_app(tmp_path, MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.press("x")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await pilot.press("question_mark")
         await pilot.pause()
-        assert app.query_one("#link-status").region.height == rows
+        assert not app.query(HelpPanel)
+        assert app.check_action("toggle_key_panel", ()) is None
+        keys = [key for key in app.query(FooterKey) if key.render().plain == "? keys"]
+        assert len(keys) == 1
+        assert keys[0].has_class("-disabled")
+
+
+LINKED = (
+    Machine(
+        "garden",
+        "Garden",
+        alias="garden-host",
+        links=(Link("Repository", "https://example.invalid/garden"),),
+    ),
+    Machine("studio", "Studio", addresses=("192.0.2.40",)),
+)
+# Long messages, 199 and 299 characters, cut wherever the tests use them.
+LONG_200 = " ".join(["fictional"] * 20)
+LONG_300 = " ".join(["fictional"] * 30)
+
+
+def handoff(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    """A terminal that can be handed off and an SSH that exits with 0."""
+    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
+    monkeypatch.setattr(HeadlessDriver, "suspend_application_mode", lambda self: None)
+    monkeypatch.setattr(HeadlessDriver, "resume_application_mode", lambda self: None)
+    launch = Mock(return_value=0)
+    monkeypatch.setattr(app_module, "launch_ssh", launch)
+    return launch
+
+
+@pytest.mark.parametrize("machines", [MACHINES, ()])
+async def test_result_line_starts_blank_and_is_one_row(machines) -> None:
+    app = SSHWorkbenchApp(machines)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        result = app.query_one("#result-line", ResultLine)
+        assert app.result is result
+        assert result.connection is app.query_one("#connection-status", ResultSlot)
+        assert result.link is app.query_one("#link-status", ResultSlot)
+        assert list(result.children) == [result.connection, result.link]
+        assert result.region.height == 1
+        for slot in (result.connection, result.link):
+            assert slot.message == ""
+            assert slot.styles.display == "none"
+        assert app.query_one(Footer).region.y == result.region.bottom
+        assert app.query_one("#panes").region.bottom == result.region.y
+
+
+async def test_result_line_keeps_both_slots_newest_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launch = handoff(monkeypatch)
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(LINKED)
+    async with app.run_test(size=(80, 24)) as pilot:
+        result = app.result
+        connection, link = result.connection, result.link
+        await pilot.press("c")
+        launch.assert_called_once_with(LINKED[0])
+        await pilot.pause()
+        assert connection.message == "SSH exited with status 0. Machine 1: garden"
+        assert str(connection.content).startswith("● ")
+        assert connection.render().spans == [Span(0, 1, "$success")]
+        assert link.styles.display == "none"
+        await pilot.press("o")
+        await wait_for(pilot, lambda: "accepted" in link.message)
+        await pilot.pause()
+        opener.assert_called_once_with("https://example.invalid/garden")
+        assert list(result.children) == [link, connection]
+        assert link.message == (
+            f"Repository {LinkResult.ACCEPTED.value} Machine 1: garden"
+        )
+        assert connection.message == "SSH exited with status 0. Machine 1: garden"
+        assert str(link.content).startswith("› ")
+        assert link.render().spans == [Span(0, 1, "$success")]
+        assert result.region.height == 2
+        assert link.region.bottom == connection.region.y
+        await pilot.press("c")
+        await pilot.pause()
+        assert launch.call_count == 2
+        assert list(result.children) == [connection, link]
+        assert connection.region.bottom == link.region.y
+        assert link.message == (
+            f"Repository {LinkResult.ACCEPTED.value} Machine 1: garden"
+        )
+
+
+async def test_export_problem_appends_to_the_connection_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(folder: Path, machines: object, source: Path) -> None:
+        raise ExportError("Could not write ssh-workbench.config: permission denied.")
+
+    monkeypatch.setattr(app_module, "write_exports", refuse)
+    _, path, text = workspace(tmp_path, monkeypatch, (LAB,))
+    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
+    async with app.run_test(size=(80, 24)) as pilot:
+        connection = app.result.connection
+        await add_exported_box(app, pilot)
+        await wait_for(pilot, lambda: "Could not write" in connection.message)
+        await pilot.pause()
+        assert connection.message == (
+            "Saved machine 2: box. Could not write ssh-workbench.config: "
+            "permission denied."
+        )
+        assert str(connection.content).startswith("× Saved machine 2: box.")
+        assert connection.render().spans == [Span(0, 1, "$error")]
+
+
+async def test_short_screens_cap_the_result_line_at_two_rows() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(120, 18)) as pilot:
+        result = app.result
+        result.show(result.connection, LONG_200, Glyph.FAILURE)
+        result.show(result.link, LONG_200, Glyph.OTHER)
+        await pilot.pause()
+        footer = app.query_one(Footer)
+        assert result.region.height == 2
+        assert footer.region.height == 1
+        assert app.query_one("#panes").region.bottom == result.region.y
+        assert result.region.bottom == footer.region.y
+        assert list(result.children) == [result.link, result.connection]
+        for slot, glyph in ((result.link, "·"), (result.connection, "×")):
+            assert slot.region.height == 1
+            line = slot.render_line(0).text
+            assert line.startswith(f"{glyph} fictional fictional")
+            assert line.endswith("…")
+            assert len(line) == 118
+
+
+async def test_short_screens_give_a_lone_result_both_rows() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(120, 18)) as pilot:
+        result = app.result
+        footer = app.query_one(Footer)
+        # 301 cells need three rows of 118, so the second row is cut.
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert result.connection.region.height == 2
+        lines = [result.connection.render_line(y).text for y in range(2)]
+        assert lines[0].startswith("× fictional fictional")
+        assert "…" not in lines[0]
+        assert lines[1].endswith("…")
+        assert len(lines[1]) == 118
+        assert footer.region.height == 1
+        assert app.query_one("#panes").region.bottom == result.region.y
+        assert result.region.bottom == footer.region.y
+        result.show(result.link, LONG_200, Glyph.OTHER)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert list(result.children) == [result.link, result.connection]
+        for slot, glyph in ((result.link, "·"), (result.connection, "×")):
+            assert slot.region.height == 1
+            line = slot.render_line(0).text
+            assert line.startswith(f"{glyph} fictional fictional")
+            assert line.endswith("…")
+        assert app.query_one("#panes").region.bottom == result.region.y
+
+
+async def test_tall_screens_cap_the_result_line_at_three_rows() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        panes = app.query_one("#panes")
+        idle = panes.region.height
+        result = app.result
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        await pilot.pause()
+        assert result.region.height == 3
+        assert result.connection.region.height == 3
+        lines = [result.connection.render_line(y).text for y in range(3)]
+        assert lines[0].startswith("× fictional fictional")
+        assert "…" not in lines[0] + lines[1]
+        assert lines[2].endswith("…")
+        assert len(lines[2]) == 78
+        assert panes.region.height == idle - 2
+        assert panes.region.bottom == result.region.y
+        result.show(result.link, LONG_300, Glyph.OTHER)
+        await pilot.pause()
+        assert result.region.height == 3
+        assert list(result.children) == [result.link, result.connection]
+        assert result.link.region.height == 2
+        assert result.connection.region.height == 1
+        assert result.link.render_line(0).text.startswith("· fictional fictional")
+        assert result.link.render_line(1).text.endswith("…")
+        assert result.connection.render_line(0).text.endswith("…")
+        assert panes.region.height == idle - 2
+        assert panes.region.bottom == result.region.y
+
+
+async def test_result_line_recomputes_on_resize() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        result = app.result
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        result.show(result.link, LONG_300, Glyph.OTHER)
+        await pilot.pause()
+        assert result.region.height == 3
+        await pilot.resize_terminal(120, 18)
+        await wait_for(pilot, lambda: "-short" in app.screen.classes)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert result.link.region.height == 1
+        assert app.query_one("#panes").region.bottom == result.region.y
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 18)) as pilot:
+        result = app.result
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        await pilot.pause()
+        assert result.region.height == 2
+        # A height-only resize: no width changes, so only the classes do.
+        await pilot.resize_terminal(80, 24)
+        await wait_for(pilot, lambda: "-tall" in app.screen.classes)
+        await pilot.pause()
+        assert result.region.height == 3
+        assert result.connection.render_line(2).text.endswith("…")
+        # A width-only resize rewraps: 301 cells fit in two rows of 198.
+        await pilot.resize_terminal(200, 24)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert result.connection.render_line(1).text.rstrip().endswith("fictional")
+
+
+CAPTURE_LOOK = Path(__file__).resolve().parents[1] / "scripts" / "capture_look.py"
+
+
+def load_capture_look() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("capture_look_sizes", CAPTURE_LOOK)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# The size matrix, defined once in the capture script.
+SIZES = load_capture_look().SIZES
+
+
+def assert_tiled(app: SSHWorkbenchApp, width: int, height: int) -> None:
+    """The header, panes, result line and footer stack edge to edge, each the
+    full width, from the top row to the bottom one."""
+    parts = [
+        app.query_one("#app-header").region,
+        app.query_one("#panes").region,
+        app.query_one("#result-line").region,
+        app.query_one(Footer).region,
+    ]
+    assert parts[0].y == 0
+    for upper, lower in zip(parts, parts[1:]):
+        assert upper.bottom == lower.y
+    assert parts[-1].bottom == height
+    assert all(part.x == 0 and part.width == width for part in parts)
+
+
+@pytest.mark.parametrize("size", SIZES, ids=[f"{w}x{h}" for w, h in SIZES])
+async def test_size_matrix_holds(size: tuple[int, int]) -> None:
+    width, height = size
+    app = SSHWorkbenchApp(APP_MACHINES, checker=FakeChecker())
+    async with app.run_test(size=size) as pilot:
+        await checked(app, pilot)
+        # Under 60 columns the first paint keeps the side-by-side arrangement
+        # until the next layout pass (see test_narrow_terminals_stack_the_panes).
+        await pilot.pause()
+        await wait_for(pilot, lambda: all(k.region.width for k in app.query(FooterKey)))
+        screen = app.screen
+        assert_tiled(app, width, height)
+        keys = list(app.query(FooterKey))
+        assert [key.render().plain for key in keys] == KEYS
+        for key in keys:
+            plain = key.render().plain
+            assert screen.region.contains_region(key.region), plain
+            assert key.region.width == len(plain), plain
+        list_pane = app.query_one("#list-pane").region
+        details_pane = app.query_one("#details-pane").region
+        stacked = width < 60
+        assert ("-narrow" in screen.classes) is stacked
+        if stacked:
+            assert list_pane.bottom == details_pane.y
+            assert (list_pane.x, list_pane.width) == (0, width)
+            assert (details_pane.x, details_pane.width) == (0, width)
+        else:
+            assert details_pane.x == list_pane.right
+            assert details_pane.y == list_pane.y
+            assert list_pane.width <= width // 2
+        # M1: a row shows where its machine connects from 100 columns.
+        targets = list(app.query(".row-target"))
+        assert len(targets) == len(APP_MACHINES)
+        if width >= 100:
+            assert all(target.region.width > 0 for target in targets)
+        else:
+            assert not any(target.region.width for target in targets)
+        details = app.query_one("#machine-details", VerticalScroll)
+        view = details.scrollable_content_region
+        fields = list(details.query(".field-row"))
+        if size == (80, 24):
+            assert details.max_scroll_y == 0
+        if size == (60, 20):
+            # The details scroll, and scrolled into view every row is whole:
+            # none is cut at the pane's right edge or taller than the pane.
+            assert details.max_scroll_y > 0
+            for row in fields:
+                details.scroll_to_widget(row, animate=False)
+                await pilot.pause()
+                assert view.contains_region(row.region), row.region
+            details.scroll_home(animate=False)
+            await pilot.pause()
+        if size == (80, 50):
+            # The list keeps one-row items and the details start at the top.
+            heights = [item.region.height for item in app.query(ListItem)]
+            assert heights == [1] * len(APP_MACHINES)
+            assert fields[0].region.y == view.y
+        # Idle, the result line is one row at every size; two long results
+        # fill it to its cap.
+        result = app.result
+        assert result.region.height == 1
+        result.show(result.connection, LONG_200, Glyph.FAILURE)
+        result.show(result.link, LONG_200, Glyph.OTHER)
+        await pilot.pause()
+        short = height < 24
+        assert ("-short" in screen.classes) is short
+        assert result.region.height <= (2 if short else 3)
+        assert_tiled(app, width, height)
 
 
 @pytest.mark.parametrize("path", [None, Path("fictional") / "machines.toml"])
@@ -476,8 +1138,8 @@ async def test_no_file_screen_names_the_user_guide(path: Path | None) -> None:
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        content = str(app.query_one("#empty-state", Static).content)
-        assert content.endswith("The user guide describes the format.")
+        content = empty_text(app)
+        assert content.endswith("--config PATH · the user guide describes the format")
         assert "README" not in content
 
 
@@ -487,13 +1149,49 @@ async def test_no_file_screen_fits_narrow_terminals(size: tuple[int, int]) -> No
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        # The message may be taller than a short screen, which scrolls; it
-        # must never be wider, which nothing can scroll to.
-        empty = app.query_one("#empty-state", Static)
-        screen = app.screen.region
-        assert screen.x <= empty.region.x and empty.region.right <= screen.right
-        lines = [empty.render_line(y).text.rstrip() for y in range(empty.region.height)]
-        assert any(line.endswith("format.") for line in lines)
+        # Every line wraps inside the screen, the path included, and the
+        # whole message sits above the result line.
+        empty = app.query_one("#empty-state", VerticalScroll)
+        assert app.query_one("#panes").region.contains_region(empty.region)
+        rows = []
+        for line in empty_lines(app):
+            assert app.screen.region.contains_region(line.region)
+            rows.append(
+                [line.render_line(y).text.rstrip() for y in range(line.region.height)]
+            )
+        assert len(rows[2]) > 1
+        assert "".join(rows[2]) == str(path)
+        assert rows[3][-1].endswith("format")
+
+
+async def test_empty_screen_is_muted_with_a_footer_style_key() -> None:
+    app = SSHWorkbenchApp(None, config_path=Path("fictional") / "machines.toml")
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        muted = Color.parse(app.get_css_variables()["text-muted"])
+        lines = empty_lines(app)
+        assert [line.styles.color for line in lines] == [muted] * 4
+        footer_key = next(key for key in app.query(FooterKey) if key.action == "add")
+        (key_style,) = [
+            segment.style
+            for segment in footer_key.render_line(0)
+            if segment.text.strip() == "a"
+        ]
+        segments = [
+            (segment.text, segment.style)
+            for line in lines
+            for segment in line.render_line(0)
+            if segment.text.strip()
+        ]
+        styled = [(text, style) for text, style in segments if style.bold]
+        assert [(text, style.color) for text, style in styled] == [
+            ("a", key_style.color)
+        ]
+        assert all(
+            style.color.triplet == muted.rgb
+            for text, style in segments
+            if (text, style) not in styled
+        )
 
 
 @pytest.mark.parametrize("size", [(40, 16), (200, 50)])
@@ -501,6 +1199,28 @@ async def test_empty_screen_fits_any_size(size: tuple[int, int]) -> None:
     app = SSHWorkbenchApp([])
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        empty = app.query_one("#empty-state", Static)
-        assert "Press A to add one." in str(empty.content)
+        empty = app.query_one("#empty-state", VerticalScroll)
+        assert empty_text(app) == "no machines in this file yet · a to add"
         assert app.screen.region.contains_region(empty.region)
+        # The panes' resize handler finds no list here and must not raise.
+        await pilot.resize_terminal(40, 16)
+        await pilot.pause()
+        assert app.is_running
+
+
+async def test_empty_screen_scrolls_to_its_last_line() -> None:
+    # Taller than the panes at 40x16, so the empty screen scrolls.
+    path = Path("fictional") / ("x" * 276) / "machines.toml"
+    assert len(str(path)) == 300
+    app = SSHWorkbenchApp(None, config_path=path)
+    async with app.run_test(size=(40, 16)) as pilot:
+        await pilot.pause()
+        empty = app.query_one("#empty-state", VerticalScroll)
+        assert empty.max_scroll_y > 0
+        assert app.focused is empty
+        last = empty_lines(app)[-1]
+        assert not empty.region.contains_region(last.region)
+        empty.scroll_end(animate=False)
+        await wait_for(pilot, lambda: empty.scroll_y == empty.max_scroll_y)
+        await pilot.pause()
+        assert empty.region.contains_region(last.region)

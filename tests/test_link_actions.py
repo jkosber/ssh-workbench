@@ -7,10 +7,16 @@ import pytest
 from textual import events
 from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, ListView, OptionList, Static
+from textual.widgets import Footer, ListView, OptionList
 
 from ssh_workbench import app as app_module
-from ssh_workbench.app import LinkFinished, LinkPicker, LinkRequest, SSHWorkbenchApp
+from ssh_workbench.app import (
+    LinkFinished,
+    LinkPicker,
+    LinkRequest,
+    ResultSlot,
+    SSHWorkbenchApp,
+)
 from ssh_workbench.config import Link, Machine, parse_machines
 from ssh_workbench.links import LinkResult
 
@@ -38,11 +44,10 @@ MACHINES = (
         ),
     ),
 )
-INITIAL_STATUS = "O: open a link of the selected machine. Opens in this environment."
 
 
 def status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#link-status", Static).content)
+    return app.query_one("#link-status", ResultSlot).message
 
 
 async def completed(app, pilot) -> None:
@@ -74,12 +79,12 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
         assert len(keys) == 1
         assert keys[0].key == "o"
         # The whole label, not a truncated one, at every size.
-        assert keys[0].render().plain == "o Link"
+        assert keys[0].render().plain == "o link"
         assert keys[0].visible
         assert app.screen.region.contains_region(keys[0].region)
         actions = {key.action for key in footer.query("FooterKey")}
         assert not actions & {"repository", "documentation"}
-        assert status(app) == INITIAL_STATUS
+        assert status(app) == ""
         await pilot.press("down", "up", "enter", "tab", "enter", "pagedown", "home")
         await pilot.press("r", "d")
         app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
@@ -223,8 +228,9 @@ async def test_results_are_literal_sanitized_and_retryable(
                 == f"Repository {result.value} Machine 1: literal[bold]\\x1b"
             )
             assert opener.call_count == count
-            rendered = app.query_one("#link-status", Static).render()
-            assert not rendered.spans
+            rendered = app.query_one("#link-status", ResultSlot).render()
+            # Only the glyph is styled; the machine data stays literal.
+            assert [(span.start, span.end) for span in rendered.spans] == [(0, 1)]
             assert all(
                 word not in rendered.plain for word in ("secret", "private", "\x1b")
             )
@@ -454,8 +460,8 @@ async def test_completion_during_ssh_keeps_both_results_and_signal_guard(
             assert lifecycle == ["suspend", "launch", "resume"]
             assert signal.getsignal(signal.SIGINT) is previous
             assert "accepted. Machine 1: first" in status(app)
-            assert "SSH exited with status 7." in str(
-                app.query_one("#connection-status", Static).content
+            assert "SSH exited with status 7." in (
+                app.query_one("#connection-status", ResultSlot).message
             )
             assert app.query_one(ListView).index == 1
             assert app.focused is app.query_one(ListView)
@@ -492,9 +498,12 @@ async def test_closed_loop_race_discards_completion(monkeypatch) -> None:
     assert opener.call_count == 1
 
 
+@pytest.mark.parametrize(("height", "rows"), [(20, 2), (24, 3)])
 async def test_long_ids_keep_visible_attribution_and_bounded_layout(
-    monkeypatch,
+    monkeypatch, height: int, rows: int
 ) -> None:
+    # A lone result takes up to two rows on a short screen and three on a
+    # tall one; the cut row ends with an ellipsis.
     monkeypatch.setattr(app_module, "open_link", lambda url: LinkResult.UNAVAILABLE)
     machines = [
         Machine(
@@ -506,14 +515,17 @@ async def test_long_ids_keep_visible_attribution_and_bounded_layout(
         for i in range(2)
     ]
     app = SSHWorkbenchApp(machines)
-    async with app.run_test(size=(60, 20)) as pilot:
+    async with app.run_test(size=(60, height)) as pilot:
         await pilot.press("down", "o")
         await completed(app, pilot)
-        status_widget = app.query_one("#link-status", Static)
-        assert status_widget.region.height == 3
-        assert "Machine 2:" in status(app)
-        visible = "\n".join(status_widget.render_line(y).text for y in range(3))
-        assert "Machine 2:" in visible
+        status_widget = app.query_one("#link-status", ResultSlot)
+        assert status_widget.region.height == rows
+        assert status(app) == (
+            f"Repository {LinkResult.UNAVAILABLE.value} Machine 2: {machines[1].id}"
+        )
+        visible = [status_widget.render_line(y).text for y in range(rows)]
+        assert visible[-1].endswith("…")
+        assert "Machine 2:" in "\n".join(visible)
         assert app.query_one(ListView).region.height > 5
         assert app.screen.region.contains_region(app.query_one(Footer).region)
 
@@ -536,7 +548,7 @@ async def test_picker_escape_keeps_selection_and_focus(monkeypatch) -> None:
         assert app.query_one(ListView).index == 1
         assert app.focused is details
         assert details.scroll_y == scroll
-        assert status(app) == INITIAL_STATUS
+        assert status(app) == ""
         assert app._link_request is None
         opener.assert_not_called()
         await pilot.press("q")
@@ -567,7 +579,7 @@ async def test_picker_blocks_connect_and_second_request_but_quits(
     async with app.run_test() as pilot:
         await pilot.press("down", "o")
         await picker_open(app, pilot)
-        connection = str(app.query_one("#connection-status", Static).content)
+        connection = app.query_one("#connection-status", ResultSlot).message
         assert app.check_action("connect", ()) is None
         assert app.check_action("open_link", ()) is None
         await pilot.press("c", "o")
@@ -576,7 +588,7 @@ async def test_picker_blocks_connect_and_second_request_but_quits(
         await pilot.pause()
         assert len(app.screen_stack) == 2
         assert lifecycle == []
-        assert str(app.query_one("#connection-status", Static).content) == connection
+        assert app.query_one("#connection-status", ResultSlot).message == connection
         launch.assert_not_called()
         opener.assert_not_called()
         await pilot.press("q")

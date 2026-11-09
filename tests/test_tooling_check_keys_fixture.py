@@ -14,10 +14,10 @@ from unittest.mock import Mock
 
 import pytest
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import ListView, Static
+from textual.widgets import ListView
 
 from ssh_workbench import ssh
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp
 
 ROOT = Path(__file__).resolve().parents[1]
 CHECK_KEYS = ROOT / "scripts" / "check_keys.py"
@@ -32,7 +32,7 @@ def load_check_keys() -> ModuleType:
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 @pytest.mark.usefixtures("no_external_actions")

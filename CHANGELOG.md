@@ -13,16 +13,42 @@ Changes by release, newest first. Version numbers follow the policy in
   the tile (`ssh-workbench-contained.svg`) and a Windows icon built from it
   (`ssh-workbench.ico`). In every version the circuit S sits at the center
   of the tile. The README shows the icon.
+- `scripts/capture_look.py` draws the main screen at eleven terminal sizes,
+  from fictional machines, as SVG files in the ignored `.local/captures/look/`,
+  to look at the layout without opening a terminal.
 
 ### Changed
 
+- The panes have no borders. A label row tops each one: `machines` and the
+  selected machine's position, such as `2/10`, over the list, and the
+  machine's name and ID over the details. A thick cyan line under the label
+  row marks the focused pane, and a dim line separates the panes. The list
+  takes two fifths of the width, from 24 to 56 columns (up to 80 from 130
+  columns), and scrollbars are one column wide.
+- One result line replaces the help line and the two status lines. It stays
+  blank until something happens, then shows the last connection result and
+  the last link result, newest first, each after a symbol: `●` success,
+  `×` failure, `›` a browser request accepted, `·` anything else. It takes up
+  to three rows, two under 24 rows, and ends a longer result with `…`.
+- Footer labels are lowercase, such as `c connect` and `r check`, with two
+  spaces between keys. The footer takes one row from 80 columns, two from 45
+  and three below that, so every key stays on screen.
+- `?` shows a panel at the right of the panes with the keys for moving around,
+  then Workbench's own; `?` again hides it.
+- Rows show where each machine connects from 100 columns instead of 110. The
+  list still moves above the details under 60 columns, now with the details'
+  label row between them, and the result line's two-row limit starts under 24
+  rows instead of 20.
+- The empty screens are muted lines instead of a box, such as
+  `no machines in this file yet · a to add` with the file's path below, and
+  they scroll when a long path doesn't fit.
 - The header counts machines by status, worst first, such as
   `5 machines · × 1 alias not found · ○ 1 offline · ● 3 online`, and says
   `all online` when every machine is online. When the line doesn't fit, the
   least urgent states drop first, then the counts shrink to symbols.
 - Offline machines show a grey ring instead of a red one; only a missing alias
   is red. Checking machines are blue, so they no longer look like can't check.
-  Muted text, such as labels and the help line, is a little brighter.
+  Muted text, such as labels, is a little brighter.
 - Checking machines show a turning block glyph that common terminal fonts
   have, and online dots no longer pulse.
 - Status words in the details are lowercase now, as in the header:

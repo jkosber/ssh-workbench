@@ -8,7 +8,7 @@ from textual.widgets import Footer, ListView, Static
 
 from ssh_workbench import app as app_module
 from ssh_workbench import ssh
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp
 from ssh_workbench.config import Link, Machine
 from ssh_workbench.ssh import SSHLaunchError
 
@@ -56,7 +56,7 @@ def suspend_events(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 @pytest.mark.parametrize("size", [(60, 20), (80, 24), (120, 40)])
@@ -81,7 +81,7 @@ async def test_connect_is_visible_and_never_automatic(
         connect_key = connect_keys[0]
         assert connect_key.key == "c"
         assert connect_key.visible
-        assert "Connect" in connect_key.render().plain
+        assert "connect" in connect_key.render().plain
         assert "C" in connect_key.render().plain.upper()
         assert app.screen.region.contains_region(connect_key.region)
         await pilot.press("down", "up", "enter", "tab", "enter")
@@ -159,10 +159,8 @@ async def test_connect_uses_selected_machine_and_restores_focus(
         assert app.focused is machine_list
         assert machine_list.index == 1
         assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
-        status = app.query_one("#connection-status", Static)
-        assert str(status.content) == (
-            "SSH exited with status 0. Machine 2: studio-demo"
-        )
+        status = app.query_one("#connection-status", ResultSlot)
+        assert status.message == "SSH exited with status 0. Machine 2: studio-demo"
         assert app.screen.region.contains_region(status.region)
         await pilot.press("up")
         assert machine_list.index == 0

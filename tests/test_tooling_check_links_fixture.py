@@ -21,11 +21,11 @@ from unittest.mock import Mock, patch
 import pytest
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.pilot import Pilot
-from textual.widgets import OptionList, Static
+from textual.widgets import OptionList
 
 from ssh_workbench import app as app_module
 from ssh_workbench import keys, ssh
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp
 from ssh_workbench.forms import KeySetup
 from ssh_workbench.keys import PublicKey
 from ssh_workbench.sshconfig import ssh_folder
@@ -63,7 +63,7 @@ def fictional_key_line() -> str:
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 def run_k(

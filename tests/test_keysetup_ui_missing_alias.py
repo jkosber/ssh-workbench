@@ -21,7 +21,7 @@ from textual.widgets import Static
 from ssh_workbench import app as app_module
 from ssh_workbench import keys
 from ssh_workbench.aliases import AliasMemory, AliasRecord, format_state, state_path
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp
 from ssh_workbench.config import Machine, format_machines
 from ssh_workbench.forms import KeySetup
 from ssh_workbench.keys import PublicKey, posix_install_command
@@ -170,7 +170,7 @@ async def answered(pilot, threads: list[threading.Thread]) -> None:
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 def machine_status(app: SSHWorkbenchApp) -> str:

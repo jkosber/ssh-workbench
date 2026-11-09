@@ -41,21 +41,24 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 | Part | Shows |
 | --- | --- |
 | Header | The app's name, and your machines counted by [status](#status), most urgent first, such as `5 machines · ○ 1 offline · ● 4 online`. When the words don't fit, the least urgent statuses drop first, then the counts shrink to symbols: `5 · ○1 ●4` |
-| Machines | The list, with each machine's status symbol. The highlighted row is the selected machine; a bright border marks the focused pane |
+| Label rows | One row above each pane. Over the list: `machines` and the selected machine's position, such as `2/10`. Over the details: the selected machine's name, and its ID at the right. The line under the focused pane's label row is thick and cyan; the other is thin and dim. A dim vertical line separates the panes |
+| Machines | The list, with each machine's status symbol. The highlighted row is the selected machine |
 | Machine details | One row per field for the selected machine. The status takes its color |
-| Help line | The keys for moving around |
-| Status lines | The result of the last connection and the last link |
+| Result line | Blank until something happens. Then the last connection result and the last link result, the newest first, each after a symbol: `●` success, `×` failure, `›` a browser request accepted, `·` anything else, such as a pending browser request. It takes up to three rows; a longer result ends with `…` |
 | Footer | The keys for each action; dimmed keys can't act right now. Click one to use it |
+| Key panel | **?** shows it at the right of the panes and **?** again hides it: the keys for moving around (↑ ↓ tab pgup pgdn), then Workbench's own keys. A short terminal shows the first rows only; every Workbench key is in the footer too |
 
 The layout follows the terminal's size, and changes as soon as you resize the
 window, even while a form is open:
 
 | Terminal | Layout |
 | --- | --- |
-| Under 60 columns | The list sits above the details, the footer wraps onto two rows, and the help line hides |
-| 60 to 109 columns | The list and details side by side |
-| 110 columns or more | Each row in the list also shows where the machine connects: its alias, or its first address |
-| Under 20 rows | The help line hides and the link result takes two rows instead of three |
+| Under 60 columns | The list sits above the details and takes at most 40% of the screen's height; the details' label row is the line between them |
+| 60 columns or more | The list and details side by side. The list takes two fifths of the width, from 24 to 56 columns, and never more than half |
+| 100 columns or more | Each row in the list also shows where the machine connects: its alias, or its first address |
+| 130 columns or more | The list can grow to 80 columns |
+| Under 80 columns | The footer takes two rows; under 45 columns, three |
+| Under 24 rows | The result line takes at most two rows instead of three |
 
 Workbench draws its own colors, so it looks the same in any terminal theme.
 Every status keeps its own symbol and word, so nothing depends on color.
@@ -411,13 +414,16 @@ at a time, and Q still quits while it waits.
 | A / E / X | Add a machine / edit the selected one / delete it after asking |
 | Tab, Ctrl+S, Escape | In the form: next field, save, close without saving |
 | Y / N | When deleting: delete / keep |
+| ? | Show or hide the key panel |
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
 Letter keys work in either case, so Caps Lock and Shift make no difference.
 
-C, O, A, E, X, K, R and Q also appear in the footer, in lowercase, and can be
-clicked; O is labelled Link and R Check there. Under 60 columns the footer
-shows them on two rows. Keys that can't act right now are dimmed or hidden:
+C, O, A, E, X, K, R, ? and Q also appear in the footer, in lowercase, and can
+be clicked: `c connect`, `o link`, `a add`, `e edit`, `x delete`, `k key`,
+`r check`, `? keys` and `q quit`, with `u update` when Workbench offers a
+rename. The footer takes one row from 80 columns, two rows from 45 and three
+below that. Keys that can't act right now are dimmed or hidden:
 
 | Key | Dimmed or hidden when |
 | --- | --- |
@@ -427,6 +433,7 @@ shows them on two rows. Keys that can't act right now are dimmed or hidden:
 | O | Dimmed when the machine has no links |
 | A, E, X | Dimmed when Workbench has no file location |
 | R | Dimmed while the alias checks of the last startup or R are still running |
+| ? | Dimmed while a form, a question or the link list is open |
 
 Startup, selection and Enter in the machine list never connect, open or change
 anything; the status checks are the only thing that starts on its own.

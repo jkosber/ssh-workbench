@@ -12,10 +12,10 @@ from unittest.mock import Mock
 
 import pytest
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import ListView, Static
+from textual.widgets import ListView
 
 from ssh_workbench import ssh
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp
 from ssh_workbench.config import Machine
 
 pytestmark = pytest.mark.usefixtures("no_external_actions")
@@ -550,7 +550,7 @@ def test_sigint_during_handoff_keeps_asyncio_browser_usable(
                 project_list = app.query_one(ListView)
                 assert project_list.index == 1
                 assert app.focused is project_list
-                message = str(app.query_one("#connection-status", Static).content)
+                message = app.query_one("#connection-status", ResultSlot).message
                 if launch_error:
                     assert "Could not start SSH" in message
                 else:
