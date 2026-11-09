@@ -301,6 +301,21 @@ async def test_panes_have_label_rows_and_no_borders() -> None:
         assert str(app.query_one("#list-position", Static).content) == "2/4"
 
 
+async def test_a_long_name_keeps_the_id_in_the_details_label() -> None:
+    name = "A sixty-column machine name that fills the label to its edge"
+    app = SSHWorkbenchApp([Machine("long-name", name, addresses=("192.0.2.60",))])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        label = app.query_one("#details-label")
+        name_region = app.query_one("#details-name").region
+        id_region = app.query_one("#details-id").region
+        assert len(name) == 60
+        assert label.region.contains_region(id_region)
+        assert id_region.right == label.content_region.right
+        assert id_region.width == len("long-name")
+        assert not name_region.overlaps(id_region)
+
+
 @pytest.mark.parametrize(
     ("width", "list_width"),
     [
@@ -357,6 +372,9 @@ async def test_narrow_terminals_stack_the_panes(
     app = SSHWorkbenchApp(THIRTY, checker=FakeChecker())
     async with app.run_test(size=size) as pilot:
         await checked(app, pilot)
+        # Textual 8.2.8 keeps #browser's side-by-side arrangement cached when
+        # only its own layout changes; the next layout pass stacks the panes.
+        await pilot.pause()
         list_pane = app.query_one("#list-pane")
         details_pane = app.query_one("#details-pane")
         assert app.query_one("#browser").styles.layout.name == "vertical"
