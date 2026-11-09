@@ -9,7 +9,7 @@ from test_app import MACHINES as APP_MACHINES
 from test_app import empty_lines, empty_text
 from test_exports_ui import LAB, add_exported_box, workspace
 from textual.color import Color
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import VerticalScroll
 from textual.content import Span
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, HelpPanel, Input, KeyPanel, ListView, Static
@@ -998,7 +998,7 @@ async def test_no_file_screen_fits_narrow_terminals(size: tuple[int, int]) -> No
         await pilot.pause()
         # Every line wraps inside the screen, the path included, and the
         # whole message sits above the result line.
-        empty = app.query_one("#empty-state", Vertical)
+        empty = app.query_one("#empty-state", VerticalScroll)
         assert app.query_one("#panes").region.contains_region(empty.region)
         rows = []
         for line in empty_lines(app):
@@ -1046,10 +1046,28 @@ async def test_empty_screen_fits_any_size(size: tuple[int, int]) -> None:
     app = SSHWorkbenchApp([])
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        empty = app.query_one("#empty-state", Vertical)
+        empty = app.query_one("#empty-state", VerticalScroll)
         assert empty_text(app) == "no machines in this file yet · a to add"
         assert app.screen.region.contains_region(empty.region)
         # The panes' resize handler finds no list here and must not raise.
         await pilot.resize_terminal(40, 16)
         await pilot.pause()
         assert app.is_running
+
+
+async def test_empty_screen_scrolls_to_its_last_line() -> None:
+    # Taller than the panes at 40x16, so the empty screen scrolls.
+    path = Path("fictional") / ("x" * 276) / "machines.toml"
+    assert len(str(path)) == 300
+    app = SSHWorkbenchApp(None, config_path=path)
+    async with app.run_test(size=(40, 16)) as pilot:
+        await pilot.pause()
+        empty = app.query_one("#empty-state", VerticalScroll)
+        assert empty.max_scroll_y > 0
+        assert app.focused is empty
+        last = empty_lines(app)[-1]
+        assert not empty.region.contains_region(last.region)
+        empty.scroll_end(animate=False)
+        await wait_for(pilot, lambda: empty.scroll_y == empty.max_scroll_y)
+        await pilot.pause()
+        assert empty.region.contains_region(last.region)

@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 import pytest
-from textual.containers import Vertical, VerticalScroll
+from textual.containers import VerticalScroll
 from textual.content import Content
 from textual.widgets import Footer, ListView, Static
 
@@ -70,7 +70,7 @@ def details(app: SSHWorkbenchApp) -> dict[str, str]:
 
 def empty_lines(app: SSHWorkbenchApp) -> list[Static]:
     """The empty screen's lines, one Static each."""
-    return list(app.query_one("#empty-state", Vertical).query_children(Static))
+    return list(app.query_one("#empty-state", VerticalScroll).query_children(Static))
 
 
 def empty_text(app: SSHWorkbenchApp) -> str:
@@ -115,7 +115,7 @@ async def test_empty_states(
         await pilot.pause()
         assert app.is_running
         assert app.title == "SSH Workbench"
-        assert app.query_one("#empty-state", Vertical).visible
+        assert app.query_one("#empty-state", VerticalScroll).visible
         assert empty_text(app).split("\n") == lines
         assert empty_spans(app) == spans
         assert not app.query(ListView)
