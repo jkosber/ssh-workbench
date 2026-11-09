@@ -28,6 +28,49 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## TUI overhaul Task 28, 2026-11-09
+
+Arch Linux (Omarchy 4.5, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (the
+wrapper printed `TERM=xterm-ghostty`), Python 3.14.8, Textual 8.2.8,
+`feat/task28-layout-and-breakpoints` at `f774948`. A coding agent drove a
+floating Ghostty window and took screenshots with grim, as for Task 27.
+`NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at ignored folders with no Workbench files;
+the machine file was a copy of the example in an ignored folder. Window sizes
+were set in cells and read back with `stty size`. Keys went through
+Hyprland's `send_key_state`: wtype's `?` reached Textual as Escape with `?`
+as its text, as wtype's capitals did on 2026-10-30, and after wtype had typed,
+`send_key_state` failed with "key not found" until `hyprctl switchxkblayout`
+reset the desktop keymap. One `ssh` run, to the example's fictional host
+name, which does not resolve; no browser.
+
+| Check | Observed |
+| --- | --- |
+| 80x24 | No borders. The header read `2 machines · ◇ 1 can't check · ○ 1 offline`. The list's label row read `machines` in cyan and `1/2` muted; the details' read `Garden demo` in bold with `garden-demo` muted at the right edge. A thick cyan line ran under the list's label row, a thin grey one under the details' and a thin grey vertical line between the panes. The list was 32 columns wide and all nine details rows fit. One blank row sat above the footer, which held all nine keys on one row, `c connect` to `q quit`, keys cyan and labels grey |
+| 120x30 | List 48 columns; the rows showed `garden-demo-host` and `studio-box.example.com` muted at the right; the details fit; footer on one row |
+| 60x20 | Side by side, list 24 columns; the header kept both entries; the footer took two rows, five keys over four, in aligned columns; the details showed a one-column scrollbar |
+| 50x24 | Stacked: the list's label row, both machines, then the details' label row with its thin line, then the details at full width. The header dropped the offline entry: `2 machines · ◇ 1 can't check`. Footer on two rows |
+| 40x16 | Stacked; header `2 · ◇1 ○1`; the two machines, the details' label row and four details rows with a scrollbar; footer on three rows, `c connect  o link  a add`, `e edit  x delete  k key` and `r check  ? keys  q quit` |
+| 120x18 | Side by side with row targets, all nine details rows, the blank result row and a one-row footer |
+| 160x50 | List 64 columns, row targets, the details fit, one-row footer; below the rows both panes were empty. The column header and user column come in Task 29 |
+| `?` at 80x24 | A 30-column panel opened at the right of the panes, from the label row down to the result line, over the details' right side; the header and footer kept their full width. It listed `↑ Cursor up`, `↓ Cursor down`, `tab Focus Next`, `pgup Page Up`, `pgdn Page Down`, a blank row, then `^q q Q quit`, `c C connect`, `o O link`, `a A add`, `e E edit`, `x X delete`, `k K key`, `r R check` and `? keys`, the keys in amber. A second `?` closed it |
+| Tab at 80x24 | The thick cyan line moved under the details' label row and the list's turned thin and grey; `machines` lost its cyan |
+| C on Studio box at 80x24 | Within 1.5 seconds the app was back and the result line had grown to two rows: `× SSH exited with status 255. Check the SSH client's message and the machine's settings; C retries. Machine 2: studio-box`, the `×` red. After the app quit, the shell showed ssh's `Could not resolve hostname` line |
+| O, then Escape | The link list opened with every footer key dimmed, `? keys` included; `?` there opened no panel. Escape closed the list; the result line kept only the connect result, as the picker writes none |
+| The same result at 120x18, 60x20 and 40x16 | 120x18: two rows, whole. 60x20: two rows, the second ending `Machine 2:…`. 40x16: two rows, ending `the mach…` |
+| Start at 51x24 (Ghostty opened 51 columns for 50) | Captures 35 ms apart: for about 100 ms the panes drew side by side, most detail values still empty and no footer, then stacked; the footer appeared about 200 ms after that. Started at 80x24, the footer also came last, about 260 ms after the first frame |
+| Live resize from 80 to 50 columns | One capture, of captures 50 ms apart, showed the panes side by side at 50 columns with the one-row footer cut at `k ke`; the next was stacked with a two-row footer |
+| Empty machine file (`machines = []`) at 80x24 and 40x16 | Muted `no machines in this file yet · a to add` with the `a` in bold cyan, then the path as given to `--config`; in the footer only `a add`, `? keys` and `q quit` were lit. At 40x16 the line broke between `a to` and `add`, and the path wrapped |
+| Q | `APP EXIT STATUS: 0` and the `check$` prompt after each run |
+| Files | The run wrote a state file next to the example's copy in the ignored folder; the `APPDATA` and SSH folders stayed empty |
+| Automated | 1330 passed; ruff check and format clean; `uv build` and the package check passed |
+
+Not checked: Windows Terminal (the design defers it to after Task 30; `?` is
+a new key, so docs/testing.md asks for one run there, Jadon's call); a
+physical keyboard; 100x30, 120x40, 200x60 and 80x50 in Ghostty, which the
+size matrix test covers headless; the key panel below 24 rows in a real
+terminal; a link result, which needs a browser; the no-file screens.
+
 ## App icon centering, 2026-11-09
 
 Arch Linux (Omarchy 4.5), rsvg-convert 2.63.3, ImageMagick 7.1.2-34. Branch

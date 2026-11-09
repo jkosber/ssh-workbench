@@ -51,6 +51,36 @@ machine, install PowerShell 7 to run the whole suite.
 UI tests use Textual's headless pilot. A test that waits for the screen should
 wait for the condition it asserts, not for a fixed pause.
 
+### Size matrix
+
+`tests/test_look.py::test_size_matrix_holds` runs the app headless at each
+size in `SIZES` in `scripts/capture_look.py`: 80x24, 120x30, 100x30, 120x40,
+160x50, 200x60, 60x20, 50x24, 40x16, 80x50 and 120x18. At every size:
+
+| Part | Holds |
+| --- | --- |
+| Rows | The header, panes, result line and footer follow each other top to bottom with no gap or overlap, each the full width, before and after two long results |
+| Footer | All nine keys inside the screen, each as wide as its label |
+| Panes | Stacked exactly under 60 columns; side by side, the list takes at most half the width |
+| Row targets | Shown exactly from 100 columns |
+| Result line | One row idle; after two long results at most two rows under 24 rows and three otherwise |
+| Details | At 80x24 they fit without scrolling |
+
+### Look captures: `scripts/capture_look.py`
+
+```text
+uv run --locked python scripts/capture_look.py
+```
+
+Not one of the six checks: it renders the app at every matrix size to
+`look-WxH.svg` files in the ignored `.local/captures/look/`, for a look at the
+layout without a terminal. Five fictional machines show online, offline,
+can't check and alias not found; a stand-in checker answers, so no SSH,
+network or browser call runs, and the user and SSH folders point at a
+temporary folder. `--sizes 80x24,40x16` picks sizes and `--out DIR` another
+folder. The captures wait for the checks, so Checking never shows. They do not
+replace the check in a real terminal.
+
 ## What tests may touch
 
 Tests use fictional data and temporary folders only. They never read real SSH
@@ -113,16 +143,22 @@ a real URL needs Jadon's approval for that target by name.
 uv run --locked ssh-workbench --config examples/machines.example.toml
 ```
 
-At 80x24: the list, details and footer draw; Up and Down change the selected
-machine and its details; Tab moves between the panes; Page Up and Page Down
-scroll the details; R checks again; Q exits, and a second run exits with
-Ctrl+Q. After each exit the shell prompt, echo and keys work normally.
+At 80x24: the list, details and footer draw, with all nine footer keys on one
+row and a blank result line above them; Up and Down change the selected
+machine, its details and the position in the list's label row; Tab moves
+between the panes, and the thick cyan line moves to the focused pane's label
+row; Page Up and Page Down scroll the details; ? opens the key panel at the
+right of the panes, with ↑ ↓ tab pgup pgdn first, and ? again closes it; R
+checks again; Q exits, and a second run exits with Ctrl+Q. After each exit
+the shell prompt, echo and keys work normally.
 
-Resize while it runs: under 60 columns the list moves above the details and
-the footer wraps onto two rows; at 110 columns or more each row shows where
-it connects; under 20 rows the help line hides. Resize once with a form open
-(E, then Escape): the browser behind it follows. Windows Terminal will not go
-narrower than about 47 columns (Ghostty: about 19, see the validation log).
+Resize while it runs, through 80x24, 120x30, 60x20, 50x24, 40x16, 120x18 and
+160x50: under 60 columns the list moves above the details, and the details'
+label row is the line between them; under 80 columns the footer takes two
+rows and under 45 three, with every key visible; from 100 columns each row
+shows where it connects. Resize once with a form open (E, then Escape): the
+browser behind it follows. Windows Terminal will not go narrower than about
+47 columns (Ghostty: about 19, see the validation log).
 If everything is grey, the shell has `NO_COLOR` set (coding agents set it);
 clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in
 PowerShell.
