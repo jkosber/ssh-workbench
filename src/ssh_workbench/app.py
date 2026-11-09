@@ -11,6 +11,7 @@ from textual.app import App, ComposeResult, SuspendNotSupported
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
+from textual.css.query import NoMatches
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
@@ -127,6 +128,10 @@ WORKBENCH_THEME = Theme(
     variables={
         "border": "#4FC1E9",
         "border-blurred": "#2C3646",
+        # The pane divider and the rules under the label rows: 3:1 against
+        # the background and the surface. The focused pane's rule is the accent.
+        "divider": "#5A6B85",
+        "divider-focus": "#4FC1E9",
         "footer-key-foreground": "#4FC1E9",
         "footer-background": "#161B24",
         "footer-description-foreground": "#AAB0BA",
@@ -464,13 +469,35 @@ class MachinePanes(Vertical):
     def compose(self) -> ComposeResult:
         yield from self.app.compose_panes()
 
+    def on_mount(self) -> None:
+        self.cap_list()
+
+    def on_resize(self) -> None:
+        # The screen's breakpoint classes are already updated here.
+        self.cap_list()
+
+    def cap_list(self) -> None:
+        """Stacked, the list and its two-row label take at most 40% of the
+        screen. A ListView of auto height never scrolls, and CSS cannot take
+        the label row off a fraction of the screen, so the cap is set here."""
+        # None on the empty screen, which has no list to cap.
+        machine_list = self.app._machine_list()
+        if machine_list is None:
+            return
+        machine_list.styles.max_height = (
+            max(1, int(0.4 * self.screen.size.height) - 2)
+            if self.screen.has_class("-narrow")
+            else None
+        )
+
 
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     ENABLE_COMMAND_PALETTE = False
     # Screen classes for the layout: the list stacks above the details when
-    # narrow, rows show their target when wide or wider, and the help line
-    # hides when narrow or short. The footer's rows follow the width itself.
+    # narrow, rows show their target when wide or wider, the list's width cap
+    # rises when extra wide, and link results take two rows when short. The
+    # footer's rows follow the width itself.
     HORIZONTAL_BREAKPOINTS = [
         (0, "-narrow"),
         (60, "-normal"),
@@ -532,19 +559,56 @@ class SSHWorkbenchApp(App[None]):
         width: 30;
         height: 100%;
     }
-    #machine-list, #machine-details {
-        background: $surface;
-        border: round $border-blurred;
-        border-title-color: $text-muted;
-        border-title-style: bold;
+    .pane {
+        height: 1fr;
     }
-    #machine-list:focus, #machine-details:focus {
-        border: round $border;
-        border-title-color: $primary;
+    #list-pane {
+        width: 40%;
+        min-width: 24;
+        max-width: 56;
     }
-    #machine-list {
+    Screen.-xwide #list-pane {
+        max-width: 80;
+    }
+    #details-pane {
         width: 1fr;
-        min-width: 20;
+        border-left: solid $divider;
+    }
+    .pane-label {
+        height: 2;
+        padding: 0 1;
+        border-bottom: solid $divider;
+    }
+    .pane.-focused > .pane-label {
+        border-bottom: heavy $divider-focus;
+    }
+    #list-pane.-focused #list-title {
+        color: $primary;
+    }
+    #list-title {
+        width: auto;
+    }
+    #list-position {
+        width: 1fr;
+        text-align: right;
+        color: $text-muted;
+    }
+    #details-name {
+        width: 1fr;
+        text-style: bold;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+    #details-id {
+        width: auto;
+        color: $text-muted;
+    }
+    #machine-list, #machine-details {
+        height: 1fr;
+        background: $surface;
+        scrollbar-size-vertical: 1;
+        scrollbar-color: $divider;
+        scrollbar-background: $surface;
     }
     #machine-list ListItem {
         height: 1;
@@ -559,7 +623,6 @@ class SSHWorkbenchApp(App[None]):
         text-overflow: ellipsis;
     }
     #machine-details {
-        width: 2fr;
         padding: 0 1;
         scrollbar-gutter: stable;
     }
@@ -577,14 +640,9 @@ class SSHWorkbenchApp(App[None]):
     #machine-name {
         text-style: bold;
     }
-    #navigation-help, #connection-status, #link-status {
+    #connection-status, #link-status {
         height: auto;
         padding: 0 1;
-    }
-    #navigation-help {
-        color: $text-muted;
-    }
-    #connection-status, #link-status {
         background: $surface;
     }
     #link-status {
@@ -606,29 +664,26 @@ class SSHWorkbenchApp(App[None]):
     Screen.-narrow #browser {
         layout: vertical;
     }
-    Screen.-narrow #machine-list {
+    /* Stacked, the list's height is capped by MachinePanes. */
+    Screen.-narrow #list-pane {
         width: 1fr;
-        height: 2fr;
         min-width: 0;
+        max-width: 100%;
+        height: auto;
     }
-    Screen.-narrow #machine-details {
+    Screen.-narrow #machine-list {
+        height: auto;
+    }
+    Screen.-narrow #details-pane {
         width: 1fr;
-        height: 3fr;
+        height: 1fr;
+        border-left: none;
     }
     Screen.-narrow .field-label {
         width: 11;
     }
-    Screen.-wide #machine-list, Screen.-xwide #machine-list {
-        width: 2fr;
-    }
-    Screen.-wide #machine-details, Screen.-xwide #machine-details {
-        width: 3fr;
-    }
     Screen.-wide RowTarget, Screen.-xwide RowTarget {
         display: block;
-    }
-    Screen.-narrow #navigation-help, Screen.-short #navigation-help {
-        display: none;
     }
     Screen.-short #link-status {
         height: 2;
@@ -728,54 +783,58 @@ class SSHWorkbenchApp(App[None]):
         """The list and details, or the empty screen; rebuilt after each save."""
         if self.machines:
             with Horizontal(id="browser"):
-                machine_list = ListView(
-                    *(
-                        ListItem(
-                            Horizontal(
-                                StatusSymbol(self._status_of(machine).state),
-                                Static(_display_text(machine.name), markup=False),
-                                RowTarget(
-                                    _display_text(machine.alias or machine.addresses[0])
-                                ),
+                # Each pane is a label row above its list or details. The
+                # label rows are filled with the selection.
+                with Vertical(id="list-pane", classes="pane"):
+                    with Horizontal(id="list-label", classes="pane-label"):
+                        yield Static("machines", id="list-title", markup=False)
+                        yield Static(id="list-position", markup=False)
+                    yield ListView(
+                        *(
+                            ListItem(
+                                Horizontal(
+                                    StatusSymbol(self._status_of(machine).state),
+                                    Static(_display_text(machine.name), markup=False),
+                                    RowTarget(
+                                        _display_text(
+                                            machine.alias or machine.addresses[0]
+                                        )
+                                    ),
+                                )
                             )
-                        )
-                        for machine in self.machines
-                    ),
-                    initial_index=min(self._initial_index, len(self.machines) - 1),
-                    id="machine-list",
-                )
-                machine_list.border_title = "Machines"
-                yield machine_list
-                with VerticalScroll(id="machine-details") as details:
-                    details.border_title = "Machine details"
-                    for field, label in (
-                        ("id", "ID"),
-                        ("name", "Name"),
-                        ("status", "Status"),
-                        ("connection", "Connection"),
-                        ("target", "SSH alias"),
-                        ("user", "User"),
-                        ("port", "Port"),
-                        ("key", "Key"),
-                        ("links", "Links"),
-                    ):
-                        with Horizontal(classes="field-row"):
-                            yield Static(
-                                label,
-                                id=f"machine-{field}-label",
-                                classes="field-label",
-                                markup=False,
-                            )
-                            yield Static(
-                                id=f"machine-{field}",
-                                classes="field-value",
-                                markup=False,
-                            )
-            yield Static(
-                "Up/Down: select   Tab: switch pane   PgUp/PgDn: scroll",
-                id="navigation-help",
-                markup=False,
-            )
+                            for machine in self.machines
+                        ),
+                        initial_index=min(self._initial_index, len(self.machines) - 1),
+                        id="machine-list",
+                    )
+                with Vertical(id="details-pane", classes="pane"):
+                    with Horizontal(id="details-label", classes="pane-label"):
+                        yield Static(id="details-name", markup=False)
+                        yield Static(id="details-id", markup=False)
+                    with VerticalScroll(id="machine-details"):
+                        for field, label in (
+                            ("id", "ID"),
+                            ("name", "Name"),
+                            ("status", "Status"),
+                            ("connection", "Connection"),
+                            ("target", "SSH alias"),
+                            ("user", "User"),
+                            ("port", "Port"),
+                            ("key", "Key"),
+                            ("links", "Links"),
+                        ):
+                            with Horizontal(classes="field-row"):
+                                yield Static(
+                                    label,
+                                    id=f"machine-{field}-label",
+                                    classes="field-label",
+                                    markup=False,
+                                )
+                                yield Static(
+                                    id=f"machine-{field}",
+                                    classes="field-value",
+                                    markup=False,
+                                )
         else:
             with VerticalScroll(id="empty-content"):
                 yield Static(self._empty_message(), id="empty-state", markup=False)
@@ -808,7 +867,11 @@ class SSHWorkbenchApp(App[None]):
         self.app_suspend_signal.subscribe(self, self._drop_key_wait, immediate=True)
         self._update_summary()
         if self.machines:
-            self.query_one("#machine-list", ListView).focus()
+            machine_list = self.query_one("#machine-list", ListView)
+            machine_list.focus()
+            # Marked now: the focus event reaches the app only after it has
+            # bubbled up from the list, which is after the first frame.
+            self._mark_pane(machine_list, True)
         if self.checker is not None:
             self._start_round(resolve=True)
             self.set_interval(STATUS_INTERVAL, self._timer_round)
@@ -828,7 +891,14 @@ class SSHWorkbenchApp(App[None]):
             self._drop_key_wait()
         # An old list can still report a highlight while the panes rebuild.
         if index is not None and not self._rebuilding:
+            self._show_position(index)
             self._show_details(index)
+
+    def _show_position(self, index: int) -> None:
+        """The list label's `2/10`."""
+        self.query_one("#list-position", Static).update(
+            f"{index + 1}/{len(self.machines)}"
+        )
 
     def _machine_list(self) -> ListView | None:
         """The list, or None while the panes show the empty screen or rebuild."""
@@ -840,6 +910,8 @@ class SSHWorkbenchApp(App[None]):
         direct = machine.alias is None
         unset = "Not set" if direct else "From your SSH config"
         self._show_status(machine)
+        self.query_one("#details-name", Static).update(_display_text(machine.name))
+        self.query_one("#details-id", Static).update(_display_text(machine.id))
         for field, value in (
             ("id", _display_text(machine.id)),
             ("name", _display_text(machine.name)),
@@ -944,6 +1016,22 @@ class SSHWorkbenchApp(App[None]):
 
     def on_resize(self, event: events.Resize) -> None:
         self._update_summary(event.size.width)
+
+    # The pane that holds the focus carries -focused, which styles its label
+    # row. In 8.2.8 a `:focus-within` rule does not restyle the label on Tab.
+    def on_descendant_focus(self, event: events.DescendantFocus) -> None:
+        self._mark_pane(event.widget, True)
+
+    def on_descendant_blur(self, event: events.DescendantBlur) -> None:
+        self._mark_pane(event.widget, False)
+
+    def _mark_pane(self, widget: Widget, focused: bool) -> None:
+        try:
+            pane = widget.query_ancestor(".pane")
+        except NoMatches:
+            # A form, question or picker; not a pane.
+            return
+        pane.set_class(focused, "-focused")
 
     def _target_text(self, machine: Machine) -> str:
         if machine.alias is None:
@@ -1546,16 +1634,22 @@ class SSHWorkbenchApp(App[None]):
         if not self.is_running:
             return
         self._initial_index = min(max(select, 0), max(len(self.machines) - 1, 0))
+        panes = self.query_one(MachinePanes)
         try:
-            await self.query_one(MachinePanes).recompose()
+            await panes.recompose()
         finally:
             self._rebuilding = False
+        # A new list, and the panes' size did not change: no resize caps it.
+        panes.cap_list()
         self._update_summary()
         machine_list = self._machine_list()
         if machine_list is not None:
+            self._show_position(self._initial_index)
             self._show_details(self._initial_index)
             # The browser may sit under a form; focus returns here when it closes.
             self.screen_stack[0].set_focus(machine_list)
+            # The rebuilt panes are composed without the class.
+            self._mark_pane(machine_list, True)
             # The list scrolled to its new index before it had a size; scroll
             # again once the screen has laid it out.
             if machine_list.highlighted_child is not None:
