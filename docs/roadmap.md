@@ -6,9 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-| Task | Branch | Delivers | Acceptance |
-| --- | --- | --- | --- |
-| 28 | `feat/task28-layout-and-breakpoints` | Borders to dividers and label rows, pane widths, scrollbars, the result line, the help line's removal, `?` and the key panel, footer rhythm, the new breakpoints, stacked and short rules, empty states, a capture script | Geometry tests at every size in the matrix; the key panel lists the navigation keys; `scripts/capture_look.py` renders the matrix headless from fictional machines into `.local/` |
+No task is in progress.
 
 ## Next
 
@@ -153,6 +151,7 @@ in the pull request description.
 | - | AGENTS.md opens with its Extends line and links CONTRIBUTING.md for setup, commands and dependencies | [#48](https://github.com/jkosber/ssh-workbench/pull/48) | Unreleased |
 | - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | Unreleased |
 | - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | Unreleased |
+| 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | Unreleased |
 
 ## Deferred ideas
 
