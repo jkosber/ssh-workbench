@@ -6,14 +6,16 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+| Task | Branch | Delivers | Acceptance |
+| --- | --- | --- | --- |
+| 28 | `feat/task28-layout-and-breakpoints` | Borders to dividers and label rows, pane widths, scrollbars, the result line, the help line's removal, `?` and the key panel, footer rhythm, the new breakpoints, stacked and short rules, empty states, a capture script | Geometry tests at every size in the matrix; the key panel lists the navigation keys; `scripts/capture_look.py` renders the matrix headless from fictional machines into `.local/` |
 
 ## Next
 
-Tasks 28 to 30 follow from
+Tasks 29 and 30 follow from
 [the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks):
-28 main-screen layout and breakpoints, 29 list and details content, 30 forms
-and pickers. Each starts as its own task.
+29 list and details content, 30 forms and pickers. Each starts as its own
+task.
 
 ## Backlog
 
