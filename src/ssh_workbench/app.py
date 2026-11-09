@@ -760,8 +760,11 @@ class SSHWorkbenchApp(App[None]):
         padding: 0 1;
     }
     #empty-state {
-        height: auto;
+        height: 1fr;
         padding: 1 2;
+        scrollbar-size-vertical: 1;
+        scrollbar-color: $divider;
+        scrollbar-background: $surface;
     }
     #empty-state Static {
         color: $text-muted;
@@ -940,7 +943,8 @@ class SSHWorkbenchApp(App[None]):
                                     markup=False,
                                 )
         else:
-            with Vertical(id="empty-state"):
+            # A long path can make the message taller than a short screen.
+            with VerticalScroll(id="empty-state"):
                 for line in self._empty_lines():
                     yield Static(line, markup=False)
 
