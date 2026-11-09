@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from textual.color import Color
 from textual.containers import VerticalScroll
-from textual.widgets import Footer, HelpPanel, ListView, Static
+from textual.widgets import Footer, HelpPanel, KeyPanel, ListView, Static
 from textual.widgets._footer import FooterKey
 from textual.widgets._key_panel import BindingsTable
 
@@ -513,18 +513,64 @@ async def test_footer_labels_are_muted_and_keys_accented() -> None:
 
 
 def panel_text(app) -> str:
+    """The key panel's text inside its viewport: what shows without scrolling."""
+    view = app.screen.query_one(KeyPanel).scrollable_content_region
     table = app.screen.query_one(BindingsTable)
-    return "\n".join(table.render_line(y).text for y in range(table.region.height))
+    rows = range(
+        max(view.y - table.region.y, 0),
+        min(view.bottom - table.region.y, table.region.height),
+    )
+    return "\n".join(table.render_line(y).text for y in rows)
+
+
+async def open_key_panel(app, pilot) -> list[list[str]]:
+    """Press ? and return the words of each row the panel shows."""
+    await pilot.press("question_mark")
+    await wait_for(
+        pilot,
+        lambda: (
+            bool(app.screen.query(BindingsTable))
+            and app.screen.query_one(BindingsTable).region.height > 0
+        ),
+    )
+    return [line.split() for line in panel_text(app).splitlines()]
+
+
+NAVIGATION_KEYS = ("↑", "↓", "tab", "pgup", "pgdn")
+STOCK_KEYS = ("home", "end", "⏎", "enter", "^c", "ctrl+c", "←", "→")
+APP_KEYS = (
+    ("c", "connect"),
+    ("o", "link"),
+    ("a", "add"),
+    ("e", "edit"),
+    ("x", "delete"),
+    ("k", "key"),
+    ("r", "check"),
+    ("?", "keys"),
+    ("q", "quit"),
+)
+
+
+@pytest.mark.parametrize("size", [(40, 16), (60, 20), (80, 24), (120, 18)])
+async def test_the_key_panel_shows_the_navigation_keys_at_every_size(
+    size: tuple[int, int],
+) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=size) as pilot:
+        rows = await open_key_panel(app, pilot)
+        for key in NAVIGATION_KEYS:
+            assert any(row[:1] == [key] for row in rows), key
+        text = panel_text(app)
+        for key in STOCK_KEYS:
+            assert key not in text, key
 
 
 async def test_question_mark_toggles_the_key_panel() -> None:
     app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test(size=(80, 24)) as pilot:
-        await pilot.press("question_mark")
-        await wait_for(pilot, lambda: bool(app.screen.query(BindingsTable)))
-        text = panel_text(app)
-        for key in ("↑", "↓", "tab", "pgup", "pgdn"):
-            assert key in text
+        rows = await open_key_panel(app, pilot)
+        for key, label in APP_KEYS:
+            assert any(key in row[:-1] and row[-1:] == [label] for row in rows), key
         footer = app.query_one(Footer)
         assert footer.region.width == 80 and footer.region.height == 1
         assert [k.render().plain for k in app.query(FooterKey)] == KEYS
