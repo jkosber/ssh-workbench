@@ -769,7 +769,7 @@ LINKED = (
     ),
     Machine("studio", "Studio", addresses=("192.0.2.40",)),
 )
-# Long enough to need more rows than any cap: 199 and 299 characters.
+# Long messages, 199 and 299 characters, cut wherever the tests use them.
 LONG_200 = " ".join(["fictional"] * 20)
 LONG_300 = " ".join(["fictional"] * 30)
 
@@ -885,6 +885,36 @@ async def test_short_screens_cap_the_result_line_at_two_rows() -> None:
             assert len(line) == 118
 
 
+async def test_short_screens_give_a_lone_result_both_rows() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(120, 18)) as pilot:
+        result = app.result
+        footer = app.query_one(Footer)
+        # 301 cells need three rows of 118, so the second row is cut.
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert result.connection.region.height == 2
+        lines = [result.connection.render_line(y).text for y in range(2)]
+        assert lines[0].startswith("× fictional fictional")
+        assert "…" not in lines[0]
+        assert lines[1].endswith("…")
+        assert len(lines[1]) == 118
+        assert footer.region.height == 1
+        assert app.query_one("#panes").region.bottom == result.region.y
+        assert result.region.bottom == footer.region.y
+        result.show(result.link, LONG_200, Glyph.OTHER)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert list(result.children) == [result.link, result.connection]
+        for slot, glyph in ((result.link, "·"), (result.connection, "×")):
+            assert slot.region.height == 1
+            line = slot.render_line(0).text
+            assert line.startswith(f"{glyph} fictional fictional")
+            assert line.endswith("…")
+        assert app.query_one("#panes").region.bottom == result.region.y
+
+
 async def test_tall_screens_cap_the_result_line_at_three_rows() -> None:
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=(80, 24)) as pilot:
@@ -935,7 +965,7 @@ async def test_result_line_recomputes_on_resize() -> None:
         result = app.result
         result.show(result.connection, LONG_300, Glyph.FAILURE)
         await pilot.pause()
-        assert result.region.height == 1
+        assert result.region.height == 2
         # A height-only resize: no width changes, so only the classes do.
         await pilot.resize_terminal(80, 24)
         await wait_for(pilot, lambda: "-tall" in app.screen.classes)

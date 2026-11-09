@@ -498,14 +498,12 @@ async def test_closed_loop_race_discards_completion(monkeypatch) -> None:
     assert opener.call_count == 1
 
 
-@pytest.mark.parametrize(
-    ("height", "rows", "attributed"), [(20, 1, False), (24, 3, True)]
-)
+@pytest.mark.parametrize(("height", "rows"), [(20, 2), (24, 3)])
 async def test_long_ids_keep_visible_attribution_and_bounded_layout(
-    monkeypatch, height: int, rows: int, attributed: bool
+    monkeypatch, height: int, rows: int
 ) -> None:
-    # A lone result takes one row on a short screen and up to three on a tall
-    # one; the cut row ends with an ellipsis.
+    # A lone result takes up to two rows on a short screen and three on a
+    # tall one; the cut row ends with an ellipsis.
     monkeypatch.setattr(app_module, "open_link", lambda url: LinkResult.UNAVAILABLE)
     machines = [
         Machine(
@@ -527,7 +525,7 @@ async def test_long_ids_keep_visible_attribution_and_bounded_layout(
         )
         visible = [status_widget.render_line(y).text for y in range(rows)]
         assert visible[-1].endswith("…")
-        assert ("Machine 2:" in "\n".join(visible)) is attributed
+        assert "Machine 2:" in "\n".join(visible)
         assert app.query_one(ListView).region.height > 5
         assert app.screen.region.contains_region(app.query_one(Footer).region)
 
