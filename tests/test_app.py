@@ -135,7 +135,7 @@ async def test_initial_selection_order_and_keyboard_details() -> None:
         machine_list = app.query_one(ListView)
         assert app.focused is machine_list
         assert machine_list.index == 0
-        assert machine_list.border_title == "Machines"
+        assert str(app.query_one("#list-title", Static).content) == "machines"
         assert [str(widget.content) for widget in machine_list.query(Static)] == [
             "Garden demo",
             "Studio box",
@@ -149,9 +149,12 @@ async def test_initial_selection_order_and_keyboard_details() -> None:
         pane = app.query_one("#machine-details", VerticalScroll)
         assert app.focused is pane
         assert machine_list.index == 0
-        assert pane.styles.border.top != machine_list.styles.border.top
+        assert app.query_one("#details-pane").has_class("-focused")
+        assert not app.query_one("#list-pane").has_class("-focused")
         await pilot.press("shift+tab")
         assert app.focused is machine_list
+        assert app.query_one("#list-pane").has_class("-focused")
+        assert not app.query_one("#details-pane").has_class("-focused")
 
 
 async def test_direct_machine_without_optional_fields_shows_not_set() -> None:

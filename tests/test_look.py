@@ -4,9 +4,10 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from test_app import MACHINES as APP_MACHINES
 from textual.color import Color
 from textual.containers import VerticalScroll
-from textual.widgets import Footer, HelpPanel, KeyPanel, ListView, Static
+from textual.widgets import Footer, HelpPanel, Input, KeyPanel, ListView, Static
 from textual.widgets._footer import FooterKey
 from textual.widgets._key_panel import BindingsTable
 
@@ -269,19 +270,151 @@ async def test_summary_phrases_fall_back_to_the_count() -> None:
             assert (str(number), number.spans) == ("1", [])
 
 
-@pytest.mark.parametrize(("size", "min_rows"), [((50, 24), 4), ((40, 16), 2)])
-async def test_narrow_terminals_stack_the_list_above_the_details(
+async def test_panes_have_label_rows_and_no_borders() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        assert str(app.query_one("#list-title", Static).content) == "machines"
+        assert str(app.query_one("#list-position", Static).content) == "1/4"
+        assert str(app.query_one("#details-name", Static).content) == "Garden"
+        assert str(app.query_one("#details-id", Static).content) == "garden"
+        # An unset border and `border: none` both read back as edge type "" in
+        # 8.2.8; only the type is meaningful.
+        for selector in ("#machine-list", "#machine-details", "#list-pane"):
+            assert all(kind == "" for kind, _ in app.query_one(selector).styles.border)
+        assert app.query_one("#details-pane").styles.border_left[0] == "solid"
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert list_pane.has_class("-focused")
+        assert not details_pane.has_class("-focused")
+        assert app.query_one("#list-label").styles.border_bottom[0] == "heavy"
+        assert app.query_one("#details-label").styles.border_bottom[0] == "solid"
+        assert app.query_one("#list-label").region.height == 2
+        # A container renders nothing itself (N3); the padding indents by one.
+        assert app.query_one("#list-title").region.x == 1
+        await pilot.press("tab")
+        assert details_pane.has_class("-focused")
+        assert not list_pane.has_class("-focused")
+        assert app.query_one("#details-label").styles.border_bottom[0] == "heavy"
+        # The details label keeps the name.
+        assert str(app.query_one("#details-name", Static).content) == "Garden"
+        await pilot.press("shift+tab", "down")
+        assert str(app.query_one("#list-position", Static).content) == "2/4"
+
+
+@pytest.mark.parametrize(
+    ("width", "list_width"),
+    [
+        (60, 24),
+        (80, 32),
+        (100, 40),
+        (120, 48),
+        (129, 51),
+        (130, 52),
+        (160, 64),
+        (200, 80),
+        (300, 80),
+    ],
+)
+async def test_list_width_is_two_fifths_clamped(width: int, list_width: int) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(width, 30)):
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert list_pane.region.width == list_width
+        assert list_pane.region.width <= width // 2
+        assert details_pane.region.right == width
+        assert details_pane.region.x == list_pane.region.right
+
+
+async def test_scrollbars_are_one_column() -> None:
+    # Size (80, 16) with tests/test_app.py's MACHINES: the details overflow, so
+    # the scrollbar is drawn.
+    app = SSHWorkbenchApp(APP_MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 16)) as pilot:
+        await pilot.pause()
+        details = app.query_one("#machine-details", VerticalScroll)
+        assert details.max_scroll_y > 0
+        assert details.styles.scrollbar_size_vertical == 1
+        assert details.styles.scrollbar_gutter == "stable"
+        # Padding 1 + 1 and the gutter (I3).
+        assert details.scrollable_content_region.width == details.region.width - 3
+        machine_list = app.query_one("#machine-list", ListView)
+        assert machine_list.styles.scrollbar_size_vertical == 1
+
+
+THIRTY = tuple(
+    Machine(f"m{i:02}", f"Machine {i:02}", addresses=(f"192.0.2.{i}",))
+    for i in range(1, 31)
+)
+
+
+@pytest.mark.parametrize(
+    ("size", "min_rows"), [((50, 24), 3), ((40, 16), 2), ((50, 17), 2)]
+)
+async def test_narrow_terminals_stack_the_panes(
     size: tuple[int, int], min_rows: int
 ) -> None:
-    app = SSHWorkbenchApp(MACHINES)
+    app = SSHWorkbenchApp(THIRTY, checker=FakeChecker())
     async with app.run_test(size=size) as pilot:
-        await pilot.pause()
-        machine_list, pane = panes(app)
-        assert machine_list.region.bottom <= pane.region.y
-        assert machine_list.region.x == pane.region.x
-        assert machine_list.region.width == pane.region.width
+        await checked(app, pilot)
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert app.query_one("#browser").styles.layout.name == "vertical"
+        assert list_pane.region.bottom == details_pane.region.y
+        assert list_pane.region.height <= int(0.4 * size[1])
+        machine_list = app.query_one("#machine-list", ListView)
         assert machine_list.region.height >= min_rows
-        assert app.screen.region.contains_region(pane.region)
+        assert details_pane.styles.border_left[0] == ""
+        for _ in range(20):
+            await pilot.press("down")
+        await pilot.pause()
+        highlighted = machine_list.children[machine_list.index]
+        # C4: the capped list scrolls to keep the selection on screen.
+        assert list_pane.region.contains_region(highlighted.region)
+
+
+def rebuilt(app: SSHWorkbenchApp, old_list: ListView) -> bool:
+    """The rebuild replaced the list and gave the new one focus."""
+    lists = app.query("#machine-list")
+    return (
+        len(lists) == 1
+        and lists.first() is not old_list
+        and app.focused is lists.first()
+    )
+
+
+async def rename_first(app: SSHWorkbenchApp, pilot, name: str) -> None:
+    """Edit the selected machine's name through the form, save, and wait for
+    the rebuilt list."""
+    old_list = app.query_one("#machine-list", ListView)
+    await pilot.press("e")
+    await wait_for(pilot, lambda: showing(app, MachineForm))
+    app.screen.query_one("#form-name", Input).value = name
+    await pilot.press("ctrl+s")
+    await wait_for(pilot, lambda: rebuilt(app, old_list))
+    await pilot.pause()
+
+
+async def test_label_rows_survive_a_rebuild(tmp_path: Path) -> None:
+    app = saved_app(tmp_path, MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await rename_first(app, pilot, "Garden two")
+        assert str(app.query_one("#details-name", Static).content) == "Garden two"
+        assert str(app.query_one("#list-position", Static).content) == "1/4"
+        assert app.query_one("#list-label").has_class("pane-label")
+
+
+async def test_a_rebuild_keeps_the_stacked_list_capped(tmp_path: Path) -> None:
+    # The rebuild mounts a new list; the cap must follow it, or the stacked
+    # list grows to all thirty rows and the details lose their space.
+    app = saved_app(tmp_path, THIRTY)
+    async with app.run_test(size=(50, 24)) as pilot:
+        await rename_first(app, pilot, "Machine one")
+        list_pane = app.query_one("#list-pane")
+        details_pane = app.query_one("#details-pane")
+        assert list_pane.region.height <= int(0.4 * 24)
+        assert list_pane.region.bottom == details_pane.region.y
+        assert app.query_one("#machine-list", ListView).region.height >= 3
 
 
 async def test_resizing_while_a_form_is_open_updates_the_layout(
@@ -414,23 +547,26 @@ async def test_text_colors_reach_four_and_a_half_to_one() -> None:
                 assert ratio >= 4.5, (name, surface, ratio)
 
 
-@pytest.mark.parametrize(
-    ("size", "shown"),
-    [
-        ((80, 16), False),
-        ((80, 23), False),
-        ((80, 24), True),
-        ((50, 24), False),
-        ((60, 24), True),
-    ],
-)
-async def test_short_or_narrow_terminals_hide_the_help_line(
-    size: tuple[int, int], shown: bool
+async def test_divider_reaches_three_to_one() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)):
+        variables = app.get_css_variables()
+        for surface in ("background", "surface"):
+            ratio = contrast(
+                Color.parse(variables["divider"]), Color.parse(variables[surface])
+            )
+            assert ratio >= 3, (surface, ratio)
+
+
+@pytest.mark.parametrize("size", [(80, 16), (80, 23), (80, 24), (50, 24), (60, 24)])
+async def test_no_help_line_and_the_details_keep_five_rows(
+    size: tuple[int, int],
 ) -> None:
+    # The ? key panel replaces the help line at every size.
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=size) as pilot:
         await pilot.pause()
-        assert app.query_one("#navigation-help").display is shown
+        assert not app.query("#navigation-help")
         _, pane = panes(app)
         assert pane.region.height >= 5
 
@@ -639,3 +775,7 @@ async def test_empty_screen_fits_any_size(size: tuple[int, int]) -> None:
         empty = app.query_one("#empty-state", Static)
         assert "Press A to add one." in str(empty.content)
         assert app.screen.region.contains_region(empty.region)
+        # The panes' resize handler finds no list here and must not raise.
+        await pilot.resize_terminal(40, 16)
+        await pilot.pause()
+        assert app.is_running
