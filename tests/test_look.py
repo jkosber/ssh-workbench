@@ -1,7 +1,9 @@
 """The look: theme, header summary and the layout at each terminal size."""
 
 import asyncio
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import Mock
 
 import pytest
@@ -978,6 +980,90 @@ async def test_result_line_recomputes_on_resize() -> None:
         await pilot.pause()
         assert result.region.height == 2
         assert result.connection.render_line(1).text.rstrip().endswith("fictional")
+
+
+CAPTURE_LOOK = Path(__file__).resolve().parents[1] / "scripts" / "capture_look.py"
+
+
+def load_capture_look() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("capture_look_sizes", CAPTURE_LOOK)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# The size matrix, defined once in the capture script.
+SIZES = load_capture_look().SIZES
+
+
+def assert_tiled(app: SSHWorkbenchApp, width: int, height: int) -> None:
+    """The header, panes, result line and footer stack edge to edge, each the
+    full width, from the top row to the bottom one."""
+    parts = [
+        app.query_one("#app-header").region,
+        app.query_one("#panes").region,
+        app.query_one("#result-line").region,
+        app.query_one(Footer).region,
+    ]
+    assert parts[0].y == 0
+    for upper, lower in zip(parts, parts[1:]):
+        assert upper.bottom == lower.y
+    assert parts[-1].bottom == height
+    assert all(part.x == 0 and part.width == width for part in parts)
+
+
+@pytest.mark.parametrize("size", SIZES, ids=[f"{w}x{h}" for w, h in SIZES])
+async def test_size_matrix_holds(size: tuple[int, int]) -> None:
+    width, height = size
+    app = SSHWorkbenchApp(APP_MACHINES, checker=FakeChecker())
+    async with app.run_test(size=size) as pilot:
+        await checked(app, pilot)
+        # Under 60 columns the first paint keeps the side-by-side arrangement
+        # until the next layout pass (see test_narrow_terminals_stack_the_panes).
+        await pilot.pause()
+        await wait_for(pilot, lambda: all(k.region.width for k in app.query(FooterKey)))
+        screen = app.screen
+        assert_tiled(app, width, height)
+        keys = list(app.query(FooterKey))
+        assert [key.render().plain for key in keys] == KEYS
+        for key in keys:
+            plain = key.render().plain
+            assert screen.region.contains_region(key.region), plain
+            assert key.region.width == len(plain), plain
+        list_pane = app.query_one("#list-pane").region
+        details_pane = app.query_one("#details-pane").region
+        stacked = width < 60
+        assert ("-narrow" in screen.classes) is stacked
+        if stacked:
+            assert list_pane.bottom == details_pane.y
+            assert (list_pane.x, list_pane.width) == (0, width)
+            assert (details_pane.x, details_pane.width) == (0, width)
+        else:
+            assert details_pane.x == list_pane.right
+            assert details_pane.y == list_pane.y
+            assert list_pane.width <= width // 2
+        # M1: a row shows where its machine connects from 100 columns.
+        targets = list(app.query(".row-target"))
+        assert len(targets) == len(APP_MACHINES)
+        if width >= 100:
+            assert all(target.region.width > 0 for target in targets)
+        else:
+            assert not any(target.region.width for target in targets)
+        if size == (80, 24):
+            details = app.query_one("#machine-details", VerticalScroll)
+            assert details.max_scroll_y == 0
+        # Idle, the result line is one row at every size; two long results
+        # fill it to its cap.
+        result = app.result
+        assert result.region.height == 1
+        result.show(result.connection, LONG_200, Glyph.FAILURE)
+        result.show(result.link, LONG_200, Glyph.OTHER)
+        await pilot.pause()
+        short = height < 24
+        assert ("-short" in screen.classes) is short
+        assert result.region.height <= (2 if short else 3)
+        assert_tiled(app, width, height)
 
 
 @pytest.mark.parametrize("path", [None, Path("fictional") / "machines.toml"])
