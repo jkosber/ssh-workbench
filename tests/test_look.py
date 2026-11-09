@@ -2,24 +2,34 @@
 
 import asyncio
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from test_app import MACHINES as APP_MACHINES
+from test_exports_ui import LAB, add_exported_box, workspace
 from textual.color import Color
 from textual.containers import VerticalScroll
+from textual.content import Span
+from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, HelpPanel, Input, KeyPanel, ListView, Static
 from textual.widgets._footer import FooterKey
 from textual.widgets._key_panel import BindingsTable
 
+from ssh_workbench import app as app_module
 from ssh_workbench.app import (
     STATE_COLORS,
+    Glyph,
     KeyFooter,
+    ResultLine,
+    ResultSlot,
     SSHWorkbenchApp,
     StatusSymbol,
     state_css,
 )
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
+from ssh_workbench.exports import ExportError
 from ssh_workbench.forms import ConfirmDelete, MachineForm
+from ssh_workbench.links import LinkResult
 from ssh_workbench.status import AliasTarget, MachineStatus, State
 
 pytestmark = [
@@ -750,14 +760,193 @@ async def test_question_mark_is_inert_in_modals(tmp_path) -> None:
         assert not app.query(HelpPanel)
 
 
-@pytest.mark.parametrize(("height", "rows"), [(16, 2), (23, 2), (24, 3)])
-async def test_short_terminals_give_link_results_two_rows(
-    height: int, rows: int
-) -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(80, height)) as pilot:
+LINKED = (
+    Machine(
+        "garden",
+        "Garden",
+        alias="garden-host",
+        links=(Link("Repository", "https://example.invalid/garden"),),
+    ),
+    Machine("studio", "Studio", addresses=("192.0.2.40",)),
+)
+# Long enough to need more rows than any cap: 199 and 299 characters.
+LONG_200 = " ".join(["fictional"] * 20)
+LONG_300 = " ".join(["fictional"] * 30)
+
+
+def handoff(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    """A terminal that can be handed off and an SSH that exits with 0."""
+    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
+    monkeypatch.setattr(HeadlessDriver, "suspend_application_mode", lambda self: None)
+    monkeypatch.setattr(HeadlessDriver, "resume_application_mode", lambda self: None)
+    launch = Mock(return_value=0)
+    monkeypatch.setattr(app_module, "launch_ssh", launch)
+    return launch
+
+
+@pytest.mark.parametrize("machines", [MACHINES, ()])
+async def test_result_line_starts_blank_and_is_one_row(machines) -> None:
+    app = SSHWorkbenchApp(machines)
+    async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
-        assert app.query_one("#link-status").region.height == rows
+        result = app.query_one("#result-line", ResultLine)
+        assert app.result is result
+        assert result.connection is app.query_one("#connection-status", ResultSlot)
+        assert result.link is app.query_one("#link-status", ResultSlot)
+        assert list(result.children) == [result.connection, result.link]
+        assert result.region.height == 1
+        for slot in (result.connection, result.link):
+            assert slot.message == ""
+            assert slot.styles.display == "none"
+        assert app.query_one(Footer).region.y == result.region.bottom
+        assert app.query_one("#panes").region.bottom == result.region.y
+
+
+async def test_result_line_keeps_both_slots_newest_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launch = handoff(monkeypatch)
+    opener = Mock(return_value=LinkResult.ACCEPTED)
+    monkeypatch.setattr(app_module, "open_link", opener)
+    app = SSHWorkbenchApp(LINKED)
+    async with app.run_test(size=(80, 24)) as pilot:
+        result = app.result
+        connection, link = result.connection, result.link
+        await pilot.press("c")
+        launch.assert_called_once_with(LINKED[0])
+        await pilot.pause()
+        assert connection.message == "SSH exited with status 0. Machine 1: garden"
+        assert str(connection.content).startswith("● ")
+        assert connection.render().spans == [Span(0, 1, "$success")]
+        assert link.styles.display == "none"
+        await pilot.press("o")
+        await wait_for(pilot, lambda: "accepted" in link.message)
+        await pilot.pause()
+        opener.assert_called_once_with("https://example.invalid/garden")
+        assert list(result.children) == [link, connection]
+        assert link.message == (
+            f"Repository {LinkResult.ACCEPTED.value} Machine 1: garden"
+        )
+        assert connection.message == "SSH exited with status 0. Machine 1: garden"
+        assert str(link.content).startswith("› ")
+        assert link.render().spans == [Span(0, 1, "$success")]
+        assert result.region.height == 2
+        assert link.region.bottom == connection.region.y
+        await pilot.press("c")
+        await pilot.pause()
+        assert launch.call_count == 2
+        assert list(result.children) == [connection, link]
+        assert connection.region.bottom == link.region.y
+        assert link.message == (
+            f"Repository {LinkResult.ACCEPTED.value} Machine 1: garden"
+        )
+
+
+async def test_export_problem_appends_to_the_connection_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(folder: Path, machines: object, source: Path) -> None:
+        raise ExportError("Could not write ssh-workbench.config: permission denied.")
+
+    monkeypatch.setattr(app_module, "write_exports", refuse)
+    _, path, text = workspace(tmp_path, monkeypatch, (LAB,))
+    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
+    async with app.run_test(size=(80, 24)) as pilot:
+        connection = app.result.connection
+        await add_exported_box(app, pilot)
+        await wait_for(pilot, lambda: "Could not write" in connection.message)
+        await pilot.pause()
+        assert connection.message == (
+            "Saved machine 2: box. Could not write ssh-workbench.config: "
+            "permission denied."
+        )
+        assert str(connection.content).startswith("× Saved machine 2: box.")
+        assert connection.render().spans == [Span(0, 1, "$error")]
+
+
+async def test_short_screens_cap_the_result_line_at_two_rows() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(120, 18)) as pilot:
+        result = app.result
+        result.show(result.connection, LONG_200, Glyph.FAILURE)
+        result.show(result.link, LONG_200, Glyph.OTHER)
+        await pilot.pause()
+        footer = app.query_one(Footer)
+        assert result.region.height == 2
+        assert footer.region.height == 1
+        assert app.query_one("#panes").region.bottom == result.region.y
+        assert result.region.bottom == footer.region.y
+        assert list(result.children) == [result.link, result.connection]
+        for slot, glyph in ((result.link, "·"), (result.connection, "×")):
+            assert slot.region.height == 1
+            line = slot.render_line(0).text
+            assert line.startswith(f"{glyph} fictional fictional")
+            assert line.endswith("…")
+            assert len(line) == 118
+
+
+async def test_tall_screens_cap_the_result_line_at_three_rows() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        panes = app.query_one("#panes")
+        idle = panes.region.height
+        result = app.result
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        await pilot.pause()
+        assert result.region.height == 3
+        assert result.connection.region.height == 3
+        lines = [result.connection.render_line(y).text for y in range(3)]
+        assert lines[0].startswith("× fictional fictional")
+        assert "…" not in lines[0] + lines[1]
+        assert lines[2].endswith("…")
+        assert len(lines[2]) == 78
+        assert panes.region.height == idle - 2
+        assert panes.region.bottom == result.region.y
+        result.show(result.link, LONG_300, Glyph.OTHER)
+        await pilot.pause()
+        assert result.region.height == 3
+        assert list(result.children) == [result.link, result.connection]
+        assert result.link.region.height == 2
+        assert result.connection.region.height == 1
+        assert result.link.render_line(0).text.startswith("· fictional fictional")
+        assert result.link.render_line(1).text.endswith("…")
+        assert result.connection.render_line(0).text.endswith("…")
+        assert panes.region.height == idle - 2
+        assert panes.region.bottom == result.region.y
+
+
+async def test_result_line_recomputes_on_resize() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        result = app.result
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        result.show(result.link, LONG_300, Glyph.OTHER)
+        await pilot.pause()
+        assert result.region.height == 3
+        await pilot.resize_terminal(120, 18)
+        await wait_for(pilot, lambda: "-short" in app.screen.classes)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert result.link.region.height == 1
+        assert app.query_one("#panes").region.bottom == result.region.y
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 18)) as pilot:
+        result = app.result
+        result.show(result.connection, LONG_300, Glyph.FAILURE)
+        await pilot.pause()
+        assert result.region.height == 1
+        # A height-only resize: no width changes, so only the classes do.
+        await pilot.resize_terminal(80, 24)
+        await wait_for(pilot, lambda: "-tall" in app.screen.classes)
+        await pilot.pause()
+        assert result.region.height == 3
+        assert result.connection.render_line(2).text.endswith("…")
+        # A width-only resize rewraps: 301 cells fit in two rows of 198.
+        await pilot.resize_terminal(200, 24)
+        await pilot.pause()
+        assert result.region.height == 2
+        assert result.connection.render_line(1).text.rstrip().endswith("fictional")
 
 
 @pytest.mark.parametrize("path", [None, Path("fictional") / "machines.toml"])

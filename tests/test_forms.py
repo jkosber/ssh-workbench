@@ -9,7 +9,7 @@ from textual.containers import VerticalScroll
 from textual.widgets import Footer, Input, ListView, RadioButton, Static, TextArea
 
 from ssh_workbench import store
-from ssh_workbench.app import MachinePanes, SSHWorkbenchApp
+from ssh_workbench.app import MachinePanes, ResultSlot, SSHWorkbenchApp
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
 from ssh_workbench.forms import ConfirmDelete, MachineForm
 
@@ -34,7 +34,7 @@ def saved_app(tmp_path: Path, machines=MACHINES, text: str | None = None):
 
 
 def status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 async def wait_for(pilot, predicate) -> None:

@@ -21,7 +21,7 @@ from textual.widgets import Footer, Input, ListView, OptionList, RadioButton, St
 from ssh_workbench import app as app_module
 from ssh_workbench import keys
 from ssh_workbench.aliases import AliasMemory, AliasRecord, format_state, state_path
-from ssh_workbench.app import SSHWorkbenchApp, StatusSymbol
+from ssh_workbench.app import ResultSlot, SSHWorkbenchApp, StatusSymbol
 from ssh_workbench.config import Machine, format_machines, read_machines
 from ssh_workbench.forms import KeyChoice, KeySetup, MachineForm
 from ssh_workbench.keys import (
@@ -175,7 +175,7 @@ def note(screen: KeySetup) -> str:
 
 
 def connection_status(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#connection-status", Static).content)
+    return app.query_one("#connection-status", ResultSlot).message
 
 
 async def wait_for(pilot, predicate) -> None:
