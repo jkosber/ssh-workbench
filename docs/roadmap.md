@@ -31,7 +31,7 @@ request for later ones. Each needs its own task before work starts.
 | An empty schema 1 file is told to add `[[machines]]` entries, which that schema rejects; the hint should name `schema_version = 2` | 8 |
 | Duplicate messages show internal locations such as `machine.links[1].name` | 9 |
 | Changing a direct machine's ID makes SSH ask to trust its host key again; the form gives no hint | 9 |
-| The first creation of `ssh-workbench.config` isn't named in the status line | 13 |
+| The first creation of `ssh-workbench.config` isn't named in the result line | 13 |
 | The details pane does not show key-login state | 12 |
 | When the local `TERM` is terminal-specific (`xterm-ghostty`, `xterm-kitty`), full-screen programs on a host without that terminfo entry may reject it, and Ghostty's shell integration does not apply because Workbench runs `ssh` directly (not observed); a proposal is to run `ssh` with `TERM=xterm-256color` in that case, which `SetEnv TERM=xterm-256color` in the user's SSH config already does | [#36](https://github.com/jkosber/ssh-workbench/pull/36) |
 | Keys Textual reads while C hands over the terminal (it keeps reading for up to 0.1 s) run as shortcuts when the child exits, however long it ran: a second C reconnects, Q quits, K opens key setup; seen only with synthetic typing (a `k` typed after `c` opened key setup when the child returned) | 24 |
@@ -39,6 +39,7 @@ request for later ones. Each needs its own task before work starts.
 | Two-row list entries, a bold name over a muted second line, would show more per machine but fit fewer machines on screen | 27 |
 | Toast notifications could report connection and link results; the result line stays, because it survives a terminal handoff and toasts expire | 27 |
 | Timer rounds turn every machine to checking every 30 seconds, so the header leaves `all online` and every row spins each round; keeping the last result until the new one arrives would calm the screen | 27 |
+| Under 60 columns the first frame after startup or a resize shows the panes side by side for about 100 ms before they stack: Textual 8.2.8 keeps a container's arrangement cache across its own `layout` change, and clearing it needs a private method | 28 |
 
 ### Status and aliases
 

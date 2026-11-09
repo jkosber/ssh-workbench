@@ -64,7 +64,8 @@ size in `SIZES` in `scripts/capture_look.py`: 80x24, 120x30, 100x30, 120x40,
 | Panes | Stacked exactly under 60 columns; side by side, the list takes at most half the width |
 | Row targets | Shown exactly from 100 columns |
 | Result line | One row idle; after two long results at most two rows under 24 rows and three otherwise |
-| Details | At 80x24 they fit without scrolling |
+| Details | At 80x24 they fit without scrolling; at 60x20 they scroll and every row, scrolled into view, is whole; at 80x50 they start at the top |
+| List | At 80x50 every row stays one line high |
 
 ### Look captures: `scripts/capture_look.py`
 

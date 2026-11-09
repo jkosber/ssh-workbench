@@ -34,7 +34,7 @@ Changes by release, newest first. Version numbers follow the policy in
   spaces between keys. The footer takes one row from 80 columns, two from 45
   and three below that, so every key stays on screen.
 - `?` shows a panel at the right of the panes with the keys for moving around,
-  then Workbench's own; `?` again hides it. The help line is gone.
+  then Workbench's own; `?` again hides it.
 - Rows show where each machine connects from 100 columns instead of 110. The
   list still moves above the details under 60 columns, now with the details'
   label row between them, and the result line's two-row limit starts under 24
