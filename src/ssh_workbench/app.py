@@ -509,30 +509,33 @@ class ResultLine(Vertical):
 
 
 # The keys the key panel lists before Workbench's own, with Textual's
-# descriptions. Textual's other keys are left out, so these five show without
-# scrolling in the smallest panel.
+# descriptions in lowercase. Textual's other keys are left out, so these five
+# show without scrolling in the smallest panel.
 NAVIGATION_KEYS = ("up", "down", "tab", "pageup", "pagedown")
 
 
 class KeyTable(BindingsTable):
-    """The key panel's rows: the navigation keys, then Workbench's own keys,
-    one row per action ("c C connect"). Plain text, without markup."""
+    """The key panel's rows: the navigation keys, then Workbench's own keys
+    as the footer shows them, in `BINDINGS` order with the first key of each
+    action ("c connect"). Descriptions lowercase; plain text, without markup."""
 
     def render(self) -> Content:
         active = self.screen.active_bindings
         display = self.app.get_key_display
         navigation = [
-            (display(active[key].binding), active[key].binding.description)
+            (display(active[key].binding), active[key].binding.description.lower())
             for key in NAVIGATION_KEYS
             if key in active
         ]
-        actions: dict[str, list[Binding]] = {}
+        # Like the footer, skip hidden bindings (ctrl+q, which Textual's App
+        # binds first) and keep each action's first key.
+        actions: dict[str, Binding] = {}
         for node, binding, _, _ in active.values():
-            if node is self.app and not binding.system:
-                actions.setdefault(binding.action, []).append(binding)
+            if node is self.app and binding.show and not binding.system:
+                actions.setdefault(binding.action, binding)
         workbench = [
-            (" ".join(dict.fromkeys(map(display, bindings))), bindings[0].description)
-            for bindings in actions.values()
+            (display(binding), binding.description.lower())
+            for binding in actions.values()
         ]
         width = max(
             (Content(keys).cell_length for keys, _ in navigation + workbench),
@@ -670,6 +673,11 @@ class SSHWorkbenchApp(App[None]):
         layer: help;
         width: 30;
         height: 100%;
+    }
+    /* Textual's KeyPanel draws keys in $text-accent; keys are $primary here,
+       as in the footer. */
+    KeyTable > .bindings-table--key {
+        color: $primary;
     }
     .pane {
         height: 1fr;
@@ -1599,7 +1607,7 @@ class SSHWorkbenchApp(App[None]):
         Inside the panes, so the header and footer keep the full width."""
         if self.check_action("toggle_key_panel", ()) is not True:
             return
-        if panels := self.screen.query(HelpPanel):
+        if panels := self.query(HelpPanel):
             panels.remove()
         else:
             self.query_one("#panes").mount(KeyHelp())
