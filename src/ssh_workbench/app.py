@@ -19,12 +19,15 @@ from textual.widget import Widget
 from textual.widgets import (
     Footer,
     HelpPanel,
+    KeyPanel,
     ListItem,
     ListView,
+    Markdown,
     OptionList,
     Static,
 )
 from textual.widgets._footer import FooterKey
+from textual.widgets._key_panel import BindingsTable
 from textual.widgets.option_list import Option
 
 from ssh_workbench.aliases import (
@@ -389,6 +392,69 @@ class KeyFooter(Footer):
     def on_resize(self) -> None:
         if keys := len(self.query(FooterKey)):
             self.styles.grid_size_columns = self.columns_for(self.app.size.width, keys)
+
+
+# The keys the key panel lists before Workbench's own, with Textual's
+# descriptions. Textual's other keys are left out, so these five show without
+# scrolling in the smallest panel.
+NAVIGATION_KEYS = ("up", "down", "tab", "pageup", "pagedown")
+
+
+class KeyTable(BindingsTable):
+    """The key panel's rows: the navigation keys, then Workbench's own keys,
+    one row per action ("c C connect"). Plain text, without markup."""
+
+    def render(self) -> Content:
+        active = self.screen.active_bindings
+        display = self.app.get_key_display
+        navigation = [
+            (display(active[key].binding), active[key].binding.description)
+            for key in NAVIGATION_KEYS
+            if key in active
+        ]
+        actions: dict[str, list[Binding]] = {}
+        for node, binding, _, _ in active.values():
+            if node is self.app and not binding.system:
+                actions.setdefault(binding.action, []).append(binding)
+        workbench = [
+            (" ".join(dict.fromkeys(map(display, bindings))), bindings[0].description)
+            for bindings in actions.values()
+        ]
+        width = max(
+            (Content(keys).cell_length for keys, _ in navigation + workbench),
+            default=0,
+        )
+        key_style = self.get_visual_style("bindings-table--key")
+        description_style = self.get_visual_style("bindings-table--description")
+        lines: list[Content] = []
+        for section in (navigation, workbench):
+            # A blank row above each section, as in Textual's own table.
+            lines.append(Content())
+            lines.extend(
+                Content.assemble(
+                    " " * (width - Content(keys).cell_length),
+                    (keys, key_style),
+                    " ",
+                    (description, description_style),
+                )
+                for keys, description in section
+            )
+        return Content("\n").join(lines)
+
+
+class KeyList(KeyPanel):
+    """Textual's key panel, listing `KeyTable`'s rows."""
+
+    def compose(self) -> ComposeResult:
+        yield KeyTable(shrink=True, expand=False)
+
+
+class KeyHelp(HelpPanel):
+    """Textual's help panel with `KeyList` in place of its key panel."""
+
+    def compose(self) -> ComposeResult:
+        yield Markdown(id="widget-help")
+        yield KeyList(id="keys-help")
 
 
 class MachinePanes(Vertical):
@@ -1328,14 +1394,14 @@ class SSHWorkbenchApp(App[None]):
         )
 
     def action_toggle_key_panel(self) -> None:
-        """Show or hide every key of the browser beside the panes. Inside the
-        panes, so the header and footer keep the full width."""
+        """Show or hide the key panel: the navigation keys and Workbench's own.
+        Inside the panes, so the header and footer keep the full width."""
         if self.check_action("toggle_key_panel", ()) is not True:
             return
         if panels := self.screen.query(HelpPanel):
             panels.remove()
         else:
-            self.query_one("#panes").mount(HelpPanel())
+            self.query_one("#panes").mount(KeyHelp())
 
     def action_add(self) -> None:
         if self.check_action("add", ()) is not True:
