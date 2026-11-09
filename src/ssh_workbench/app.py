@@ -759,17 +759,12 @@ class SSHWorkbenchApp(App[None]):
         background: $surface;
         padding: 0 1;
     }
-    #empty-content {
-        align: center middle;
-        padding: 1 2;
-    }
     #empty-state {
-        width: 1fr;
-        max-width: 76;
         height: auto;
         padding: 1 2;
-        border: round $border-blurred;
-        background: $surface;
+    }
+    #empty-state Static {
+        color: $text-muted;
     }
 
     Screen.-narrow #browser {
@@ -945,28 +940,33 @@ class SSHWorkbenchApp(App[None]):
                                     markup=False,
                                 )
         else:
-            with VerticalScroll(id="empty-content"):
-                yield Static(self._empty_message(), id="empty-state", markup=False)
+            with Vertical(id="empty-state"):
+                for line in self._empty_lines():
+                    yield Static(line, markup=False)
 
-    def _empty_message(self) -> str:
+    def _empty_lines(self) -> list[Content]:
+        """The empty screen, one muted line each. Only the key A is styled,
+        like a footer key; the path is literal and on its own line."""
+
+        def offer(message: str) -> Content:
+            return Content.assemble(message, " · ", ("a", "$primary bold"), " to add")
+
         path = (
-            _display_text(str(self.config_path))
+            [Content(_display_text(str(self.config_path)))]
             if self.config_path is not None
-            else None
+            else []
         )
+        restart = "restart with --config PATH · the user guide describes the format"
         if self.config_supplied:
-            location = f":\n{path}" if path is not None else "."
-            return f"No machines in this file yet{location}\n\nPress A to add one."
-        if path is not None:
-            return (
-                "No machine file yet.\n\nPress A to add your first machine. "
-                f"Workbench creates the file at:\n{path}\n\n"
-                "Or restart with --config PATH. The user guide describes the format."
-            )
-        return (
-            "No machine file selected.\n\n"
-            "Restart with --config PATH. The user guide describes the format."
-        )
+            return [offer("no machines in this file yet"), *path]
+        if path:
+            return [
+                offer("no machine file yet"),
+                Content("workbench creates the file at:"),
+                *path,
+                Content(f"or {restart}"),
+            ]
+        return [Content("no machine file selected"), Content(restart)]
 
     def on_mount(self) -> None:
         # Any screen (a form, a question, the picker) and any terminal handoff
