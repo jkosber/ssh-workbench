@@ -84,9 +84,9 @@ async def test_add_edit_delete_bindings_are_visible(tmp_path: Path) -> None:
             ),
         )
         for action, key, label in (
-            ("add", "a", "Add"),
-            ("edit", "e", "Edit"),
-            ("delete", "x", "Delete"),
+            ("add", "a", "add"),
+            ("edit", "e", "edit"),
+            ("delete", "x", "delete"),
         ):
             keys = [item for item in footer.query("FooterKey") if item.action == action]
             assert len(keys) == 1 and keys[0].key == key

@@ -81,7 +81,7 @@ async def test_connect_is_visible_and_never_automatic(
         connect_key = connect_keys[0]
         assert connect_key.key == "c"
         assert connect_key.visible
-        assert "Connect" in connect_key.render().plain
+        assert "connect" in connect_key.render().plain
         assert "C" in connect_key.render().plain.upper()
         assert app.screen.region.contains_region(connect_key.region)
         await pilot.press("down", "up", "enter", "tab", "enter")

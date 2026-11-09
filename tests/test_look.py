@@ -6,9 +6,17 @@ from pathlib import Path
 import pytest
 from textual.color import Color
 from textual.containers import VerticalScroll
-from textual.widgets import Footer, ListView, Static
+from textual.widgets import Footer, HelpPanel, ListView, Static
+from textual.widgets._footer import FooterKey
+from textual.widgets._key_panel import BindingsTable
 
-from ssh_workbench.app import STATE_COLORS, SSHWorkbenchApp, StatusSymbol, state_css
+from ssh_workbench.app import (
+    STATE_COLORS,
+    KeyFooter,
+    SSHWorkbenchApp,
+    StatusSymbol,
+    state_css,
+)
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
 from ssh_workbench.forms import ConfirmDelete, MachineForm
 from ssh_workbench.status import AliasTarget, MachineStatus, State
@@ -261,9 +269,9 @@ async def test_summary_phrases_fall_back_to_the_count() -> None:
             assert (str(number), number.spans) == ("1", [])
 
 
-@pytest.mark.parametrize("size", [(50, 24), (40, 16)])
+@pytest.mark.parametrize(("size", "min_rows"), [((50, 24), 4), ((40, 16), 2)])
 async def test_narrow_terminals_stack_the_list_above_the_details(
-    size: tuple[int, int],
+    size: tuple[int, int], min_rows: int
 ) -> None:
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=size) as pilot:
@@ -272,7 +280,7 @@ async def test_narrow_terminals_stack_the_list_above_the_details(
         assert machine_list.region.bottom <= pane.region.y
         assert machine_list.region.x == pane.region.x
         assert machine_list.region.width == pane.region.width
-        assert machine_list.region.height >= 4
+        assert machine_list.region.height >= min_rows
         assert app.screen.region.contains_region(pane.region)
 
 
@@ -408,7 +416,13 @@ async def test_text_colors_reach_four_and_a_half_to_one() -> None:
 
 @pytest.mark.parametrize(
     ("size", "shown"),
-    [((80, 16), False), ((80, 20), True), ((50, 24), False), ((60, 24), True)],
+    [
+        ((80, 16), False),
+        ((80, 23), False),
+        ((80, 24), True),
+        ((50, 24), False),
+        ((60, 24), True),
+    ],
 )
 async def test_short_or_narrow_terminals_hide_the_help_line(
     size: tuple[int, int], shown: bool
@@ -421,47 +435,122 @@ async def test_short_or_narrow_terminals_hide_the_help_line(
         assert pane.region.height >= 5
 
 
-async def test_the_footer_shows_each_letter_key_once_in_lowercase() -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(80, 24)) as pilot:
-        footer = app.query_one(Footer)
-        await wait_for(pilot, lambda: len(footer.query("FooterKey")) == 8)
-        assert [key.render().plain for key in footer.query("FooterKey")] == [
-            "c Connect",
-            "o Link",
-            "a Add",
-            "e Edit",
-            "x Delete",
-            "k Key",
-            "r Check",
-            "q Quit",
-        ]
+@pytest.mark.parametrize(
+    ("size", "classes"),
+    [
+        ((59, 24), {"-narrow", "-tall"}),
+        ((60, 23), {"-normal", "-short"}),
+        ((99, 24), {"-normal", "-tall"}),
+        ((100, 24), {"-wide", "-tall"}),
+        ((129, 30), {"-wide", "-tall"}),
+        ((130, 30), {"-xwide", "-tall"}),
+    ],
+)
+async def test_breakpoint_classes(size, classes) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=size):
+        assert classes <= set(app.screen.classes)
+
+
+async def test_footer_columns_for_width() -> None:
+    assert KeyFooter.columns_for(80, 9) == 9
+    assert KeyFooter.columns_for(79, 9) == 5
+    assert KeyFooter.columns_for(45, 9) == 5
+    assert KeyFooter.columns_for(44, 9) == 3
+    assert KeyFooter.columns_for(40, 9) == 3
+
+
+KEYS = [
+    "c connect",
+    "o link",
+    "a add",
+    "e edit",
+    "x delete",
+    "k key",
+    "r check",
+    "? keys",
+    "q quit",
+]
 
 
 @pytest.mark.parametrize(
-    ("size", "rows"), [((40, 16), 2), ((50, 20), 2), ((60, 20), 1)]
+    ("size", "rows"),
+    [
+        ((40, 16), 3),
+        ((44, 24), 3),
+        ((45, 24), 2),
+        ((60, 20), 2),
+        ((79, 24), 2),
+        ((80, 24), 1),
+        ((120, 30), 1),
+    ],
 )
-async def test_narrow_footers_show_every_key_on_two_rows(
-    size: tuple[int, int], rows: int
-) -> None:
-    app = SSHWorkbenchApp(MACHINES)
+async def test_footer_rows_follow_width(size, rows) -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
     async with app.run_test(size=size) as pilot:
+        # a bindings change recomposes the footer; the columns must survive it
+        await pilot.press("tab")
+        await wait_for(pilot, lambda: all(k.region.width for k in app.query(FooterKey)))
         footer = app.query_one(Footer)
-        await wait_for(
-            pilot,
-            lambda: (
-                len(footer.query("FooterKey")) == 8
-                and all(key.region.width for key in footer.query("FooterKey"))
-            ),
-        )
+        keys = list(app.query(FooterKey))
         assert footer.region.height == rows
-        for key in footer.query("FooterKey"):
-            assert app.screen.region.contains_region(key.region), key.action
-        machine_list, _ = panes(app)
-        assert machine_list.region.height >= 4
+        assert [k.render().plain for k in keys] == KEYS
+        assert max(k.region.right for k in keys) <= size[0]
+        assert all(k.region.width == len(k.render().plain) for k in keys)
+        # columns are content-sized: the gap between a column's widest key and
+        # the next column is 2 (N2)
+        xs = sorted({k.region.x for k in keys})
+        right = {x: max(k.region.right for k in keys if k.region.x == x) for x in xs}
+        assert all(n - right[x] == 2 for x, n in zip(xs, xs[1:]))
 
 
-@pytest.mark.parametrize(("height", "rows"), [(16, 2), (20, 3)])
+async def test_footer_labels_are_muted_and_keys_accented() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)):
+        variables = app.get_css_variables()
+        assert variables["footer-description-foreground"] == variables["text-muted"]
+        assert variables["footer-key-foreground"] == variables["primary"]
+
+
+def panel_text(app) -> str:
+    table = app.screen.query_one(BindingsTable)
+    return "\n".join(table.render_line(y).text for y in range(table.region.height))
+
+
+async def test_question_mark_toggles_the_key_panel() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: bool(app.screen.query(BindingsTable)))
+        text = panel_text(app)
+        for key in ("↑", "↓", "tab", "pgup", "pgdn"):
+            assert key in text
+        footer = app.query_one(Footer)
+        assert footer.region.width == 80 and footer.region.height == 1
+        assert [k.render().plain for k in app.query(FooterKey)] == KEYS
+        assert app.query_one("#app-header").region.width == 80
+        assert "-normal" in app.screen.classes
+        panel = app.query_one(HelpPanel)
+        assert app.query_one("#panes").region.contains_region(panel.region)
+        await pilot.press("question_mark")
+        await wait_for(pilot, lambda: not app.query(HelpPanel))
+
+
+async def test_question_mark_is_inert_in_modals(tmp_path) -> None:
+    # ConfirmDelete, not MachineForm: a form's focused Input would swallow "?"
+    # and the test would pass without the gate (N7).
+    # App.query searches the default screen, so a missing gate shows up as a
+    # mounted HelpPanel.
+    app = saved_app(tmp_path, MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.press("x")
+        await wait_for(pilot, lambda: isinstance(app.screen, ConfirmDelete))
+        await pilot.press("question_mark")
+        await pilot.pause()
+        assert not app.query(HelpPanel)
+
+
+@pytest.mark.parametrize(("height", "rows"), [(16, 2), (23, 2), (24, 3)])
 async def test_short_terminals_give_link_results_two_rows(
     height: int, rows: int
 ) -> None:

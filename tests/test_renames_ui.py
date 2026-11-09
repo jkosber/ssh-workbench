@@ -170,7 +170,7 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
         await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
         keys = app.query_one(Footer).query("FooterKey")
         update = [item.render().plain for item in keys if item.action == "update_alias"]
-        assert update == ["u Update"]
+        assert update == ["u update"]
         assert "connect" not in footer_actions(app)
         assert checker.resolved == ["new-host"]
         assert checker.checked == [("192.0.2.50", 22)]

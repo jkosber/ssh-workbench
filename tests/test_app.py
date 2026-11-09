@@ -317,17 +317,6 @@ async def test_many_machines_keep_keyboard_selection_visible() -> None:
         )
 
 
-async def test_help_line_fits_60_columns() -> None:
-    app = SSHWorkbenchApp(MACHINES)
-    async with app.run_test(size=(60, 20)) as pilot:
-        await pilot.pause()
-        help_line = app.query_one("#navigation-help", Static)
-        assert str(help_line.content) == (
-            "Up/Down: select   Tab: switch pane   PgUp/PgDn: scroll"
-        )
-        assert help_line.region.height == 1
-
-
 @pytest.mark.parametrize("key", ["q", "ctrl+q"])
 @pytest.mark.parametrize("machines", [None, [], MACHINES])
 async def test_keyboard_exit_is_clean(key: str, machines) -> None:

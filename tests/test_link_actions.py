@@ -74,7 +74,7 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
         assert len(keys) == 1
         assert keys[0].key == "o"
         # The whole label, not a truncated one, at every size.
-        assert keys[0].render().plain == "o Link"
+        assert keys[0].render().plain == "o link"
         assert keys[0].visible
         assert app.screen.region.contains_region(keys[0].region)
         actions = {key.action for key in footer.query("FooterKey")}
@@ -510,9 +510,9 @@ async def test_long_ids_keep_visible_attribution_and_bounded_layout(
         await pilot.press("down", "o")
         await completed(app, pilot)
         status_widget = app.query_one("#link-status", Static)
-        assert status_widget.region.height == 3
+        assert status_widget.region.height == 2
         assert "Machine 2:" in status(app)
-        visible = "\n".join(status_widget.render_line(y).text for y in range(3))
+        visible = "\n".join(status_widget.render_line(y).text for y in range(2))
         assert "Machine 2:" in visible
         assert app.query_one(ListView).region.height > 5
         assert app.screen.region.contains_region(app.query_one(Footer).region)
