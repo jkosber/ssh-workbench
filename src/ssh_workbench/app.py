@@ -446,23 +446,17 @@ class ResultSlot(Static):
         self.display = True
         self.update(Content.assemble((glyph, GLYPH_STYLES[glyph]), " ", message))
 
-    def clear(self) -> None:
-        self._message = ""
-        self.display = False
-        self.update("")
-        # The other slot may take more rows now.
-        for slot in self.siblings:
-            slot.refresh(layout=True)
-
     def _cap(self) -> int:
-        """Rows this slot may take. On a tall screen the newest takes 3 alone
-        and 2 above the older one; otherwise each takes 1."""
-        if not self.has_class("-newest") or self.screen.has_class("-short"):
+        """Rows this slot may take. Alone, the newest takes the whole line: 3
+        rows, 2 when short. Above the older one it takes a row less, and the
+        older one takes 1."""
+        if not self.has_class("-newest"):
             return 1
+        rows = 2 if self.screen.has_class("-short") else 3
         older = any(
             isinstance(slot, ResultSlot) and slot.message for slot in self.siblings
         )
-        return 2 if older else 3
+        return rows - 1 if older else rows
 
     def render(self) -> Content:
         width = self.size.width
