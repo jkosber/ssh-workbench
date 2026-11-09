@@ -14,7 +14,15 @@ from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.content import Span
 from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, HelpPanel, Input, KeyPanel, ListView, Static
+from textual.widgets import (
+    Footer,
+    HelpPanel,
+    Input,
+    KeyPanel,
+    ListItem,
+    ListView,
+    Static,
+)
 from textual.widgets._footer import FooterKey
 from textual.widgets._key_panel import BindingsTable
 
@@ -23,6 +31,7 @@ from ssh_workbench.app import (
     STATE_COLORS,
     Glyph,
     KeyFooter,
+    KeyTable,
     ResultLine,
     ResultSlot,
     SSHWorkbenchApp,
@@ -738,6 +747,18 @@ async def test_question_mark_toggles_the_key_panel() -> None:
         rows = await open_key_panel(app, pilot)
         for key, label in APP_KEYS:
             assert any(key in row[:-1] and row[-1:] == [label] for row in rows), key
+        # The navigation keys, then Workbench's in the footer's order with the
+        # footer's one key per action; every description lowercase.
+        assert rows == [
+            [],
+            ["↑", "cursor", "up"],
+            ["↓", "cursor", "down"],
+            ["tab", "focus", "next"],
+            ["pgup", "page", "up"],
+            ["pgdn", "page", "down"],
+            [],
+            *(key.split() for key in KEYS),
+        ]
         footer = app.query_one(Footer)
         assert footer.region.width == 80 and footer.region.height == 1
         assert [k.render().plain for k in app.query(FooterKey)] == KEYS
@@ -749,11 +770,36 @@ async def test_question_mark_toggles_the_key_panel() -> None:
         await wait_for(pilot, lambda: not app.query(HelpPanel))
 
 
+async def test_the_key_panel_keys_take_the_footer_key_color() -> None:
+    # Textual's KeyPanel CSS draws keys in $text-accent; Workbench draws keys
+    # in $primary everywhere else.
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await open_key_panel(app, pilot)
+        primary = Color.parse(app.get_css_variables()["primary"])
+        table = app.screen.query_one(KeyTable)
+        assert table.get_visual_style("bindings-table--key").foreground == primary
+        footer_key = app.query(FooterKey).first()
+        assert footer_key.get_visual_style("footer-key--key").foreground == primary
+        # The first drawn cell of every row is its key, in that color.
+        keys = [
+            next(segment for segment in strip if segment.text.strip())
+            for strip in map(table.render_line, range(table.region.height))
+            if strip.text.strip()
+        ]
+        assert len(keys) == len(NAVIGATION_KEYS) + len(APP_KEYS)
+        for key in keys:
+            assert key.style is not None and key.style.color is not None, key.text
+            assert tuple(key.style.color.get_truecolor()) == primary.rgb, key.text
+
+
 async def test_question_mark_is_inert_in_modals(tmp_path) -> None:
     # ConfirmDelete, not MachineForm: a form's focused Input would swallow "?"
     # and the test would pass without the gate (N7).
-    # App.query searches the default screen, so a missing gate shows up as a
-    # mounted HelpPanel.
+    # Under a modal, Textual's binding chain stops at the modal screen, so the
+    # app's "?" binding never runs there and no panel mounts, gate or not. The
+    # gate's own effect is on the browser screen's footer, which App.query
+    # searches: "? keys" is dimmed while the modal is open.
     app = saved_app(tmp_path, MACHINES)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.press("x")
@@ -761,6 +807,10 @@ async def test_question_mark_is_inert_in_modals(tmp_path) -> None:
         await pilot.press("question_mark")
         await pilot.pause()
         assert not app.query(HelpPanel)
+        assert app.check_action("toggle_key_panel", ()) is None
+        keys = [key for key in app.query(FooterKey) if key.render().plain == "? keys"]
+        assert len(keys) == 1
+        assert keys[0].has_class("-disabled")
 
 
 LINKED = (
@@ -1050,9 +1100,26 @@ async def test_size_matrix_holds(size: tuple[int, int]) -> None:
             assert all(target.region.width > 0 for target in targets)
         else:
             assert not any(target.region.width for target in targets)
+        details = app.query_one("#machine-details", VerticalScroll)
+        view = details.scrollable_content_region
+        fields = list(details.query(".field-row"))
         if size == (80, 24):
-            details = app.query_one("#machine-details", VerticalScroll)
             assert details.max_scroll_y == 0
+        if size == (60, 20):
+            # The details scroll, and scrolled into view every row is whole:
+            # none is cut at the pane's right edge or taller than the pane.
+            assert details.max_scroll_y > 0
+            for row in fields:
+                details.scroll_to_widget(row, animate=False)
+                await pilot.pause()
+                assert view.contains_region(row.region), row.region
+            details.scroll_home(animate=False)
+            await pilot.pause()
+        if size == (80, 50):
+            # The list keeps one-row items and the details start at the top.
+            heights = [item.region.height for item in app.query(ListItem)]
+            assert heights == [1] * len(APP_MACHINES)
+            assert fields[0].region.y == view.y
         # Idle, the result line is one row at every size; two long results
         # fill it to its cap.
         result = app.result
