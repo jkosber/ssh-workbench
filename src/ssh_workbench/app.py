@@ -16,7 +16,15 @@ from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.theme import Theme
 from textual.widget import Widget
-from textual.widgets import Footer, ListItem, ListView, OptionList, Static
+from textual.widgets import (
+    Footer,
+    HelpPanel,
+    ListItem,
+    ListView,
+    OptionList,
+    Static,
+)
+from textual.widgets._footer import FooterKey
 from textual.widgets.option_list import Option
 
 from ssh_workbench.aliases import (
@@ -118,6 +126,7 @@ WORKBENCH_THEME = Theme(
         "border-blurred": "#2C3646",
         "footer-key-foreground": "#4FC1E9",
         "footer-background": "#161B24",
+        "footer-description-foreground": "#AAB0BA",
         "block-cursor-background": "#24435A",
         "block-cursor-foreground": "#F2F6FA",
         "block-cursor-text-style": "bold",
@@ -345,13 +354,41 @@ class LinkPicker(ModalScreen[Link | None]):
 
 
 class KeyFooter(Footer):
-    """The compact footer. On narrow screens it becomes a grid of four columns,
-    so every key stays on screen, on two rows."""
+    """The compact footer: a grid of keys whose column count follows the
+    terminal width, so every key stays on screen, on one to three rows."""
+
+    DEFAULT_CSS = """
+    KeyFooter {
+        layout: grid;
+        grid-columns: auto;
+        grid-gutter: 0 2;
+        height: auto;
+        padding: 0 1;
+    }
+    KeyFooter.-compact FooterKey {
+        margin-right: 0;
+    }
+    """
+
+    @staticmethod
+    def columns_for(width: int, keys: int) -> int:
+        """Grid columns for `keys` keys on a terminal `width` columns wide."""
+        if width >= 80:
+            return keys
+        if width >= 45:
+            return 5
+        return 3
 
     def compose(self) -> ComposeResult:
         yield from super().compose()
-        # Footer sets one grid column per key; the grid applies only when narrow.
-        self.styles.grid_size_columns = 4
+        # Footer has just set one grid column per key.
+        self.styles.grid_size_columns = self.columns_for(
+            self.app.size.width, self.styles.grid_size_columns
+        )
+
+    def on_resize(self) -> None:
+        if keys := len(self.query(FooterKey)):
+            self.styles.grid_size_columns = self.columns_for(self.app.size.width, keys)
 
 
 class MachinePanes(Vertical):
@@ -365,27 +402,34 @@ class MachinePanes(Vertical):
 class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     ENABLE_COMMAND_PALETTE = False
-    # Screen classes for the layout: the list stacks above the details and the
-    # footer wraps when narrow, rows show their target when wide, and the help
-    # line hides when narrow or short.
-    HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (60, "-normal"), (110, "-wide")]
-    VERTICAL_BREAKPOINTS = [(0, "-short"), (20, "-tall")]
+    # Screen classes for the layout: the list stacks above the details when
+    # narrow, rows show their target when wide or wider, and the help line
+    # hides when narrow or short. The footer's rows follow the width itself.
+    HORIZONTAL_BREAKPOINTS = [
+        (0, "-narrow"),
+        (60, "-normal"),
+        (100, "-wide"),
+        (130, "-xwide"),
+    ]
+    VERTICAL_BREAKPOINTS = [(0, "-short"), (24, "-tall")]
     # Each letter is bound in both cases: with Caps Lock or Shift, Textual names
     # the key "C", which a "c" binding does not match. The footer shows the
     # first key, so the lowercase one comes first.
     BINDINGS = [
-        Binding("c,C", "connect", "Connect"),
-        # Shown only for a machine with a rename offer, which hides Connect.
-        Binding("u,U", "update_alias", "Update"),
-        Binding("o,O", "open_link", "Link"),
-        Binding("a,A", "add", "Add"),
-        Binding("e,E", "edit", "Edit"),
-        Binding("x,X", "delete", "Delete"),
-        Binding("k,K", "key_setup", "Key"),
-        # "Check", not "Refresh": eight keys must fit 60 columns.
-        Binding("r,R", "refresh", "Check"),
-        Binding("q,Q", "quit", "Quit"),
-        Binding("ctrl+q", "quit", "Quit", show=False),
+        Binding("c,C", "connect", "connect"),
+        # Shown only for a machine with a rename offer, which hides connect.
+        Binding("u,U", "update_alias", "update"),
+        Binding("o,O", "open_link", "link"),
+        Binding("a,A", "add", "add"),
+        Binding("e,E", "edit", "edit"),
+        Binding("x,X", "delete", "delete"),
+        Binding("k,K", "key_setup", "key"),
+        # "check", not "refresh": "refresh" would push the two-row footer two
+        # columns past a 45-column terminal.
+        Binding("r,R", "refresh", "check"),
+        Binding("question_mark", "toggle_key_panel", "keys"),
+        Binding("q,Q", "quit", "quit"),
+        Binding("ctrl+q", "quit", "quit", show=False),
     ]
     CSS = (
         state_css()
@@ -411,6 +455,16 @@ class SSHWorkbenchApp(App[None]):
     }
     #panes, #browser {
         height: 1fr;
+    }
+    #panes {
+        layers: base help;
+    }
+    HelpPanel {
+        split: initial;
+        dock: right;
+        layer: help;
+        width: 30;
+        height: 100%;
     }
     #machine-list, #machine-details {
         background: $surface;
@@ -498,19 +552,14 @@ class SSHWorkbenchApp(App[None]):
     Screen.-narrow .field-label {
         width: 11;
     }
-    Screen.-wide #machine-list {
+    Screen.-wide #machine-list, Screen.-xwide #machine-list {
         width: 2fr;
     }
-    Screen.-wide #machine-details {
+    Screen.-wide #machine-details, Screen.-xwide #machine-details {
         width: 3fr;
     }
-    Screen.-wide RowTarget {
+    Screen.-wide RowTarget, Screen.-xwide RowTarget {
         display: block;
-    }
-    Screen.-narrow KeyFooter {
-        layout: grid;
-        grid-columns: 1fr;
-        height: 2;
     }
     Screen.-narrow #navigation-help, Screen.-short #navigation-help {
         display: none;
@@ -1195,6 +1244,10 @@ class SSHWorkbenchApp(App[None]):
         return machine_list.index
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "toggle_key_panel":
+            # Dimmed, not hidden, so the footer keeps its keys during a
+            # rebuild or a connect.
+            return True if self._browsing() else None
         if action == "refresh":
             ready = (
                 self.checker is not None
@@ -1273,6 +1326,16 @@ class SSHWorkbenchApp(App[None]):
             save=save,
             rewrite_warning=rewrite_warning,
         )
+
+    def action_toggle_key_panel(self) -> None:
+        """Show or hide every key of the browser beside the panes. Inside the
+        panes, so the header and footer keep the full width."""
+        if self.check_action("toggle_key_panel", ()) is not True:
+            return
+        if panels := self.screen.query(HelpPanel):
+            panels.remove()
+        else:
+            self.query_one("#panes").mount(HelpPanel())
 
     def action_add(self) -> None:
         if self.check_action("add", ()) is not True:
