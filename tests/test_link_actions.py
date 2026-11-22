@@ -272,12 +272,15 @@ async def test_pending_request_is_bounded_and_preserves_new_selection_and_scroll
 
     opener = Mock(side_effect=open_url)
     monkeypatch.setattr(app_module, "open_link", opener)
+    # One link long enough that PgDn stops well short of the bottom: the pane
+    # grows a row when the result line shrinks, which must not move it. More
+    # links would make O open the picker instead of the link.
     machines = list(MACHINES) + [
         Machine(
             f"demo-{i}",
             "Long name " * 50,
             alias="host",
-            links=(Link("Repository", "https://example.invalid/" + "path/" * 100),),
+            links=(Link("Repository", "https://example.invalid/" + "path/" * 300),),
         )
         for i in range(30)
     ]

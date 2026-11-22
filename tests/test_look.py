@@ -363,10 +363,34 @@ async def test_list_width_is_two_fifths_clamped(width: int, list_width: int) -> 
         assert details_pane.region.x == list_pane.region.right
 
 
+# The size matrix's machines; the first has every details row and three links,
+# two of which wrap at 80 columns.
+MATRIX_MACHINES = (
+    Machine(
+        "studio-box",
+        "Studio box",
+        user="studio",
+        addresses=("studio-box.example.com", "192.0.2.40"),
+        port=2222,
+        key="~/.ssh/id_ed25519_studio_box",
+        links=(
+            Link("Dashboard", "https://192.0.2.40:8006"),
+            Link("Status page", "https://studio-box.example.com/status"),
+            Link(
+                "Grafana",
+                "https://grafana.example.com/d/fictional-studio-overview?orgId=1&refresh=30s",
+            ),
+        ),
+    ),
+    Machine("garden-demo", "Garden demo", alias="garden-host"),
+    Machine("lab", "Lab", addresses=("192.0.2.50",)),
+)
+
+
 async def test_scrollbars_are_one_column() -> None:
-    # Size (80, 16) with tests/test_app.py's MACHINES: the details overflow, so
-    # the scrollbar is drawn.
-    app = SSHWorkbenchApp(APP_MACHINES, checker=FakeChecker())
+    # Size (80, 16) with MATRIX_MACHINES: the first machine's five rows and its
+    # three wrapping links take 13 lines in 11, so the scrollbar is drawn.
+    app = SSHWorkbenchApp(MATRIX_MACHINES, checker=FakeChecker())
     async with app.run_test(size=(80, 16)) as pilot:
         await pilot.pause()
         details = app.query_one("#machine-details", VerticalScroll)
@@ -1073,26 +1097,6 @@ async def test_result_line_recomputes_on_resize() -> None:
 
 # The size matrix, defined once in the capture script.
 SIZES = load_capture_look().SIZES
-MATRIX_MACHINES = (
-    Machine(
-        "studio-box",
-        "Studio box",
-        user="studio",
-        addresses=("studio-box.example.com", "192.0.2.40"),
-        port=2222,
-        key="~/.ssh/id_ed25519_studio_box",
-        links=(
-            Link("Dashboard", "https://192.0.2.40:8006"),
-            Link("Status page", "https://studio-box.example.com/status"),
-            Link(
-                "Grafana",
-                "https://grafana.example.com/d/fictional-studio-overview?orgId=1&refresh=30s",
-            ),
-        ),
-    ),
-    Machine("garden-demo", "Garden demo", alias="garden-host"),
-    Machine("lab", "Lab", addresses=("192.0.2.50",)),
-)
 
 
 def assert_tiled(app: SSHWorkbenchApp, width: int, height: int) -> None:
