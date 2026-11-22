@@ -6,14 +6,20 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+| Task | Branch | Delivers | Acceptance |
+| --- | --- | --- | --- |
+| 29 | `feat/task29-list-and-details` | Row marker, selection bands, targets from 100 columns, columns from 130, position counter, the details rows and links block, narrow stacking | Tests for each row form, unset rows omitted, URL wrapping at the URL column, the counter following selection and deletes |
 
 ## Next
 
-Tasks 29 and 30 follow from
-[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks):
-29 list and details content, 30 forms and pickers. Each starts as its own
-task.
+Task 30, forms and pickers, follows from
+[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks)
+and starts as its own task.
+
+- Dependency update (pytest, pytest-asyncio, ruff; check uv, the CI action
+  and the Python patch), its own pull request after Task 29.
+- Scoped refactor: split `app.py` into modules and remove the parser copy in
+  `exports.py`, behavior unchanged, after Task 30 and its release.
 
 ## Backlog
 
