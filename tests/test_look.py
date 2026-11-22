@@ -574,8 +574,14 @@ async def test_text_colors_reach_four_and_a_half_to_one() -> None:
             | {word.lstrip("$") for _, word in STATE_COLORS.values()}
             | {symbol.lstrip("$") for symbol, _ in STATE_COLORS.values()}
         )
+        # Selected rows draw these on both selection bands.
+        on_bands = {"foreground", "text-muted"} | {
+            symbol.lstrip("$") for symbol, _ in STATE_COLORS.values()
+        }
+        bands = ("block-cursor-background", "block-cursor-blurred-background")
         for name in foregrounds:
-            for surface in ("background", "surface", "panel"):
+            surfaces = ("background", "surface", "panel")
+            for surface in surfaces + (bands if name in on_bands else ()):
                 ratio = contrast(
                     Color.parse(variables[name]), Color.parse(variables[surface])
                 )
@@ -1176,3 +1182,224 @@ async def test_empty_screen_scrolls_to_its_last_line() -> None:
         await wait_for(pilot, lambda: empty.scroll_y == empty.max_scroll_y)
         await pilot.pause()
         assert empty.region.contains_region(last.region)
+
+
+# Task 29: list rows.
+
+
+def row_texts(app: SSHWorkbenchApp, selector: str) -> list[str]:
+    return [widget.render().plain for widget in app.query(selector)]
+
+
+def bold(widget) -> bool:
+    return any(
+        segment.style and segment.style.bold for segment in widget.render_line(0)
+    )
+
+
+async def test_the_marker_sits_in_column_0_of_the_selected_row() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        variables = app.get_css_variables()
+        list_pane = app.query_one("#list-pane")
+        markers = list(app.query(app_module.RowMarker))
+        assert len(markers) == 4
+        assert [m.styles.visibility for m in markers] == [
+            "visible",
+            "hidden",
+            "hidden",
+            "hidden",
+        ]
+        marker = markers[0]
+        assert marker.render().plain == "▌"
+        assert marker.region.x == list_pane.region.x
+        assert marker.region.width == 1
+        assert marker.styles.color == Color.parse(variables["primary"])
+        first = app.query_one(ListView).children[0]
+        assert first.query_one(StatusSymbol).region.x == 1
+        assert first.query_one(Static).region.x == 3
+        # The marker stays when the list loses focus.
+        await pilot.press("tab")
+        await pilot.pause()
+        assert marker.styles.visibility == "visible"
+        await pilot.press("shift+tab", "down")
+        await pilot.pause()
+        assert [m.styles.visibility for m in markers] == [
+            "hidden",
+            "visible",
+            "hidden",
+            "hidden",
+        ]
+
+
+async def test_the_selection_band_follows_focus_and_only_the_name_is_bold() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(120, 30)) as pilot:
+        await pilot.pause()
+        variables = app.get_css_variables()
+        focused = Color.parse(variables["block-cursor-background"])
+        blurred = Color.parse(variables["block-cursor-blurred-background"])
+        machine_list = app.query_one(ListView)
+        highlighted, other = machine_list.children[0], machine_list.children[1]
+        assert highlighted.background_colors[1] == focused
+        assert other.background_colors[1] != focused
+        name = highlighted.query_one(Static)
+        assert bold(name)
+        for part in (
+            highlighted.query_one(app_module.RowMarker),
+            highlighted.query_one(StatusSymbol),
+            highlighted.query_one(".row-target"),
+        ):
+            assert not bold(part), part
+        await pilot.press("tab")
+        await pilot.pause()
+        assert highlighted.background_colors[1] == blurred
+        assert not bold(name)
+
+
+async def test_selection_bands_keep_text_and_symbols_readable() -> None:
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)):
+        variables = app.get_css_variables()
+
+        def color(name: str) -> Color:
+            return Color.parse(variables[name])
+
+        focused = color("block-cursor-background")
+        blurred = color("block-cursor-blurred-background")
+        surface = color("surface")
+        texts = {
+            "block-cursor-foreground",
+            "block-cursor-blurred-foreground",
+            "text-muted",
+        } | {symbol.lstrip("$") for symbol, _ in STATE_COLORS.values()}
+        for band in (focused, blurred):
+            for name in sorted(texts):
+                ratio = contrast(color(name), band)
+                assert ratio >= 4.5, (name, band, ratio)
+        # The marker is the non-color cue.
+        for background in (surface, focused, blurred):
+            ratio = contrast(color("primary"), background)
+            assert ratio >= 3, (background, ratio)
+        assert luminance(focused) > luminance(blurred) > luminance(surface)
+        # The focused list tints its unselected rows' surface to #1F242D.
+        assert contrast(focused, Color.parse("#1F242D")) >= 1.25
+        assert contrast(blurred, surface) >= 1.15
+        assert contrast(focused, blurred) >= 1.2
+
+
+async def test_row_targets_follow_the_online_address() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(120, 40)) as pilot:
+        await checked(app, pilot)
+        await wait_for(
+            pilot,
+            lambda: (
+                row_texts(app, ".row-target")
+                == ["garden-host", "192.0.2.40", "192.0.2.50", "hop-host"]
+            ),
+        )
+        await pilot.pause()
+        studio = app.query_one(ListView).children[1]
+        target = studio.query_one(".row-target")
+        # The width follows the new text: the address plus the one-cell gap.
+        assert target.region.width == len("192.0.2.40") + 1
+        assert target.region.right == studio.content_region.right
+
+
+def column_machines(count: int) -> tuple[Machine, ...]:
+    """One alias, then direct machines; every second one has a user."""
+    direct = tuple(
+        Machine(
+            f"m{i:02}",
+            f"Machine {i:02}",
+            addresses=(f"192.0.2.{i}",),
+            user="admin" if i % 2 == 0 else None,
+        )
+        for i in range(1, count)
+    )
+    return (Machine("alias", "Alias", alias="alias-host"), *direct)
+
+
+@pytest.mark.parametrize("count", [5, 60])
+@pytest.mark.parametrize("size", [(130, 40), (160, 50), (200, 60)])
+async def test_xwide_rows_line_up_under_a_column_header(
+    size: tuple[int, int], count: int
+) -> None:
+    machines = column_machines(count)
+    app = SSHWorkbenchApp(machines)
+    async with app.run_test(size=size) as pilot:
+        await pilot.pause()
+        machine_list = app.query_one(ListView)
+        columns = app.query_one("#list-columns")
+        assert columns.region.height == 1
+        assert columns.region.y == app.query_one("#list-label").region.bottom
+        assert columns.region.bottom == machine_list.region.y
+        assert [str(s.content) for s in columns.query(Static)] == [
+            "",
+            "name",
+            "target",
+            "user",
+        ]
+        heads = [
+            columns.query_one(f".col-{part}").region
+            for part in ("name", "target", "user")
+        ]
+        rows = [
+            item
+            for item in machine_list.children
+            if machine_list.region.contains_region(item.region)
+        ]
+        assert rows
+        for item in rows:
+            parts = (
+                item.query_one(Static).region,
+                item.query_one(".row-target").region,
+                item.query_one(".row-user").region,
+            )
+            assert [(p.x, p.width) for p in parts] == [(h.x, h.width) for h in heads], (
+                item
+            )
+        assert row_texts(app, ".row-user") == [
+            machine.user if machine.user and not machine.alias else ""
+            for machine in machines
+        ]
+        assert len(machine_list.children) == count
+        await pilot.resize_terminal(120, 30)
+        await pilot.pause()
+        assert app.query_one("#list-columns").region.width == 0
+        assert not any(user.region.width for user in app.query(".row-user"))
+        for item in machine_list.children:
+            if not machine_list.region.contains_region(item.region):
+                continue
+            target = item.query_one(".row-target").region
+            assert target.right == item.content_region.right
+            assert target.width <= item.content_region.width // 2
+
+
+async def test_the_position_follows_selection_and_deletes(tmp_path: Path) -> None:
+    app = saved_app(tmp_path, MACHINES)
+
+    def position() -> str:
+        found = app.query("#list-position")
+        return str(found.first(Static).content) if found else ""
+
+    async def delete() -> None:
+        old_list = app.query_one("#machine-list", ListView)
+        await pilot.press("x")
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
+        await pilot.press("y")
+        await wait_for(pilot, lambda: rebuilt(app, old_list))
+
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        assert position() == "1/4"
+        await pilot.press("down")
+        await wait_for(pilot, lambda: position() == "2/4")
+        await delete()
+        await wait_for(pilot, lambda: position() == "2/3")
+        await pilot.press("down")
+        await wait_for(pilot, lambda: position() == "3/3")
+        await delete()
+        await wait_for(pilot, lambda: position() == "2/2")
