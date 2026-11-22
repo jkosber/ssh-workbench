@@ -659,6 +659,8 @@ class SSHWorkbenchApp(App[None]):
         # columns past a 45-column terminal.
         Binding("r,R", "refresh", "check"),
         Binding("question_mark", "toggle_key_panel", "keys"),
+        # Escape closes the key panel; a modal's own Escape runs first.
+        Binding("escape", "close_key_panel", "close", show=False),
         Binding("q,Q", "quit", "quit"),
         Binding("ctrl+q", "quit", "quit", show=False),
     ]
@@ -848,7 +850,7 @@ class SSHWorkbenchApp(App[None]):
         padding: 1 2;
         scrollbar-size-vertical: 1;
         scrollbar-color: $divider;
-        scrollbar-background: $surface;
+        scrollbar-background: $background;
     }
     #empty-state Static {
         color: $text-muted;
@@ -1632,6 +1634,8 @@ class SSHWorkbenchApp(App[None]):
             # Dimmed, not hidden, so the footer keeps its keys during a
             # rebuild or a connect.
             return True if self._browsing() else None
+        if action == "close_key_panel":
+            return self._browsing() and bool(self.query(HelpPanel))
         if action == "refresh":
             ready = (
                 self.checker is not None
@@ -1720,6 +1724,12 @@ class SSHWorkbenchApp(App[None]):
             panels.remove()
         else:
             self.query_one("#panes").mount(KeyHelp())
+
+    def action_close_key_panel(self) -> None:
+        """Close the key panel, which Escape does as well as a second ?."""
+        if self.check_action("close_key_panel", ()) is not True:
+            return
+        self.query(HelpPanel).remove()
 
     def action_add(self) -> None:
         if self.check_action("add", ()) is not True:
