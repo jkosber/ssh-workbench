@@ -93,7 +93,7 @@ async def test_delete_keeps_the_next_machine_on_screen(tmp_path: Path) -> None:
         assert len(machine_list.children) == 23
         assert machine_list.index == SELECTED
         assert machine_list.highlighted_child is machine_list.children[SELECTED]
-        assert str(app.query_one("#machine-id", Static).content) == "demo-21"
+        assert str(app.query_one("#details-id", Static).content) == "demo-21"
         assert SELECTED in rows_on_screen(machine_list)
 
 
@@ -114,5 +114,5 @@ async def test_edit_keeps_the_edited_machine_on_screen(tmp_path: Path) -> None:
         assert len(machine_list.children) == 24
         assert machine_list.index == SELECTED
         assert machine_list.highlighted_child is machine_list.children[SELECTED]
-        assert str(app.query_one("#machine-name", Static).content) == "Demo 20 renamed"
+        assert str(app.query_one("#details-name", Static).content) == "Demo 20 renamed"
         assert SELECTED in rows_on_screen(machine_list)

@@ -1,6 +1,7 @@
 """The look: theme, header summary and the layout at each terminal size."""
 
 import asyncio
+import threading
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -9,7 +10,7 @@ from support import TWO_MACHINES as APP_MACHINES
 from support import empty_lines, empty_text, handoff, load_capture_look
 from textual.color import Color
 from textual.containers import VerticalScroll
-from textual.content import Span
+from textual.content import Content, Span
 from textual.widgets import (
     Footer,
     HelpPanel,
@@ -28,11 +29,15 @@ from ssh_workbench.app import (
     Glyph,
     KeyFooter,
     KeyTable,
+    LinkBlock,
     ResultLine,
     ResultSlot,
     SSHWorkbenchApp,
     StatusSymbol,
+    details_width,
+    link_lines,
     state_css,
+    wrap_url,
 )
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
 from ssh_workbench.forms import ConfirmDelete, MachineForm
@@ -517,7 +522,8 @@ async def test_details_fit_at_80x24_without_scrolling() -> None:
         await pilot.pause()
         _, pane = panes(app)
         assert pane.max_scroll_y == 0
-        assert pane.region.contains_region(app.query_one("#machine-links").region)
+        block = app.query_one("#machine-links", LinkBlock)
+        assert pane.region.contains_region(block.region)
 
 
 async def test_the_status_value_is_colored_by_its_state() -> None:
@@ -1067,6 +1073,26 @@ async def test_result_line_recomputes_on_resize() -> None:
 
 # The size matrix, defined once in the capture script.
 SIZES = load_capture_look().SIZES
+MATRIX_MACHINES = (
+    Machine(
+        "studio-box",
+        "Studio box",
+        user="studio",
+        addresses=("studio-box.example.com", "192.0.2.40"),
+        port=2222,
+        key="~/.ssh/id_ed25519_studio_box",
+        links=(
+            Link("Dashboard", "https://192.0.2.40:8006"),
+            Link("Status page", "https://studio-box.example.com/status"),
+            Link(
+                "Grafana",
+                "https://grafana.example.com/d/fictional-studio-overview?orgId=1&refresh=30s",
+            ),
+        ),
+    ),
+    Machine("garden-demo", "Garden demo", alias="garden-host"),
+    Machine("lab", "Lab", addresses=("192.0.2.50",)),
+)
 
 
 def assert_tiled(app: SSHWorkbenchApp, width: int, height: int) -> None:
@@ -1088,7 +1114,7 @@ def assert_tiled(app: SSHWorkbenchApp, width: int, height: int) -> None:
 @pytest.mark.parametrize("size", SIZES, ids=[f"{w}x{h}" for w, h in SIZES])
 async def test_size_matrix_holds(size: tuple[int, int]) -> None:
     width, height = size
-    app = SSHWorkbenchApp(APP_MACHINES, checker=FakeChecker())
+    app = SSHWorkbenchApp(MATRIX_MACHINES, checker=FakeChecker())
     async with app.run_test(size=size) as pilot:
         await checked(app, pilot)
         # Under 60 columns the first paint keeps the side-by-side arrangement
@@ -1117,7 +1143,7 @@ async def test_size_matrix_holds(size: tuple[int, int]) -> None:
             assert list_pane.width <= width // 2
         # M1: a row shows where its machine connects from 100 columns.
         targets = list(app.query(".row-target"))
-        assert len(targets) == len(APP_MACHINES)
+        assert len(targets) == len(MATRIX_MACHINES)
         if width >= 100:
             assert all(target.region.width > 0 for target in targets)
         else:
@@ -1125,22 +1151,25 @@ async def test_size_matrix_holds(size: tuple[int, int]) -> None:
         details = app.query_one("#machine-details", VerticalScroll)
         view = details.scrollable_content_region
         fields = list(details.query(".field-row"))
+        block = app.query_one("#machine-links", LinkBlock)
         if size == (80, 24):
             assert details.max_scroll_y == 0
         if size == (60, 20):
-            # The details scroll, and scrolled into view every row is whole:
-            # none is cut at the pane's right edge or taller than the pane.
+            # The details scroll but never clip: nothing is cut at the pane's
+            # right edge, and the last line can be scrolled into view.
             assert details.max_scroll_y > 0
-            for row in fields:
-                details.scroll_to_widget(row, animate=False)
-                await pilot.pause()
-                assert view.contains_region(row.region), row.region
+            assert details.max_scroll_x == 0
+            for part in (*fields, block):
+                assert part.region.right <= view.right, part
+            details.scroll_end(animate=False, immediate=True)
+            await pilot.pause()
+            assert block.region.bottom == view.bottom
             details.scroll_home(animate=False)
             await pilot.pause()
         if size == (80, 50):
             # The list keeps one-row items and the details start at the top.
             heights = [item.region.height for item in app.query(ListItem)]
-            assert heights == [1] * len(APP_MACHINES)
+            assert heights == [1] * len(MATRIX_MACHINES)
             assert fields[0].region.y == view.y
         # Idle, the result line is one row at every size; two long results
         # fill it to its cap.
@@ -1467,3 +1496,361 @@ async def test_the_position_follows_selection_and_deletes(tmp_path: Path) -> Non
         await wait_for(pilot, lambda: position() == "3/3")
         await delete()
         await wait_for(pilot, lambda: position() == "2/2")
+
+
+# The details: five rows, the links block, stacked labels and the long ID.
+
+GRAFANA = "https://grafana.example.com/d/fictional-studio-overview?orgId=1&refresh=30s"
+
+
+def details_labels(app: SSHWorkbenchApp) -> list[str]:
+    """The labels of the details rows that are shown, in order."""
+    return [
+        str(label.content)
+        for label in app.query_one("#machine-details").query(".field-label")
+        if label.region.height
+    ]
+
+
+def value(app: SSHWorkbenchApp, row: str) -> str:
+    return str(app.query_one(f"#machine-{row}", Static).content)
+
+
+def block_lines(app: SSHWorkbenchApp) -> list[str]:
+    rendered = app.query_one("#machine-links", LinkBlock).render()
+    return [line.rstrip() for line in rendered.plain.split("\n")]
+
+
+def plain_lines(lines: list[Content]) -> list[str]:
+    return [line.plain.rstrip() for line in lines]
+
+
+async def selected(app: SSHWorkbenchApp, pilot, machine_id: str) -> None:
+    await wait_for(
+        pilot, lambda: str(app.query_one("#details-id", Static).content) == machine_id
+    )
+    await pilot.pause()
+
+
+@pytest.mark.parametrize(
+    ("text", "width", "lines"),
+    [
+        ("https://192.0.2.40:8006", 30, ["https://192.0.2.40:8006"]),
+        ("https://example.com/garden.git", 28, ["https://example.com", "/garden.git"]),
+        (
+            GRAFANA,
+            30,
+            [
+                "https://grafana.example.com/d",
+                "/fictional-studio-overview",
+                "?orgId=1&refresh=30s",
+            ],
+        ),
+        ("a" * 70, 30, ["a" * 30, "a" * 30, "a" * 10]),
+        ("https://example.com", 8, ["https://", "example.", "com"]),
+    ],
+)
+async def test_wrap_url(text: str, width: int, lines: list[str]) -> None:
+    assert wrap_url(text, width) == lines
+    assert "".join(lines) == text
+    assert all(Content(line).cell_length <= width for line in lines)
+
+
+async def test_link_lines() -> None:
+    links = (
+        Link("Dashboard", "https://192.0.2.40:8006"),
+        Link("Status page", "https://studio-box.example.com/status"),
+    )
+    assert plain_lines(link_lines(links, 45, stacked=False)) == [
+        "  Dashboard    https://192.0.2.40:8006",
+        "  Status page  https://studio-box.example.com",
+        "               /status",
+    ]
+    assert plain_lines(link_lines(links, 33, stacked=True)) == [
+        "Dashboard",
+        "  https://192.0.2.40:8006",
+        "Status page",
+        "  https://studio-box.example.com",
+        "  /status",
+    ]
+    # A 25-character name: the column stops at 20 cells and the name ends in
+    # an ellipsis.
+    name = "Fictional dashboard links"
+    assert len(name) == 25
+    (line,) = link_lines((Link(name, "https://example.com"),), 45, stacked=False)
+    assert line.plain == "  Fictional dashboard…  https://example.com"
+    # A 200-character URL without a separator keeps every character.
+    url = "a" * 200
+    lines = link_lines((Link("Long", url),), 33, stacked=True)
+    assert lines[0].plain == "Long"
+    assert all(line.plain.startswith("  ") for line in lines[1:])
+    assert "".join(line.plain[2:] for line in lines[1:]) == url
+    assert all(line.cell_length <= 33 for line in lines)
+    # Double-width names never push a line past the width.
+    wide = (
+        Link("東京" * 5, "https://example.com/" + "東京/" * 20),
+        Link(name, "https://example.com/" + "b" * 80),
+    )
+    for width, stacked in ((45, False), (33, True)):
+        lines = link_lines(wide, width, stacked)
+        assert all(line.cell_length <= width for line in lines), (width, stacked)
+    assert link_lines(wide, 45, stacked=False)[0].plain.startswith("  " + "東京" * 5)
+
+
+async def test_details_rows_of_a_direct_machine() -> None:
+    app = SSHWorkbenchApp(APP_MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.press("down")
+        await selected(app, pilot, "studio-box")
+        assert details_labels(app) == ["status", "connect", "key", "addresses", "links"]
+        muted = Color.parse(app.get_css_variables()["text-muted"])
+        labels = [
+            label
+            for label in app.query_one("#machine-details").query(".field-label")
+            if label.region.height
+        ]
+        for label in labels:
+            assert label.region.width == 11
+            assert label.styles.color == muted
+            assert not label.styles.text_style.bold
+            assert not any(
+                segment.style and segment.style.bold for segment in label.render_line(0)
+            )
+        assert value(app, "status") == "· not checked"
+        assert value(app, "connect") == "direct · studio@studio.example:2222"
+        assert value(app, "key") == "~/.ssh/id_ed25519_studio"
+        assert value(app, "addresses") == "studio.example\n192.0.2.40"
+        assert value(app, "links-none") == "none"
+        assert app.query_one("#machine-links-none").region.height == 1
+        assert app.query_one("#machine-links", LinkBlock).region.height == 0
+
+
+async def test_details_rows_of_an_alias_machine() -> None:
+    app = SSHWorkbenchApp(APP_MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "garden-demo")
+        assert details_labels(app) == ["status", "connect", "links"]
+        assert value(app, "connect") == "alias · garden-demo-host"
+        assert app.query_one("#machine-links-none").region.height == 0
+        assert block_lines(app) == [
+            "  Repository     https://example.com",
+            "                 /garden.git",
+            "  Documentation  https://example.com/garden",
+            "                 /docs",
+        ]
+        assert app.query_one("#machine-links", LinkBlock).region.height == 4
+
+
+async def test_unset_rows_are_left_out() -> None:
+    app = SSHWorkbenchApp([Machine("plain-box", "Plain", addresses=("plain.example",))])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "plain-box")
+        assert details_labels(app) == ["status", "connect", "addresses", "links"]
+        assert app.query_one("#machine-key-row").region.height == 0
+        texts = [
+            str(widget.content)
+            for widget in app.query_one("#details-pane").query(Static)
+        ]
+        texts.append(app.query_one("#machine-links", LinkBlock).render().plain)
+        for gone in ("Not set", "From your SSH config", "None"):
+            assert not any(gone in text for text in texts), gone
+
+
+@pytest.mark.parametrize(
+    ("machine", "connect"),
+    [
+        (Machine("box", "Box", addresses=("192.0.2.20",)), "direct · 192.0.2.20"),
+        (
+            Machine("box", "Box", user="admin", addresses=("192.0.2.20",)),
+            "direct · admin@192.0.2.20",
+        ),
+        (
+            Machine("box", "Box", addresses=("192.0.2.20",), port=2222),
+            "direct · 192.0.2.20:2222",
+        ),
+        (
+            Machine("box", "Box", user="admin", addresses=("192.0.2.20",), port=2222),
+            "direct · admin@192.0.2.20:2222",
+        ),
+        (
+            Machine("box", "Box", addresses=("2001:db8::1",), port=2222),
+            "direct · [2001:db8::1]:2222",
+        ),
+        (Machine("box", "Box", addresses=("2001:db8::1",)), "direct · 2001:db8::1"),
+        (
+            Machine("box", "Box", addresses=("192.0.2.20",), export_alias=True),
+            "direct · 192.0.2.20 · exported as ssh box",
+        ),
+        (Machine("box", "Box", alias="garden-host"), "alias · garden-host"),
+    ],
+)
+async def test_connect_row_forms(machine: Machine, connect: str) -> None:
+    app = SSHWorkbenchApp([machine])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "box")
+        assert value(app, "connect") == connect
+
+
+class HeldChecker(FakeChecker):
+    """FakeChecker's answers once `release` is set."""
+
+    def __init__(self) -> None:
+        self.release = threading.Event()
+
+    def port_open(self, host: str, port: int) -> bool:
+        assert self.release.wait(10)
+        return super().port_open(host, port)
+
+
+async def test_the_status_detail_is_muted_and_the_connect_row_follows_the_check() -> (
+    None
+):
+    checker = HeldChecker()
+    app = SSHWorkbenchApp(MACHINES, checker=checker)
+    try:
+        async with app.run_test(size=(80, 24)) as pilot:
+            app.query_one(ListView).index = 1
+            await selected(app, pilot, "studio")
+            assert value(app, "connect") == "direct · 10.0.0.1:2222"
+            checker.release.set()
+            await checked(app, pilot)
+            await wait_for(pilot, lambda: value(app, "status") != "▖ checking")
+            status = app.query_one("#machine-status", Static).content
+            assert isinstance(status, Content)
+            assert status.plain == "● online · 192.0.2.40"
+            assert [
+                (status.plain[span.start : span.end], span.style)
+                for span in status.spans
+            ] == [(" · 192.0.2.40", "$text-muted")]
+            assert value(app, "connect") == "direct · 192.0.2.40:2222"
+    finally:
+        checker.release.set()
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        app.query_one(ListView).index = 1
+        await selected(app, pilot, "studio")
+        assert value(app, "connect") == "direct · 10.0.0.1:2222"
+
+
+TWELVE_LINKS = Machine(
+    "many",
+    "Many links",
+    user="admin",
+    addresses=("192.0.2.70",),
+    links=tuple(
+        Link(f"Link {number}", f"https://example.com/fictional/{number:02}/overview")
+        for number in range(1, 13)
+    ),
+)
+
+
+async def test_links_block_follows_selection() -> None:
+    app = SSHWorkbenchApp((TWELVE_LINKS, Machine("bare", "Bare", alias="bare-host")))
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "many")
+        details = app.query_one("#machine-details", VerticalScroll)
+        block = app.query_one("#machine-links", LinkBlock)
+        none = app.query_one("#machine-links-none", Static)
+
+        def first_machine_shown() -> None:
+            lines = link_lines(TWELVE_LINKS.links, block.size.width, stacked=False)
+            assert len(lines) > 12
+            assert block.region.height == len(lines)
+            assert none.region.height == 0
+            assert details.max_scroll_y > 0
+
+        first_machine_shown()
+        details.scroll_end(animate=False, immediate=True)
+        assert details.scroll_y > 0
+        await pilot.press("down")
+        await pilot.pause()
+        assert block.region.height == 0
+        assert none.region.height == 1
+        assert str(none.content) == "none"
+        assert details.max_scroll_y == 0
+        assert details.scroll_y == 0
+        await pilot.press("up")
+        await pilot.pause()
+        first_machine_shown()
+        assert details.scroll_y == 0
+
+
+def assert_arrangement(app: SSHWorkbenchApp, stacked: bool) -> None:
+    """Every shown label sits above its value when stacked, else beside it;
+    the links block follows the labels."""
+    details = app.query_one("#machine-details")
+    assert details.has_class("-stacked") is stacked
+    assert app.query_one("#machine-links", LinkBlock).stacked is stacked
+    pairs = [
+        (row.query_one(".field-label").region, shown.region)
+        for row in details.query(".field-row")
+        if row.display
+        for shown in row.query(".field-value")
+        if shown.display
+    ]
+    assert len(pairs) == 4
+    for label, shown in pairs:
+        if stacked:
+            assert label.y < shown.y and label.x == shown.x, (label, shown)
+        else:
+            assert label.y == shown.y and label.right <= shown.x, (label, shown)
+
+
+async def test_labels_stack_when_the_details_pane_is_under_48(tmp_path: Path) -> None:
+    app = saved_app(tmp_path, MATRIX_MACHINES)
+    async with app.run_test(size=(60, 20)) as pilot:
+        await selected(app, pilot, "studio-box")
+        assert_arrangement(app, stacked=True)
+        await rename_first(app, pilot, "Studio box two")
+        assert str(app.query_one("#details-name", Static).content) == "Studio box two"
+        assert_arrangement(app, stacked=True)
+        for width, stacked in (
+            (80, False),
+            (78, True),
+            (80, False),
+            (50, False),
+            (80, False),
+            (60, True),
+        ):
+            await pilot.resize_terminal(width, 24)
+            await pilot.pause()
+            await pilot.pause()
+            assert (details_width(width) < 48) is stacked
+            assert_arrangement(app, stacked)
+
+
+@pytest.mark.parametrize(
+    "width", [40, 50, 59, 60, 70, 79, 80, 81, 100, 129, 130, 160, 200]
+)
+async def test_details_width_matches_the_layout(width: int) -> None:
+    app = SSHWorkbenchApp(APP_MACHINES)
+    async with app.run_test(size=(width, 24)) as pilot:
+        await pilot.pause()
+        await pilot.pause()
+        assert details_width(width) == app.query_one("#details-pane").region.width
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20)])
+async def test_a_long_id_ends_at_the_label_edge(size: tuple[int, int]) -> None:
+    long_id = "fictional-" + "x" * 120
+    name = "A sixty-column machine name that fills the label to its edge"
+    assert (len(long_id), len(name)) == (130, 60)
+    app = SSHWorkbenchApp(
+        [
+            Machine(long_id, name, addresses=("192.0.2.60",)),
+            Machine("short", name, addresses=("192.0.2.61",)),
+        ]
+    )
+    async with app.run_test(size=size) as pilot:
+        await selected(app, pilot, long_id)
+        label = app.query_one("#details-label").content_region
+        id_widget = app.query_one("#details-id", Static)
+        name_widget = app.query_one("#details-name", Static)
+        assert id_widget.region.right == label.right
+        assert id_widget.render_line(0).text.rstrip().endswith("…")
+        assert name_widget.region.width * 2 >= label.width
+        assert not name_widget.region.overlaps(id_widget.region)
+        await pilot.press("down")
+        await selected(app, pilot, "short")
+        assert id_widget.region.width == len("short")
+        assert id_widget.region.right == label.right

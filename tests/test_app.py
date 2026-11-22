@@ -9,7 +9,7 @@ from textual.containers import VerticalScroll
 from textual.content import Content
 from textual.widgets import Footer, ListView, Static
 
-from ssh_workbench.app import SSHWorkbenchApp
+from ssh_workbench.app import LinkBlock, SSHWorkbenchApp
 from ssh_workbench.config import Link, Machine, parse_machines
 
 pytestmark = [
@@ -17,38 +17,53 @@ pytestmark = [
     pytest.mark.usefixtures("no_external_actions", "no_app_connections"),
 ]
 
+# None marks a row that is hidden: `links` is the links block, `links-none`
+# the links row's value.
 EXPECTED_DETAILS = (
     {
-        "id": "garden-demo",
         "name": "Garden demo",
-        "connection": "SSH alias",
-        "target-label": "SSH alias",
-        "target": "garden-demo-host",
-        "user": "From your SSH config",
-        "port": "From your SSH config",
-        "key": "From your SSH config",
-        "links": "Repository: https://example.com/garden.git\n"
-        "Documentation: https://example.com/garden/docs",
+        "id": "garden-demo",
+        "status": "· not checked",
+        "connect": "alias · garden-demo-host",
+        "key": None,
+        "addresses": None,
+        "links": "  Repository     https://example.com\n"
+        "                 /garden.git\n"
+        "  Documentation  https://example.com/garden\n"
+        "                 /docs",
+        "links-none": None,
     },
     {
-        "id": "studio-box",
         "name": "Studio box",
-        "connection": "Direct",
-        "target-label": "Addresses",
-        "target": "studio.example\n192.0.2.40",
-        "user": "studio",
-        "port": "2222",
+        "id": "studio-box",
+        "status": "· not checked",
+        "connect": "direct · studio@studio.example:2222",
         "key": "~/.ssh/id_ed25519_studio",
-        "links": "None",
+        "addresses": "studio.example\n192.0.2.40",
+        "links": None,
+        "links-none": "none",
     },
 )
 
 
-def details(app: SSHWorkbenchApp) -> dict[str, str]:
-    return {
-        field: str(app.query_one(f"#machine-{field}", Static).content)
-        for field in EXPECTED_DETAILS[0]
+def details(app: SSHWorkbenchApp) -> dict[str, str | None]:
+    """The label row and the five details rows; None for a hidden row."""
+    shown: dict[str, str | None] = {
+        field: str(app.query_one(f"#details-{field}", Static).content)
+        for field in ("name", "id")
     }
+    for row in ("status", "connect", "key", "addresses"):
+        visible = app.query_one(f"#machine-{row}-row").display
+        widget = app.query_one(f"#machine-{row}", Static)
+        shown[row] = str(widget.content) if visible else None
+    block = app.query_one("#machine-links", LinkBlock)
+    lines = block.render().plain.split("\n")
+    shown["links"] = (
+        "\n".join(line.rstrip() for line in lines) if block.display else None
+    )
+    none = app.query_one("#machine-links-none", Static)
+    shown["links-none"] = str(none.content) if none.display else None
+    return shown
 
 
 def empty_spans(app: SSHWorkbenchApp) -> list[tuple[int, str, str]]:
@@ -166,21 +181,22 @@ async def test_initial_selection_order_and_keyboard_details() -> None:
         assert not app.query_one("#details-pane").has_class("-focused")
 
 
-async def test_direct_machine_without_optional_fields_shows_not_set() -> None:
+async def test_direct_machine_without_optional_fields_leaves_unset_rows_out() -> None:
     app = SSHWorkbenchApp([Machine("plain-box", "Plain", addresses=("plain.example",))])
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
         assert details(app) == {
-            "id": "plain-box",
             "name": "Plain",
-            "connection": "Direct",
-            "target-label": "Addresses",
-            "target": "plain.example",
-            "user": "Not set",
-            "port": "Not set",
-            "key": "Not set",
-            "links": "None",
+            "id": "plain-box",
+            "status": "· not checked",
+            "connect": "direct · plain.example",
+            "key": None,
+            "addresses": "plain.example",
+            "links": None,
+            "links-none": "none",
         }
+        assert app.query_one("#machine-key-row").region.height == 0
+        assert app.query_one("#machine-links", LinkBlock).region.height == 0
 
 
 @pytest.mark.parametrize(
@@ -217,21 +233,30 @@ async def test_names_are_literal_and_controls_are_visible(
     async with app.run_test(size=(80, 24)) as pilot:
         widgets = [
             app.query_one(ListView).query_one(Static),
-            app.query_one("#machine-name", Static),
+            app.query_one("#details-name", Static),
         ]
         for widget in widgets:
             rendered = widget.render()
             assert isinstance(rendered, Content)
             assert rendered.plain == shown
             assert not rendered.spans
-        rendered = app.query_one("#machine-links", Static).render()
+        rendered = app.query_one("#machine-links", LinkBlock).render()
         assert isinstance(rendered, Content)
-        assert rendered.plain == (
-            "[bold]Repo[/bold]: https://example.com/[bold]repo[/bold]\n"
-            f"{shown}: https://example.com/[link=docs]"
+        lines = rendered.plain.split("\n")
+        # Each name starts its link's first line, literal, cut to the 20-cell
+        # column; the URL column holds both URLs, literal and in order.
+        firsts = [line for line in lines if not line.startswith("      ")]
+        assert len(firsts) == 2
+        names = [line[2 : line.index("  https://")].rstrip() for line in firsts]
+        assert names == [
+            "[bold]Repo[/bold]",
+            str(Content(shown).truncate(20, ellipsis=True)),
+        ]
+        assert "".join(line.split()[-1] for line in lines) == (
+            "https://example.com/[bold]repo[/bold]https://example.com/[link=docs]"
         )
         assert not rendered.spans
-        await pilot.click("#machine-name")
+        await pilot.click("#details-name")
         app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
             app.query_one("#machine-links"), animate=False
         )
@@ -267,8 +292,9 @@ async def test_long_values_wrap_scroll_and_reset(size: tuple[int, int]) -> None:
         assert pane.region.bottom <= footer.region.y
         assert pane.max_scroll_x == 0
         assert pane.max_scroll_y > 0
-        assert str(app.query_one("#machine-links", Static).content).endswith(
-            "docs/" * 150
+        block_text = app.query_one("#machine-links", LinkBlock).render().plain
+        assert "".join(block_text.split()).endswith(
+            "https://example.com/" + "docs/" * 150
         )
         await pilot.press("tab", "down", "pagedown")
         await pilot.wait_for_scheduled_animations()
@@ -281,7 +307,7 @@ async def test_long_values_wrap_scroll_and_reset(size: tuple[int, int]) -> None:
         await pilot.pause()
         assert machine_list.index == 1
         assert pane.scroll_y == 0
-        assert str(app.query_one("#machine-name", Static).content) == "Studio box"
+        assert str(app.query_one("#details-name", Static).content) == "Studio box"
         await pilot.resize_terminal(80, 24)
         assert app.is_running
 
@@ -310,7 +336,7 @@ async def test_new_selection_resets_details_scroll_before_the_next_frame() -> No
             ListView.Highlighted(machine_list, machine_list.highlighted_child)
         )
         assert pane.scroll_y == 0
-        assert str(app.query_one("#machine-name", Static).content) == "Long demo 2"
+        assert str(app.query_one("#details-name", Static).content) == "Long demo 2"
 
 
 async def test_many_machines_keep_keyboard_selection_visible() -> None:
@@ -323,7 +349,7 @@ async def test_many_machines_keep_keyboard_selection_visible() -> None:
         machine_list = app.query_one(ListView)
         assert machine_list.index == 34
         assert machine_list.scroll_y > 0
-        assert str(app.query_one("#machine-id", Static).content) == "demo-34"
+        assert str(app.query_one("#details-id", Static).content) == "demo-34"
         assert machine_list.scrollable_content_region.contains_region(
             machine_list.highlighted_child.region
         )

@@ -11,6 +11,7 @@ from textual.widgets import Footer, ListView, OptionList
 
 from ssh_workbench import app as app_module
 from ssh_workbench.app import (
+    LinkBlock,
     LinkFinished,
     LinkPicker,
     LinkRequest,
@@ -88,7 +89,7 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
         await pilot.press("down", "up", "enter", "tab", "enter", "pagedown", "home")
         await pilot.press("r", "d")
         app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
-            app.query_one("#machine-links"), animate=False
+            app.query_one("#machine-links", LinkBlock), animate=False
         )
         await pilot.pause()
         await pilot.click("#machine-links")

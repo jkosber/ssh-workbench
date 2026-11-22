@@ -144,7 +144,7 @@ async def test_add_first_alias_machine_creates_the_file(tmp_path: Path) -> None:
         machine_list = app.query_one(ListView)
         assert machine_list.index == 0
         assert app.focused is machine_list
-        assert str(app.query_one("#machine-name", Static).content) == "Web server"
+        assert str(app.query_one("#details-name", Static).content) == "Web server"
         assert status(app) == "Saved machine 1: web."
 
 
@@ -439,7 +439,7 @@ async def test_delete_asks_first(tmp_path: Path) -> None:
             "lab",
         ]
         assert app.query_one(ListView).index == 1
-        assert str(app.query_one("#machine-id", Static).content) == "lab"
+        assert str(app.query_one("#details-id", Static).content) == "lab"
         assert status(app) == "Deleted machine 2: studio."
 
 
@@ -602,7 +602,7 @@ async def test_reload_keeps_the_selected_machine(tmp_path: Path) -> None:
         await pilot.press("escape")
         await back_to_browser(app, pilot)
         await pilot.pause()
-        assert str(app.query_one("#machine-id", Static).content) == "studio"
+        assert str(app.query_one("#details-id", Static).content) == "studio"
         assert app.query_one(ListView).index == 2
 
 
@@ -718,7 +718,7 @@ async def test_save_from_the_details_pane_returns_focus_to_the_list(
         machine_list = app.query_one(ListView)
         assert app.focused is machine_list
         assert machine_list.index == 2
-        assert str(app.query_one("#machine-name", Static).content) == "Lab renamed"
+        assert str(app.query_one("#details-name", Static).content) == "Lab renamed"
 
 
 async def test_two_saves_in_one_batch_add_once(tmp_path: Path) -> None:

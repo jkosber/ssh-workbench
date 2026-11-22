@@ -232,11 +232,11 @@ async def test_details_name_the_exported_alias(
     app = SSHWorkbenchApp((BOX, LAB), config_path=path, file_text=text)
     async with app.run_test() as pilot:
         await pilot.pause()
-        connection = app.query_one("#machine-connection", Static)
-        assert str(connection.content) == "Direct, exported as ssh box"
+        connection = app.query_one("#machine-connect", Static)
+        assert str(connection.content) == "direct · 192.0.2.60 · exported as ssh box"
         await pilot.press("down")
         await pilot.pause()
-        assert str(connection.content) == "Direct"
+        assert str(connection.content) == "direct · 192.0.2.61"
 
 
 @pytest.mark.parametrize("size", [(80, 24), (60, 20)])
@@ -321,9 +321,9 @@ async def test_exported_names_are_not_the_users_host_names(
     )
     async with app.run_test() as pilot:
         await pilot.press("down")
-        target = app.query_one("#machine-target", Static)
+        target = app.query_one("#machine-connect", Static)
         await wait_for(pilot, lambda: "not in your SSH config" in str(target.content))
-        assert str(target.content) == "box (not in your SSH config)"
+        assert str(target.content) == "alias · box (not in your SSH config)"
 
 
 async def test_export_problem_appends_to_the_connection_slot(

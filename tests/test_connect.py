@@ -87,8 +87,8 @@ async def test_connect_is_visible_and_never_automatic(
         assert "C" in connect_key.render().plain.upper()
         assert app.screen.region.contains_region(connect_key.region)
         await pilot.press("down", "up", "enter", "tab", "enter")
-        await pilot.click("#machine-id")
-        await pilot.click("#machine-name")
+        await pilot.click("#details-id")
+        await pilot.click("#details-name")
         launch.assert_not_called()
         assert app.is_running
 
@@ -160,13 +160,13 @@ async def test_connect_uses_selected_machine_and_restores_focus(
         assert app._driver._auto_restart
         assert app.focused is machine_list
         assert machine_list.index == 1
-        assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
+        assert str(app.query_one("#details-name", Static).content) == "Studio demo"
         status = app.query_one("#connection-status", ResultSlot)
         assert status.message == "SSH exited with status 0. Machine 2: studio-demo"
         assert app.screen.region.contains_region(status.region)
         await pilot.press("up")
         assert machine_list.index == 0
-        assert str(app.query_one("#machine-name", Static).content) == "Garden demo"
+        assert str(app.query_one("#details-name", Static).content) == "Garden demo"
         await pilot.press("tab", "q")
         assert not app.is_running
         assert app.return_code == 0
@@ -414,9 +414,9 @@ async def test_return_preserves_scroll_and_literal_details(
         await pilot.press("c")
         assert suspend_events == ["suspend", "resume"]
         assert pane.scroll_y == scroll_y
-        rendered = app.query_one("#machine-name", Static).render()
+        rendered = app.query_one("#details-name", Static).render()
         assert rendered.plain == machine.name
         assert not rendered.spans
         await pilot.press("down")
         assert pane.scroll_y == 0
-        assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
+        assert str(app.query_one("#details-name", Static).content) == "Studio demo"

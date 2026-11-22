@@ -122,7 +122,7 @@ async def check_browser(app):
         )
         machines = app.query_one("#machine-list", ListView)
         assert machines.index == 0
-        name = app.query_one("#machine-name", Static)
+        name = app.query_one("#details-name", Static)
         assert "Package [b]first[/b]" in str(name.content)
         for picks, url, outcome, expected in (
             (
@@ -178,9 +178,9 @@ async def check_browser(app):
         await pilot.press("down")
         assert machines.index == 1
         assert "Package second" in str(name.content)
-        alias = app.query_one("#machine-target", Static)
-        assert "fictional-second" in str(alias.content)
-        assert str(app.query_one("#machine-links", Static).content) == "None"
+        alias = app.query_one("#machine-connect", Static)
+        assert "alias · fictional-second" in str(alias.content)
+        assert str(app.query_one("#machine-links-none", Static).content) == "none"
         before = app.query_one("#link-status", ResultSlot).message
         with patch("ssh_workbench.app.open_link") as open_link:
             await pilot.press("o")
