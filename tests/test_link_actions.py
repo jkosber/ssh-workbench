@@ -217,6 +217,9 @@ async def test_results_are_literal_sanitized_and_retryable(
     machine = Machine(
         "literal[bold]\x1b", "Literal", alias="literal-host", links=MACHINES[0].links
     )
+    glyph, style = (
+        ("›", "$success") if outcome is LinkResult.ACCEPTED else ("×", "$error")
+    )
     app = SSHWorkbenchApp([machine])
     async with app.run_test() as pilot:
         for count in (1, 2):
@@ -231,6 +234,8 @@ async def test_results_are_literal_sanitized_and_retryable(
             rendered = app.query_one("#link-status", ResultSlot).render()
             # Only the glyph is styled; the machine data stays literal.
             assert [(span.start, span.end) for span in rendered.spans] == [(0, 1)]
+            assert rendered.plain[0] == glyph
+            assert rendered.spans[0].style == style
             assert all(
                 word not in rendered.plain for word in ("secret", "private", "\x1b")
             )

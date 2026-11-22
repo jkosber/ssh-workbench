@@ -2,7 +2,9 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
+from support import handoff
 from textual.containers import VerticalScroll
+from textual.content import Span
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, ListView, Static
 
@@ -236,6 +238,47 @@ async def test_all_launch_outcomes_resume_real_suspend_context(
         await pilot.press("ctrl+q")
         assert not app.is_running
         assert app.return_code == 0
+
+
+@pytest.mark.parametrize(
+    "outcome, glyph, style",
+    [
+        (0, "●", "$success"),
+        (7, "×", "$error"),
+        (255, "×", "$error"),
+        (SSHLaunchError("SSH not found."), "×", "$error"),
+        (KeyboardInterrupt(), "×", "$error"),
+        # None: a terminal that cannot be handed off.
+        (None, "×", "$error"),
+    ],
+)
+async def test_each_connect_outcome_has_its_glyph(
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: int | BaseException | None,
+    glyph: str,
+    style: str,
+) -> None:
+    if outcome is None:
+        launch = Mock(side_effect=AssertionError("Unexpected SSH launch"))
+        monkeypatch.setattr(app_module, "launch_ssh", launch)
+    else:
+        launch = handoff(monkeypatch)
+        if isinstance(outcome, BaseException):
+            launch.side_effect = outcome
+        else:
+            launch.return_value = outcome
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("c")
+        slot = app.result.connection
+        async with asyncio.timeout(5):
+            while not (slot.message and slot.size.width):
+                await pilot.pause()
+        assert launch.call_count == (0 if outcome is None else 1)
+        rendered = slot.render()
+        assert rendered.plain[0] == glyph
+        assert rendered.spans[0] == Span(0, 1, style)
+        assert slot.message.endswith(" Machine 1: garden-demo")
 
 
 async def test_launch_boundary_errors_restore_browser(

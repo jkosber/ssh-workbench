@@ -814,6 +814,70 @@ async def test_question_mark_is_inert_in_modals(tmp_path) -> None:
         assert keys[0].has_class("-disabled")
 
 
+async def test_escape_closes_the_key_panel() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        machine_list, details = panes(app)
+        await open_key_panel(app, pilot)
+        assert app.focused is machine_list
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app.query(HelpPanel))
+        # With nothing to close, Escape changes nothing.
+        await pilot.press("escape")
+        await pilot.pause()
+        assert app.is_running
+        assert len(app.screen_stack) == 1
+        assert app.focused is machine_list
+        assert not app.query(HelpPanel)
+        # From the details pane, Escape closes the panel and the focus stays.
+        await pilot.press("tab")
+        await wait_for(pilot, lambda: app.focused is details)
+        await open_key_panel(app, pilot)
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app.query(HelpPanel))
+        assert app.focused is details
+
+
+async def test_escape_closes_a_modal_before_the_key_panel(tmp_path) -> None:
+    # The modal's priority Escape runs first; the panel waits for the next one.
+    app = saved_app(tmp_path, MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await open_key_panel(app, pilot)
+        await pilot.press("x")
+        await wait_for(pilot, lambda: showing(app, ConfirmDelete))
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: len(app.screen_stack) == 1)
+        await pilot.pause()
+        assert len(app.query(HelpPanel)) == 1
+        assert app.machines == MACHINES
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: not app.query(HelpPanel))
+        assert app.is_running
+
+
+async def test_escape_is_not_listed() -> None:
+    app = SSHWorkbenchApp(MACHINES, checker=FakeChecker())
+    async with app.run_test(size=(80, 24)) as pilot:
+        rows = await open_key_panel(app, pilot)
+        # Escape is bound while the panel shows, but neither the footer nor
+        # the panel lists it.
+        escape = app.screen.active_bindings["escape"]
+        assert escape.node is app
+        assert escape.binding.action == "close_key_panel"
+        assert escape.binding.show is False
+        assert [k.render().plain for k in app.query(FooterKey)] == KEYS
+        assert not any("esc" in " ".join(row) for row in rows)
+
+
+async def test_the_empty_screen_scrollbar_track_is_the_background() -> None:
+    app = SSHWorkbenchApp([])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await pilot.pause()
+        empty = app.query_one("#empty-state", VerticalScroll)
+        background = Color.parse(app.get_css_variables()["background"])
+        assert empty.styles.scrollbar_background == background
+
+
 LINKED = (
     Machine(
         "garden",

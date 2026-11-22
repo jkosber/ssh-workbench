@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from support import handoff
 from textual import events
-from textual.widgets import Footer, ListView, Static
+from textual.widgets import Footer, HelpPanel, ListView, Static
 
 from ssh_workbench import app as app_module
 from ssh_workbench.aliases import (
@@ -22,6 +22,7 @@ from ssh_workbench.aliases import (
 )
 from ssh_workbench.app import (
     AliasesReviewed,
+    KeyTable,
     ResultSlot,
     SSHWorkbenchApp,
     StatusSymbol,
@@ -183,6 +184,44 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
         assert checker.resolved == ["new-host"]
         assert app.check_action("connect", ()) is True
         assert app.check_action("update_alias", ()) is False
+
+
+def key_panel_rows(app: SSHWorkbenchApp) -> list[list[str]]:
+    """The words of the key panel's Workbench rows, after the navigation keys."""
+    lines = app.screen.query_one(KeyTable).render().plain.splitlines()
+    return [line.split() for line in lines[lines.index("", 1) + 1 :]]
+
+
+async def test_the_key_panel_lists_update_during_a_rename_offer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
+        await pilot.press("question_mark")
+        await wait_for(
+            pilot,
+            lambda: (
+                bool(app.screen.query(KeyTable))
+                and app.screen.query_one(KeyTable).region.height > 0
+            ),
+        )
+        rows = key_panel_rows(app)
+        assert rows[0] == ["u", "update"]
+        assert not any(row[-1:] == ["connect"] for row in rows)
+
+        assert app.query(HelpPanel)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: symbols(app)[:1] == [State.ONLINE])
+        updated = dataclasses.replace(GARDEN, alias="new-host")
+        assert read_machines(path)[0] == [updated, LAB]
+        assert connection_status(app) == (
+            "Updated machine 1: garden now uses alias new-host."
+        )
 
 
 async def test_without_exactly_one_match_there_is_no_offer(
