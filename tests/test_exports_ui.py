@@ -5,6 +5,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from textual.content import Span
 from textual.widgets import Checkbox, Input, RadioButton, Static
 
 from ssh_workbench import app as app_module
@@ -323,3 +324,25 @@ async def test_exported_names_are_not_the_users_host_names(
         target = app.query_one("#machine-target", Static)
         await wait_for(pilot, lambda: "not in your SSH config" in str(target.content))
         assert str(target.content) == "box (not in your SSH config)"
+
+
+async def test_export_problem_appends_to_the_connection_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(folder: Path, machines: object, source: Path) -> None:
+        raise ExportError("Could not write ssh-workbench.config: permission denied.")
+
+    monkeypatch.setattr(app_module, "write_exports", refuse)
+    _, path, text = workspace(tmp_path, monkeypatch, (LAB,))
+    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
+    async with app.run_test(size=(80, 24)) as pilot:
+        connection = app.result.connection
+        await add_exported_box(app, pilot)
+        await wait_for(pilot, lambda: "Could not write" in connection.message)
+        await pilot.pause()
+        assert connection.message == (
+            "Saved machine 2: box. Could not write ssh-workbench.config: "
+            "permission denied."
+        )
+        assert str(connection.content).startswith("× Saved machine 2: box.")
+        assert connection.render().spans == [Span(0, 1, "$error")]

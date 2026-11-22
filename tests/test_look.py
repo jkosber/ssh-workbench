@@ -1,19 +1,15 @@
 """The look: theme, header summary and the layout at each terminal size."""
 
 import asyncio
-import importlib.util
 from pathlib import Path
-from types import ModuleType
 from unittest.mock import Mock
 
 import pytest
-from test_app import MACHINES as APP_MACHINES
-from test_app import empty_lines, empty_text
-from test_exports_ui import LAB, add_exported_box, workspace
+from support import TWO_MACHINES as APP_MACHINES
+from support import empty_lines, empty_text, handoff, load_capture_look
 from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.content import Span
-from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import (
     Footer,
     HelpPanel,
@@ -39,7 +35,6 @@ from ssh_workbench.app import (
     state_css,
 )
 from ssh_workbench.config import Link, Machine, format_machines, parse_machines
-from ssh_workbench.exports import ExportError
 from ssh_workbench.forms import ConfirmDelete, MachineForm
 from ssh_workbench.links import LinkResult
 from ssh_workbench.status import AliasTarget, MachineStatus, State
@@ -827,16 +822,6 @@ LONG_200 = " ".join(["fictional"] * 20)
 LONG_300 = " ".join(["fictional"] * 30)
 
 
-def handoff(monkeypatch: pytest.MonkeyPatch) -> Mock:
-    """A terminal that can be handed off and an SSH that exits with 0."""
-    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
-    monkeypatch.setattr(HeadlessDriver, "suspend_application_mode", lambda self: None)
-    monkeypatch.setattr(HeadlessDriver, "resume_application_mode", lambda self: None)
-    launch = Mock(return_value=0)
-    monkeypatch.setattr(app_module, "launch_ssh", launch)
-    return launch
-
-
 @pytest.mark.parametrize("machines", [MACHINES, ()])
 async def test_result_line_starts_blank_and_is_one_row(machines) -> None:
     app = SSHWorkbenchApp(machines)
@@ -893,28 +878,6 @@ async def test_result_line_keeps_both_slots_newest_first(
         assert link.message == (
             f"Repository {LinkResult.ACCEPTED.value} Machine 1: garden"
         )
-
-
-async def test_export_problem_appends_to_the_connection_slot(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def refuse(folder: Path, machines: object, source: Path) -> None:
-        raise ExportError("Could not write ssh-workbench.config: permission denied.")
-
-    monkeypatch.setattr(app_module, "write_exports", refuse)
-    _, path, text = workspace(tmp_path, monkeypatch, (LAB,))
-    app = SSHWorkbenchApp((LAB,), config_path=path, file_text=text)
-    async with app.run_test(size=(80, 24)) as pilot:
-        connection = app.result.connection
-        await add_exported_box(app, pilot)
-        await wait_for(pilot, lambda: "Could not write" in connection.message)
-        await pilot.pause()
-        assert connection.message == (
-            "Saved machine 2: box. Could not write ssh-workbench.config: "
-            "permission denied."
-        )
-        assert str(connection.content).startswith("× Saved machine 2: box.")
-        assert connection.render().spans == [Span(0, 1, "$error")]
 
 
 async def test_short_screens_cap_the_result_line_at_two_rows() -> None:
@@ -1030,17 +993,6 @@ async def test_result_line_recomputes_on_resize() -> None:
         await pilot.pause()
         assert result.region.height == 2
         assert result.connection.render_line(1).text.rstrip().endswith("fictional")
-
-
-CAPTURE_LOOK = Path(__file__).resolve().parents[1] / "scripts" / "capture_look.py"
-
-
-def load_capture_look() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("capture_look_sizes", CAPTURE_LOOK)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 # The size matrix, defined once in the capture script.

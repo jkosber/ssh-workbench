@@ -3,24 +3,10 @@
 The suite's guards stand in for the ones the script's own entry point installs.
 """
 
-import importlib.util
 from pathlib import Path
-from types import ModuleType
 
 import pytest
-
-ROOT = Path(__file__).resolve().parents[1]
-CAPTURE_LOOK = ROOT / "scripts" / "capture_look.py"
-
-
-def load_capture_look() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "capture_look_under_test", CAPTURE_LOOK
-    )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+from support import load_capture_look
 
 
 def test_sizes_are_the_size_matrix() -> None:

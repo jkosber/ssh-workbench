@@ -5,11 +5,10 @@ import dataclasses
 import platform
 import threading
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
+from support import handoff
 from textual import events
-from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, ListView, Static
 
 from ssh_workbench import app as app_module
@@ -151,15 +150,6 @@ def tracked_threads(monkeypatch: pytest.MonkeyPatch) -> list[threading.Thread]:
     return started
 
 
-def allow_connect(monkeypatch: pytest.MonkeyPatch) -> Mock:
-    launcher = Mock(return_value=0)
-    monkeypatch.setattr(app_module, "launch_ssh", launcher)
-    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
-    monkeypatch.setattr(HeadlessDriver, "suspend_application_mode", lambda self: None)
-    monkeypatch.setattr(HeadlessDriver, "resume_application_mode", lambda self: None)
-    return launcher
-
-
 @pytest.mark.parametrize("key", ["u", "U"])
 async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
@@ -215,7 +205,7 @@ async def test_without_exactly_one_match_there_is_no_offer(
 async def test_c_never_connects_a_missing_alias(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    launcher = allow_connect(monkeypatch)
+    launcher = handoff(monkeypatch)
     machines = (GARDEN, LAB)
     path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
     app = SSHWorkbenchApp(

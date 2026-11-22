@@ -25,7 +25,7 @@ select = ["E", "F", "I", "UP", "W605"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["scripts"]
+pythonpath = ["scripts", "tests"]
 asyncio_mode = "strict"
 
 [dependency-groups]

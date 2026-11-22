@@ -4,7 +4,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from test_app import empty_text
+from support import empty_text
 from textual import events
 from textual.containers import VerticalScroll
 from textual.widgets import Footer, Input, ListView, RadioButton, Static, TextArea

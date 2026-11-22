@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 
 import pytest
+from support import TWO_MACHINES as MACHINES
+from support import empty_lines, empty_text
 from textual.containers import VerticalScroll
 from textual.content import Content
 from textual.widgets import Footer, ListView, Static
@@ -15,25 +17,6 @@ pytestmark = [
     pytest.mark.usefixtures("no_external_actions", "no_app_connections"),
 ]
 
-MACHINES = (
-    Machine(
-        "garden-demo",
-        "Garden demo",
-        alias="garden-demo-host",
-        links=(
-            Link("Repository", "https://example.com/garden.git"),
-            Link("Documentation", "https://example.com/garden/docs"),
-        ),
-    ),
-    Machine(
-        "studio-box",
-        "Studio box",
-        user="studio",
-        addresses=("studio.example", "192.0.2.40"),
-        port=2222,
-        key="~/.ssh/id_ed25519_studio",
-    ),
-)
 EXPECTED_DETAILS = (
     {
         "id": "garden-demo",
@@ -66,15 +49,6 @@ def details(app: SSHWorkbenchApp) -> dict[str, str]:
         field: str(app.query_one(f"#machine-{field}", Static).content)
         for field in EXPECTED_DETAILS[0]
     }
-
-
-def empty_lines(app: SSHWorkbenchApp) -> list[Static]:
-    """The empty screen's lines, one Static each."""
-    return list(app.query_one("#empty-state", VerticalScroll).query_children(Static))
-
-
-def empty_text(app: SSHWorkbenchApp) -> str:
-    return "\n".join(str(line.content) for line in empty_lines(app))
 
 
 def empty_spans(app: SSHWorkbenchApp) -> list[tuple[int, str, str]]:
