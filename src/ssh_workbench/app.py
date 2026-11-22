@@ -119,7 +119,7 @@ WORKBENCH_THEME = Theme(
     secondary="#7AA2F7",
     accent="#F2B25C",
     warning="#E5C07B",
-    error="#EF6B73",
+    error="#F18087",
     success="#7FD48C",
     foreground="#D8DEE9",
     background="#10141B",
@@ -136,7 +136,7 @@ WORKBENCH_THEME = Theme(
         "footer-key-foreground": "#4FC1E9",
         "footer-background": "#161B24",
         "footer-description-foreground": "#AAB0BA",
-        "block-cursor-background": "#24435A",
+        "block-cursor-background": "#1D3A50",
         "block-cursor-foreground": "#F2F6FA",
         "block-cursor-text-style": "bold",
         "block-cursor-blurred-background": "#1F2A38",
@@ -244,6 +244,14 @@ class StatusSymbol(Widget):
         return Content(self.state.symbol)
 
 
+class RowMarker(Widget):
+    """The selection marker in column 0 of a list row, shown on the highlighted
+    row. Not a `Static`, so the name stays the row's only one."""
+
+    def render(self) -> Content:
+        return Content("▌")
+
+
 class RowTarget(Widget):
     """Where a machine connects, shown in its list row on wide terminals. Not a
     `Static`, so the name stays the row's only one."""
@@ -261,12 +269,27 @@ class RowTarget(Widget):
     }
     """
 
+    # A status check can change the text; the auto width follows it.
+    target: reactive[str] = reactive("", layout=True)
+
     def __init__(self, target: str) -> None:
         super().__init__(classes="row-target")
-        self.target = target
+        self.set_reactive(RowTarget.target, target)
 
     def render(self) -> Content:
         return Content(self.target)
+
+
+class RowUser(Widget):
+    """A direct machine's user, shown in its list row from 130 columns. Not a
+    `Static`, so the name stays the row's only one."""
+
+    def __init__(self, user: str) -> None:
+        super().__init__(classes="row-user")
+        self.user = user
+
+    def render(self) -> Content:
+        return Content(self.user)
 
 
 @dataclass(frozen=True)
@@ -732,10 +755,63 @@ class SSHWorkbenchApp(App[None]):
     }
     #machine-list ListItem {
         height: 1;
-        padding: 0 1;
+        padding: 0 1 0 0;
     }
     #machine-list ListItem Horizontal {
         height: 1;
+    }
+    RowMarker {
+        width: 1;
+        height: 1;
+        color: $primary;
+        visibility: hidden;
+    }
+    #machine-list ListItem.-highlight RowMarker {
+        visibility: visible;
+    }
+    /* Textual makes every part of the focused selected row bold; only the
+       name stays bold. */
+    #machine-list:focus > ListItem.-highlight {
+        text-style: none;
+    }
+    #machine-list:focus > ListItem.-highlight Static {
+        text-style: bold;
+    }
+    RowUser {
+        display: none;
+        width: 15%;
+        height: 1;
+        padding-left: 1;
+        color: $text-muted;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+    /* The column header lines up with the rows: its lead matches the marker
+       and symbol, its right padding the row's padding and the list's gutter. */
+    #list-columns {
+        display: none;
+        height: 1;
+        padding: 0 2 0 0;
+        background: $surface;
+        color: $text-muted;
+    }
+    #list-columns Static {
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+    #list-columns .col-lead {
+        width: 3;
+    }
+    #list-columns .col-name {
+        width: 1fr;
+    }
+    #list-columns .col-target {
+        width: 35%;
+        padding-left: 1;
+    }
+    #list-columns .col-user {
+        width: 15%;
+        padding-left: 1;
     }
     #machine-list Static {
         width: 1fr;
@@ -801,6 +877,15 @@ class SSHWorkbenchApp(App[None]):
     }
     Screen.-wide RowTarget, Screen.-xwide RowTarget {
         display: block;
+    }
+    Screen.-xwide RowTarget {
+        width: 35%;
+    }
+    Screen.-xwide RowUser, Screen.-xwide #list-columns {
+        display: block;
+    }
+    Screen.-xwide #machine-list {
+        scrollbar-gutter: stable;
     }
     Screen.-short #result-line {
         max-height: 2;
@@ -904,16 +989,23 @@ class SSHWorkbenchApp(App[None]):
                     with Horizontal(id="list-label", classes="pane-label"):
                         yield Static("machines", id="list-title", markup=False)
                         yield Static(id="list-position", markup=False)
+                    # Shown from 130 columns, outside the list's scroll.
+                    with Horizontal(id="list-columns"):
+                        yield Static(classes="col-lead")
+                        for column in ("name", "target", "user"):
+                            yield Static(column, classes=f"col-{column}", markup=False)
                     yield ListView(
                         *(
                             ListItem(
                                 Horizontal(
+                                    RowMarker(),
                                     StatusSymbol(self._status_of(machine).state),
                                     Static(_display_text(machine.name), markup=False),
-                                    RowTarget(
-                                        _display_text(
-                                            machine.alias or machine.addresses[0]
-                                        )
+                                    RowTarget(self._row_target(machine)),
+                                    RowUser(
+                                        ""
+                                        if machine.alias
+                                        else _display_text(machine.user or "")
                                     ),
                                 )
                             )
@@ -1197,6 +1289,22 @@ class SSHWorkbenchApp(App[None]):
         address = self._online.get(machine.id)
         # An edit may have removed the address since that check.
         return address if address in machine.addresses else None
+
+    def _row_target(self, machine: Machine) -> str:
+        """Where a list row says its machine connects: the alias, else the
+        address the last check found online, else the first address."""
+        return _display_text(
+            machine.alias or self._online_address(machine) or machine.addresses[0]
+        )
+
+    def _show_row_targets(self) -> None:
+        machine_list = self._machine_list()
+        if machine_list is None or self._rebuilding:
+            return
+        for target, machine in zip(
+            machine_list.query(RowTarget), self.machines, strict=False
+        ):
+            target.target = self._row_target(machine)
 
     def action_refresh(self) -> None:
         if self.check_action("refresh", ()) is True:
@@ -1488,6 +1596,7 @@ class SSHWorkbenchApp(App[None]):
             machine_list.query(StatusSymbol), self.machines, strict=False
         ):
             symbol.state = self._status_of(machine).state
+        self._show_row_targets()
         index = machine_list.index
         if index is not None and index < len(self.machines):
             machine = self.machines[index]
