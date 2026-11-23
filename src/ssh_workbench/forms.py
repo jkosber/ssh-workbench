@@ -403,6 +403,8 @@ class MachineForm(WorkbenchModal[None]):
 
     def on_resize(self, event: events.Resize) -> None:
         self._cap_fields()
+        # Stacked labels and a lower cap can leave the focused field below it.
+        self.call_after_refresh(self._show_focused_field)
 
     def _cap_fields(self) -> None:
         """Cap the fields' scroll area, so a frame at most 90% of the screen
@@ -463,12 +465,20 @@ class MachineForm(WorkbenchModal[None]):
         if field is None and problem:
             self.query_one("#form-message", Static).update(problem)
         # A row shown or hidden above the focused field moves it out of view.
-        if moved and self.focused is not None:
-            for node in self.focused.ancestors_with_self:
-                if isinstance(node, Widget) and node.has_class("form-field"):
-                    self.call_after_refresh(node.scroll_visible, animate=False)
-                    break
+        if moved:
+            self.call_after_refresh(self._show_focused_field)
         return machine
+
+    def _show_focused_field(self) -> None:
+        """Scroll the focused field's row into view. The focus is read when
+        this runs, not when it is scheduled: a failed save moves the focus to
+        the field with the error after _validate has returned."""
+        if self.focused is None:
+            return
+        for node in self.focused.ancestors_with_self:
+            if isinstance(node, Widget) and node.has_class("form-field"):
+                node.scroll_visible(animate=False)
+                break
 
     def _check(self) -> tuple[Machine | None, str | None, str]:
         table, line_numbers = self._table()
@@ -837,6 +847,17 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
         options.highlighted = 0
         options.focus()
         self._show_note()
+        self.watch(
+            self.query_one("#key-body"), "virtual_size", self._body_changed, init=False
+        )
+
+    def _body_changed(self) -> None:
+        """Keep the focused list in view when the body's content changes
+        height: a note that grows above the keys pushes them down a body that
+        scrolls. Run from the new layout, not from the highlight, which comes
+        before it."""
+        if self.focused is not None:
+            self.call_after_refresh(self.focused.scroll_visible, animate=False)
 
     def on_option_list_option_highlighted(
         self, event: OptionList.OptionHighlighted
