@@ -52,15 +52,19 @@ SIZES: tuple[tuple[int, int], ...] = (
 )
 MACHINES = (
     Machine(
-        "studio",
-        "Studio",
+        "studio-box",
+        "Studio box",
         user="studio",
-        addresses=("192.0.2.30", "192.0.2.40"),
+        addresses=("studio-box.example.com", "192.0.2.40"),
         port=2222,
-        key="~/.ssh/id_ed25519_studio",
+        key="~/.ssh/id_ed25519_studio_box",
         links=(
             Link("Dashboard", "https://192.0.2.40:8006"),
-            Link("Docs", "https://docs.example.invalid/studio"),
+            Link("Status page", "https://studio-box.example.com/status"),
+            Link(
+                "Grafana",
+                "https://grafana.example.com/d/fictional-studio-overview?orgId=1&refresh=30s",
+            ),
         ),
     ),
     Machine("garden", "Garden", alias="garden-host"),
@@ -79,7 +83,7 @@ REMEMBERED = AliasMemory(
 
 
 class FakeChecker:
-    """Studio (its second address) and Garden online, Lab offline, Hop proxied."""
+    """Studio box (its second address) and Garden online, Lab offline, Hop proxied."""
 
     def resolve_alias(self, alias: str) -> AliasTarget | None:
         return TARGETS.get(alias)
