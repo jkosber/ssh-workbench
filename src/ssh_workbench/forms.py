@@ -106,7 +106,7 @@ class Ring(RadioButton):
     """A radio button whose mark changes shape: filled when selected."""
 
     @property
-    def BUTTON_INNER(self) -> str:  # noqa: N802
+    def BUTTON_INNER(self) -> str:
         return "●" if self.value else "○"
 
 
@@ -114,7 +114,7 @@ class Box(Checkbox):
     """A checkbox whose mark changes shape: X when checked."""
 
     @property
-    def BUTTON_INNER(self) -> str:  # noqa: N802
+    def BUTTON_INNER(self) -> str:
         return "X" if self.value else "·"
 
 
