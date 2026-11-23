@@ -598,15 +598,17 @@ class KeyHelp(HelpPanel):
         yield KeyList(id="keys-help")
 
 
-# A URL too wide for its column breaks before one of these.
-URL_BREAKS = "/?&#"
+# A URL too wide for its column breaks before one of the first set, or, with
+# none of those in reach, before one of the second.
+URL_BREAKS = ("/?&#", ".-")
 
 
 def wrap_url(text: str, width: int) -> list[str]:
     """`text` in lines of at most `width` cells (2 at least) that join back
     to it. While the rest is too wide, a line ends before the last `/`, `?`,
-    `&` or `#` that keeps it within the width, else at the width. The two
-    slashes of a leading `scheme://` never start a line."""
+    `&` or `#` that keeps it within the width, else before the last `.` or
+    `-` that does, else at the width. The two slashes of a leading
+    `scheme://` never start a line."""
     width = max(width, 2)
     head, separator, _ = text.partition("://")
     scheme = (
@@ -631,8 +633,9 @@ def wrap_url(text: str, width: int) -> list[str]:
         cut = next(
             (
                 index
+                for breaks in URL_BREAKS
                 for index in range(end, start, -1)
-                if text[index] in URL_BREAKS and index not in kept
+                if text[index] in breaks and index not in kept
             ),
             end,
         )
@@ -732,9 +735,10 @@ class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     ENABLE_COMMAND_PALETTE = False
     # Screen classes for the layout: the list stacks above the details when
-    # narrow, rows show their target when wide or wider, the list's width cap
-    # rises when extra wide, and the result line takes at most two rows when
-    # short. The footer's rows follow the width itself.
+    # narrow, rows show their target when wide or wider, the list gains its
+    # column header and user column and a higher width cap when extra wide,
+    # and the result line takes at most two rows when short. The footer's
+    # rows follow the width itself.
     HORIZONTAL_BREAKPOINTS = [
         (0, "-narrow"),
         (60, "-normal"),
