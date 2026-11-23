@@ -59,7 +59,9 @@ security fixes.
   `connect`, `key`, `addresses` and `links`. `connect` says how C
   connects, such as `direct · admin@192.0.2.20:2222` or
   `alias · garden-host`, and takes the place of the connection, user and port
-  rows. A row with nothing to show is left out instead of reading `Not set`
+  rows. A direct target too wide for the details breaks before its port, such
+  as `admin@studio-box.example.com` over `:2222`, so a port is never split
+  across two rows. A row with nothing to show is left out instead of reading `Not set`
   or `From your SSH config`, and the ID and name rows are gone: the label row
   above shows both. A long ID there ends with `…`.
 - Links show as a name column and a URL column, and a long URL wraps inside its
