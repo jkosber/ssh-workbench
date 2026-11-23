@@ -6,9 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-| Task | Branch | Delivers | Acceptance |
-| --- | --- | --- | --- |
-| 30 | `feat/task30-forms-and-pickers` | Backdrop, hint rows, one-row fields, sized inputs, error rows on demand, named buttons, visible radio rings, two-line link options, key picker spacing, sized questions | Each modal fits at 60x20 and 80x24 with its hint row visible; form tests keep every validation and save behavior |
+No task is in progress.
 
 ## Next
 
@@ -58,6 +56,7 @@ request for later ones. Each needs its own task before work starts.
 | A wrapped key label's second line starts in the marker's column, one cell left of the label | 30 |
 | The key picker's frame stays at its width cap (72 cells from 80 columns, 90% below) even for one short key; hugging the content would make the frame change width as notes come and go, and needs a minimum width for the docked hint row | 30 |
 | The key picker's focused target-system rings show the band and bold but no `▌` bar, unlike the form's connection row | 30 |
+| The key picker does not scroll its focused list back into view after a resize that changes only the height, such as 40x16 to 40x14 (seen in a headless run) | 30 |
 
 ### Machine file and forms
 
@@ -166,6 +165,7 @@ in the pull request description.
 | 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | Unreleased |
 | 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | Unreleased |
 | - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | Unreleased |
+| 30 | Forms and pickers: a near-solid backdrop, frames sized to their content, a hint row in the footer's style on every modal, one-row form fields with labels beside them, error rows on demand, named buttons, radio and checkbox marks that differ by shape, a selection marker in both pickers, two-line link options, key picker spacing | [#54](https://github.com/jkosber/ssh-workbench/pull/54) | Unreleased |
 
 ## Deferred ideas
 
