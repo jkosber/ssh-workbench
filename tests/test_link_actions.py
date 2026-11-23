@@ -688,8 +688,15 @@ async def test_picker_prompts_are_literal(monkeypatch) -> None:
         picker = await picker_open(app, pilot)
         options = picker.query_one(OptionList)
         prompt = options.get_option_at_index(0).prompt
-        assert (
-            prompt.plain == "[bold]Dash[/bold]\\x1b  https://example.invalid/[link=x]"
-        )
-        assert not prompt.spans
+        name = "▌[bold]Dash[/bold]\\x1b"
+        url = "   https://example.invalid/[link=x]"
+        assert prompt.plain == f"{name}\n{url}"
+        # Only the marker cell and the URL line are styled: neither the name nor
+        # the URL was read as markup.
+        start = len(name) + 1
+        assert [(span.start, span.end, span.style) for span in prompt.spans] == [
+            (0, 1, "$primary"),
+            (start, start + len(url), "$text-muted"),
+        ]
+        assert options.get_option_at_index(1).prompt.plain.startswith(" ")
         await pilot.press("escape", "q")
