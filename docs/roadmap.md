@@ -166,6 +166,7 @@ in the pull request description.
 | 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | Unreleased |
 | - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | Unreleased |
 | 30 | Forms and pickers: a near-solid backdrop, frames sized to their content, a hint row in the footer's style on every modal, one-row form fields with labels beside them, error rows on demand, named buttons, radio and checkbox marks that differ by shape, a selection marker in both pickers, two-line link options, key picker spacing | [#54](https://github.com/jkosber/ssh-workbench/pull/54) | Unreleased |
+| - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | Unreleased |
 
 ## Deferred ideas
 
