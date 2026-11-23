@@ -320,7 +320,7 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    (`●`); Down alone does not choose it. Enter starts with the system whose
    ring is filled; Escape cancels. The bottom row names these keys:
    `↑↓ key  tab system  enter start  esc cancel`. On a small terminal the
-   list scrolls above that row. For an alias the list opens once SSH has
+   picker's contents scroll above that row. For an alias the list opens once SSH has
    read your config; if you connect, open a form or select another machine
    first, it doesn't open, and **K** again while it waits says it is still
    looking up the alias. A key that has no valid `.pub` file can't be

@@ -80,9 +80,11 @@ The five modals are not in the matrix; each has its own look tests
 `test_link_picker_look.py`). At 60x20 and 80x24 every modal fits inside the
 screen with its hint row, or the form's button row, as its last row; nothing
 scrolls except twelve links, which scroll between the machine's name and the
-hint row. At 40x16 the form keeps the field being typed in visible when an
-error row appears above it, and the key picker scrolls its body under its
-hint row.
+hint row. At 40x16 the form keeps the focused field visible when an error row
+appears above it and after a failed save moves the focus, and the key picker
+scrolls its body under its hint row with the highlighted key in view. Twelve
+links with URLs that cannot break are drawn in exactly the rows their prompts
+have, so the scrollbar's column never rewraps a piece.
 
 ### Look captures: `scripts/capture_look.py`
 

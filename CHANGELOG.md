@@ -89,7 +89,7 @@ Changes by release, newest first. Version numbers follow the policy in
   checkbox `X` or `·`, so the choice no longer depends on color; the chosen
   mark is no longer green, which means online.
 - The key picker has a blank row above "Key" and above "Target system" and a
-  cyan `▌` on the highlighted key. On a small terminal its list scrolls and
+  cyan `▌` on the highlighted key. On a small terminal its contents scroll and
   the row of keys stays at the bottom.
 - The link list shows each link's name over its URL, which wraps under the
   name when it is long, with a cyan `▌` on the highlighted link.
