@@ -6,7 +6,9 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+| Task | Branch | Delivers | Acceptance |
+| --- | --- | --- | --- |
+| - | `ci/dependency-update` | pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10; the other locked packages refreshed | The six checks pass with no change to code or tests; the CI uv pin and the `uv_build` lower bound move together; what Python 3.14.9 and 3.14.10 change in the modules Workbench relies on is read again and recorded |
 
 ## Next
 
@@ -14,8 +16,6 @@ Task 30, forms and pickers, follows from
 [the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks)
 and starts as its own task.
 
-- Dependency update (pytest, pytest-asyncio, ruff; check uv, the CI action
-  and the Python patch), its own pull request after Task 29.
 - Scoped refactor: split `app.py` into modules and remove the parser copy in
   `exports.py`, behavior unchanged, after Task 30 and its release.
 
