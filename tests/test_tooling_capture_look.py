@@ -38,3 +38,13 @@ async def test_capture_writes_one_svg_per_size(tmp_path: Path) -> None:
         assert svg.startswith("<svg")
         assert "machines" in svg
         assert home not in svg
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("no_external_actions", "no_app_connections")
+async def test_the_example_shows_a_wrapped_link(tmp_path: Path) -> None:
+    capture_look = load_capture_look()
+    [path] = await capture_look.capture(tmp_path, sizes=((80, 24),))
+    svg = path.read_text(encoding="utf-8")
+    assert "Grafana" in svg
+    assert "/fictional-studio-overview" in svg
