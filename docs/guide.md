@@ -154,18 +154,24 @@ machine whose `ssh_alias` is its `alias`, and whose `repository` and
 ## Adding, editing and deleting
 
 **A** adds a machine, **E** edits the selected one and **X** deletes it after
-asking. The form checks each value with the same rules as the file and shows
-the first problem under its field. **Ctrl+S** saves only a valid machine;
-**Escape** closes the form without saving.
+asking. The form shows one field per row with its label at the left, or above
+it under 60 columns; the field you are in has a cyan bar at its left. The form
+checks each value with the same rules as the file and shows the first problem
+on a row under its field, a row that is there only while the problem is.
+**Ctrl+S** saves only a valid machine; **Escape** closes the form without
+saving. The last row holds the same two keys as buttons, `^s save` and
+`esc cancel`: click one, or Tab to it and press Enter (Space does not press
+it).
 
 | Field | Enter |
 | --- | --- |
-| ID, Name | As in the file. The ID must be unique |
-| SSH alias | A `Host` name. The form lists the literal `Host` names in your SSH config and completes them as you type (Right accepts); any other name is allowed too |
-| Addresses | One or more, separated by commas or spaces. Workbench connects to the first one the latest status check found online, else the first listed |
-| User, Port, Key | Optional. Leave them empty to use SSH's defaults |
-| Export as an SSH alias | Optional, for direct machines. See [Exported aliases](#exported-aliases) |
-| Links | One per line: the name, then the URL, such as `Dashboard https://192.168.1.20:8006` |
+| `id`, `name` | As in the file. The ID must be unique |
+| `connection` | **SSH alias** or **Direct (addresses)**; the filled ring `●` marks the one chosen, and the form shows that kind's fields |
+| `alias` | A `Host` name. The line under it lists the literal `Host` names in your SSH config, and the field completes them as you type (Right accepts); any other name is allowed too |
+| `addresses` | One or more, separated by commas or spaces. Workbench connects to the first one the latest status check found online, else the first listed; the empty field says `online one is used, else the first` |
+| `user`, `port`, `key` | Optional: the empty field says `optional`, or `path of the private key, optional` for the key. Leave them empty to use SSH's defaults |
+| `export` | Optional, for direct machines: **ssh <ID> works in any terminal**, `X` when ticked and `·` when not. See [Exported aliases](#exported-aliases) |
+| `links` | One per line: the name, then the URL, such as `Dashboard https://192.168.1.20:8006`; the empty box says `one per line: the name, then the URL` |
 
 To list `Host` names, Workbench reads `config` in your SSH folder (`~/.ssh`, or
 `%USERPROFILE%\.ssh` on Windows) and the files its `Include` lines name. It
@@ -309,7 +315,12 @@ or passphrase: SSH and `ssh-keygen` ask for them.
    key**, an Ed25519 key named for the machine, such as `id_ed25519_box`. For
    an alias, the keys its SSH config offers come first. Choose the target
    system too: Linux, macOS or other POSIX, or Windows (OpenSSH Server).
-   Enter starts; Escape cancels. For an alias the list opens once SSH has
+   Up and Down move a cyan `▌` to the key. For Windows, press Tab to reach
+   the target system, Down to move to Windows and Space to fill its ring
+   (`●`); Down alone does not choose it. Enter starts with the system whose
+   ring is filled; Escape cancels. The bottom row names these keys:
+   `↑↓ key  tab system  enter start  esc cancel`. On a small terminal the
+   picker's contents scroll above that row. For an alias the list opens once SSH has
    read your config; if you connect, open a form or select another machine
    first, it doesn't open, and **K** again while it waits says it is still
    looking up the alias. A key that has no valid `.pub` file can't be
@@ -358,8 +369,9 @@ ssh-add $env:USERPROFILE\.ssh\id_ed25519_box
 ## Exported aliases
 
 A direct machine can also be exported, so `ssh <id>` works in any terminal, in
-scripts and for coding agents, not only inside Workbench. Tick **Export as an
-SSH alias** in the form (or set `export_alias = true`); it is off by default.
+scripts and for coding agents, not only inside Workbench. Tick **ssh <ID>
+works in any terminal** on the form's `export` row (or set
+`export_alias = true`); it is off by default.
 
 Workbench then writes its own file, `ssh-workbench.config`, in your SSH folder
 and rewrites it from the machine file whenever Workbench saves that file, so a
@@ -408,8 +420,9 @@ Workbench's entry first.
 
 **O** passes the selected machine's link to the system: the default browser on
 Windows, or `gio open` on a Linux desktop where `DISPLAY` or `WAYLAND_DISPLAY`
-is set. With several links, O shows a list: Enter opens the highlighted one and
-Escape cancels.
+is set. With several links, O shows a list with each link's name over its
+URL, which wraps under the name when it is long; a cyan `▌` marks the
+highlighted link. Enter opens it and Escape cancels.
 
 "browser request accepted" means the system took the request, not that the
 page loaded. The browser opens on the machine running Workbench, which over a
@@ -430,11 +443,16 @@ at a time, and Q still quits while it waits.
 | O | Open the selected machine's link, or choose one when it has several |
 | Enter / Escape | In the link list: open the highlighted link / cancel |
 | A / E / X | Add a machine / edit the selected one / delete it after asking |
-| Tab, Ctrl+S, Escape | In the form: next field, save, close without saving |
-| Y / N | When deleting: delete / keep |
+| Tab, Ctrl+S, Escape | In the form: next field, save, close without saving; Enter presses the button you tabbed to |
+| Up / Down, Tab, Space, Enter | In the key picker: choose a key; move to the target system, where Down and Space choose Windows; start |
+| Y / N | When deleting: delete / keep. When asked to add the `Include` line: add / not now |
 | ? | Show or hide the key panel |
 | Escape | Hide the key panel. In a form, a question, the key picker or the link list, Escape closes that first |
-| Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
+| Q or Ctrl+Q | Quit (in a form, a question or the key picker, only Ctrl+Q) |
+
+A form, a question or a picker darkens the screen behind it and names its own
+keys on its last row, in the footer's colors, such as `y delete  n keep` in
+the delete question and `enter open  esc cancel` in the link list.
 
 Letter keys work in either case, so Caps Lock and Shift make no difference.
 

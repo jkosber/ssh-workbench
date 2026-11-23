@@ -1,11 +1,13 @@
 """Helpers shared by test modules, so no test module imports another."""
 
+import asyncio
 import importlib.util
 from pathlib import Path
 from types import ModuleType
 from unittest.mock import Mock
 
 import pytest
+from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Static
@@ -52,6 +54,40 @@ def handoff(monkeypatch: pytest.MonkeyPatch) -> Mock:
     launch = Mock(return_value=0)
     monkeypatch.setattr(app_module, "launch_ssh", launch)
     return launch
+
+
+async def wait_for(pilot, predicate) -> None:
+    async with asyncio.timeout(5):
+        while not predicate():
+            await pilot.pause()
+
+
+# push_screen makes a screen current before it has composed its widgets.
+def showing(app, kind) -> bool:
+    return isinstance(app.screen, kind) and app.screen.is_mounted
+
+
+def luminance(color: Color) -> float:
+    """WCAG 2 relative luminance."""
+
+    def linear(channel: int) -> float:
+        value = channel / 255
+        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+
+    return (
+        0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
+    )
+
+
+def contrast(foreground: Color, background: Color) -> float:
+    """The WCAG 2 contrast ratio; a translucent foreground is first composited
+    onto the background."""
+    if foreground.a < 1:
+        foreground = background.tint(foreground)
+    lighter, darker = sorted(
+        (luminance(foreground), luminance(background)), reverse=True
+    )
+    return (lighter + 0.05) / (darker + 0.05)
 
 
 CAPTURE_LOOK = Path(__file__).resolve().parents[1] / "scripts" / "capture_look.py"

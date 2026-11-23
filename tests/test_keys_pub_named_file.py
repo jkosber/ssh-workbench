@@ -108,7 +108,7 @@ async def test_k_offers_the_folder_keys_beside_a_pub_file_without_a_key_name(
         assert app.return_code is None
         options = app.screen.query_one(OptionList)
         assert [
-            str(options.get_option_at_index(index).prompt)
+            str(options.get_option_at_index(index).prompt)[1:]
             for index in range(options.option_count)
         ] == ["id_a.pub", "Create a new key: id_ed25519_box"]
         await pilot.press("escape")

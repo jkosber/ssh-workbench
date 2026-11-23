@@ -75,6 +75,17 @@ and 200x60 with 5 and 60 machines: every visible row's name, target and user
 line up under `name`, `target` and `user`, and at 120x30 the header and the
 user column are gone.
 
+The five modals are not in the matrix; each has its own look tests
+(`tests/test_modals_look.py`, `test_form_look.py`, `test_key_picker_look.py`,
+`test_link_picker_look.py`). At 60x20 and 80x24 every modal fits inside the
+screen with its hint row, or the form's button row, as its last row; nothing
+scrolls except twelve links, which scroll between the machine's name and the
+hint row. At 40x16 the form keeps the focused field visible when an error row
+appears above it and after a failed save moves the focus, and the key picker
+scrolls its body under its hint row with the highlighted key in view. Twelve
+links with URLs that cannot break are drawn in exactly the rows their prompts
+have, so the scrollbar's column never rewraps a piece.
+
 ### Look captures: `scripts/capture_look.py`
 
 ```text
@@ -178,6 +189,28 @@ If everything is grey, the shell has `NO_COLOR` set (coding agents set it);
 clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in
 PowerShell.
 
+The form and the delete question, at 80x24 and 60x20, without saving: A opens
+the form over a screen darkened almost to the background color, with no
+readable text behind it. Each label sits beside its field, and empty fields
+show their grey explanation. Tab moves a cyan `▌` from field to field without
+moving their text; Down and Space on the connection row switch to Direct
+(addresses), the filled ring moves, and the frame grows to show the direct
+fields. Type a letter into the ID and delete it: an error row appears under
+it, and typing an ID again removes the row. The last row is `^s save` and
+`esc cancel`; Escape closes the form. Resize the open form from 80 to 50
+columns and back: the labels move above their fields and back beside them,
+and typed text stays. X shows the delete question in a red frame just wide
+enough for its sentence, with `y delete  n keep` as its last row; N keeps the
+machine.
+
+The Include question needs a save, so run it on a copy of the example file in
+the ignored folder, with the variables above set: copy
+`examples/machines.example.toml` to `.local/manual/machines.toml` and run
+`uv run --locked ssh-workbench --config .local/manual/machines.toml`. E on
+Studio box, tick `export` (`X`), Ctrl+S twice (the copy has comments): the
+question shows `Include ssh-workbench.config` with a blank row above and
+below it and `y add  n not now` as its last row. N changes nothing.
+
 ### Terminal handoff: `scripts/check_terminal.py`
 
 ```text
@@ -221,7 +254,9 @@ Run at 80x24. Every browser and operating-system opener is substituted.
    private marker; the long case wraps in the details pane and stays inside
    the status area.
 2. On the no-links case, O is dimmed and pressing it changes nothing.
-3. On the picker case, O opens the list: Enter opens the first link, Down
+3. On the picker case, O opens the list: the machine's name on top, each
+   link's name over its indented URL, a cyan `▌` on the highlighted link and
+   `enter open  esc cancel` as the last row. Enter opens the first link, Down
    then Enter the second, and Escape closes it with the same selection and
    focus.
 4. On any case, K lists only the fixture's empty temporary SSH folder, so the
@@ -256,6 +291,12 @@ child ("Key setup interrupted while creating the key; nothing was
 installed."); `--test-status 0` with Ctrl+C at the test child ("The key was
 installed, but the login test was interrupted."). The alias's picker names
 `id_work` under the list: its config offers it, but it has no `.pub`.
+
+The picker itself, at 80x24 and 60x20: a blank row above "Key" and above
+"Target system", a cyan `▌` that follows Up and Down, and
+`↑↓ key  tab system  enter start  esc cancel` as its last row. Tab, Down,
+Space fills the Windows ring and empties the POSIX one; at 40x16 the body
+scrolls and the hint row stays.
 
 ### Login shells: `scripts/check_shells.py`
 

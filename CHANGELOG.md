@@ -71,8 +71,28 @@ Changes by release, newest first. Version numbers follow the policy in
   have, and online dots no longer pulse.
 - Status words in the details are lowercase now, as in the header, and any
   detail follows, muted, after a dot: `● online · 192.0.2.20`.
-- The form's Addresses label says which address is used: the one the latest
-  status check found online, else the first. It said the first one was used.
+- The form's empty `addresses` field says which address is used,
+  `online one is used, else the first`: the one the latest status check found
+  online, else the first. It said the first one was used.
+- Forms, questions and pickers darken the screen behind them almost to the
+  background color and name their keys on their last row in the footer's
+  colors, such as `y delete  n keep` and `enter open  esc cancel`, instead of
+  a sentence. The questions and the link list are only as wide as their text,
+  and the form only as tall as its fields.
+- The form is denser: one row per field, with a lowercase label beside it
+  (`id`, `name`, `connection`, `alias`, `addresses`, `user`, `port`, `key`,
+  `export`, `links`), or above it under 60 columns. The explanations that
+  were part of the labels show inside empty fields, an error takes a row only
+  while there is one, and the buttons read `^s save` and `esc cancel`. The
+  field you are in has a cyan bar at its left.
+- Radio buttons show `●` when chosen and `○` when not, and the export
+  checkbox `X` or `·`, so the choice no longer depends on color; the chosen
+  mark is no longer green, which means online.
+- The key picker has a blank row above "Key" and above "Target system" and a
+  cyan `▌` on the highlighted key. On a small terminal its contents scroll and
+  the row of keys stays at the bottom.
+- The link list shows each link's name over its URL, which wraps under the
+  name when it is long, with a cyan `▌` on the highlighted link.
 
 ### Security
 
