@@ -39,6 +39,7 @@ request for later ones. Each needs its own task before work starts.
 | Timer rounds turn every machine to checking every 30 seconds, so the header leaves `all online` and every row spins each round; keeping the last result until the new one arrives would calm the screen | 27 |
 | Under 60 columns the first frame after startup or a resize shows the panes side by side for about 100 ms before they stack: Textual 8.2.8 keeps a container's arrangement cache across its own `layout` change, and clearing it needs a private method | 28 |
 | In the details' label row a cut-off name's `…` sits directly against the ID, with no space, such as `Long identifier machin…fictional-long-identi…`; a one-cell gap has to fit the ID's half-row cap and the two label-row tests that pin the ID's width and the name's half | 29 |
+| A question's text cannot be scrolled from the keyboard when it overflows its frame, as the delete question with a long name, a long ID and the rewrite warning does at 40x16: nothing in it takes the focus, so Down, Page Down and End do nothing | 30 |
 
 ### Status and aliases
 
@@ -53,6 +54,9 @@ request for later ones. Each needs its own task before work starts.
 | Item | From |
 | --- | --- |
 | The login test also accepts keys from a `Host` entry in the user's SSH config that matches a direct machine's address (documented); the only fix, `-F none`, would drop the user's config for that address | 14 |
+| The key picker's hint row names `tab system`, but choosing Windows takes Tab, Down, then Space: Down alone only moves the highlight, and Enter then starts with POSIX | 30 |
+| A wrapped key label's second line starts in the marker's column, one cell left of the label | 30 |
+| The key picker's frame stays at its width cap (72 cells from 80 columns, 90% below) even for one short key; hugging the content would make the frame change width as notes come and go, and needs a minimum width for the docked hint row | 30 |
 
 ### Machine file and forms
 
@@ -64,6 +68,8 @@ request for later ones. Each needs its own task before work starts.
 | Link names with line breaks or surrounding spaces do not survive the edit form | 9 |
 | `Include` lines are missed when the SSH folder path contains `[` | 9 |
 | `Host` names are read on the UI thread when a form opens; a slow network share would pause the screen | 9 |
+| Space does not press a form button; Enter does, because Textual's `Button` binds only Enter | 30 |
+| The `links` box wraps a long line inside a word, such as in the middle of a URL, and its cursor line has no highlight | 30 |
 
 ### Exported aliases
 
