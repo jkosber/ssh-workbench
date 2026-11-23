@@ -44,6 +44,7 @@ request for later ones. Each needs its own task before work starts.
 | Toast notifications could report connection and link results; the result line stays, because it survives a terminal handoff and toasts expire | 27 |
 | Timer rounds turn every machine to checking every 30 seconds, so the header leaves `all online` and every row spins each round; keeping the last result until the new one arrives would calm the screen | 27 |
 | Under 60 columns the first frame after startup or a resize shows the panes side by side for about 100 ms before they stack: Textual 8.2.8 keeps a container's arrangement cache across its own `layout` change, and clearing it needs a private method | 28 |
+| In the details' label row a cut-off name's `…` sits directly against the ID, with no space, such as `Long identifier machin…fictional-long-identi…`; a one-cell gap has to fit the ID's half-row cap and the two label-row tests that pin the ID's width and the name's half | 29 |
 
 ### Status and aliases
 

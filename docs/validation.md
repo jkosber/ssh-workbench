@@ -32,10 +32,11 @@ Not checked: what was left out, and why.
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (the wrapper
 printed `TERM=xterm-ghostty`), Python 3.14.8, Textual 8.2.8,
-`feat/task29-list-and-details` at `065fcd6`; the later commits change the
-capture example and docs, not the app. A coding agent drove a floating
-Ghostty window and took screenshots with grim, as for Task 28. Keys went
-through Hyprland's `send_key_state`, one at a time. The app ran from a
+`feat/task29-list-and-details` at `065fcd6`, and one screen again at
+`2ceea3a` after the review changed how URLs break; the commits between
+change the capture example and docs, not the app. A coding agent drove a
+floating Ghostty window and took screenshots with grim, as for Task 28. Keys
+went through Hyprland's `send_key_state`, one at a time. The app ran from a
 launcher in an ignored folder, built the way `scripts/capture_look.py` builds
 its app: 50 fictional machines (the size matrix's Studio box, a machine with
 an 86-character ID, a long link name and a long URL, alias, offline, proxied
@@ -50,6 +51,7 @@ each grid.
 | --- | --- |
 | 80x24 | Header `50 machines · × 1 alias not found · ◇ 8 can't check`. On the selected row a cyan `▌` in column 0 and a blue-grey band across the list; only the selected name was bold. No row targets. Studio box's details: `status ● online · 192.0.2.40` (word green, address muted), `connect direct · studio@192.0.2.40:2222`, `key`, `addresses` on two lines, a blank row, `links` alone, then three links with names in one column and URLs in another. Nothing scrolled; the footer showed all nine keys on one row |
 | Link wrapping at 80x24 | The URL column was 29 columns. `Grafana` broke before `/fictional-studio-overview` and before `?orgId=1&refresh=30s`. `Status page` broke at the column edge, as `https://studio-box.example.co` over `m/status`: its only `/` after the scheme is one column too far. No URL line started under the name column |
+| The same screen at `2ceea3a` | A URL with no `/`, `?`, `&` or `#` in reach now breaks before a `.` or `-`. `Status page` broke as `https://studio-box.example` over `.com/status`; `Dashboard` and `Grafana` as before |
 | Tab and back at 80x24 | The thick cyan line moved under the details' label row and `machines` lost its cyan. The list band dimmed to grey and the `▌` stayed. A second Tab put everything back |
 | Unset rows | The long-ID machine had no `key` row; the alias machines had no `key` or `addresses` rows; machines without links showed `links  none` muted |
 | Other states | Lab `○ offline`; Hop `◇ can't check · the alias uses ProxyJump or ProxyCommand`; Archive `× alias not found. Fix your SSH config and press R, or press E and save to keep or change the alias.` with `connect alias · archive-host`, and the footer hid `c connect`. Garden demo and Hop showed `(not in your SSH config)` in red: the launcher's SSH folder has no `Host` lines |
@@ -67,14 +69,15 @@ each grid.
 | Bands | Sampled pixels: focused rgb(32,59,81), unfocused rgb(34,43,57), list surface rgb(34,37,46). Text on both bands read clearly; the unfocused band was faint but visible |
 | Home in the list | The selection stayed where it was (6/50) |
 | Q | `APP EXIT STATUS: 0` and the `check$` prompt after both runs |
-| Automated | 1389 passed; ruff check and format clean; `uv build` and the package check passed |
+| Automated | 1393 passed at `2ceea3a`; ruff check and format clean; `uv build` and the package check passed |
 
 Not checked: Windows Terminal (the design defers it to after Task 30); a
 physical keyboard; 100x30, 120x40, 200x60 and 80x50 in Ghostty, which the
 size matrix test covers headless; `· exported as ssh <id>` in the connect
 row; a selected row in a scrolled list from 130 columns; a result line made
-by C, K, O or a save; text contrast on the bands as a measured ratio in the
-terminal (the theme test measures it from the theme's values).
+by C, K, O or a save; the other sizes and screens after `2ceea3a`; text
+contrast on the bands as a measured ratio in the terminal (the theme test
+measures it from the theme's values).
 
 ## TUI overhaul Task 28, 2026-11-09
 

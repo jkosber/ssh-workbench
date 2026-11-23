@@ -54,9 +54,9 @@ Changes by release, newest first. Version numbers follow the policy in
   or `From your SSH config`, and the ID and name rows are gone: the label row
   above shows both. A long ID there ends with `…`.
 - Links show as a name column and a URL column, and a long URL wraps inside its
-  own column, before a `/`, `?`, `&` or `#` where it can. When the details
-  are narrower than 48 columns, each label sits above its value and each URL
-  below its link's name.
+  own column, before a `/`, `?`, `&` or `#` where it can, else before a `.` or
+  `-`. When the details are narrower than 48 columns, each label sits above
+  its value and each URL below its link's name.
 - The empty screens are muted lines instead of a box, such as
   `no machines in this file yet · a to add` with the file's path below, and
   they scroll when a long path doesn't fit.

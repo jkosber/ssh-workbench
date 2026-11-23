@@ -73,7 +73,7 @@ Each row has a muted label at the left. A row with nothing to show is left out.
 | `connect` | How **C** connects. A direct machine: `direct · admin@192.0.2.20:2222`, with the user and the port only when they are set, and the address that answered the last check, else the first. An IPv6 address with a port is in brackets: `[2001:db8::1]:2222`. An exported machine adds `· exported as ssh <id>`. An alias machine: `alias · garden-host`; Workbench never shows what SSH resolves the alias to |
 | `key` | The key path. Left out when the machine has no key |
 | `addresses` | A direct machine's addresses, one per line. Left out for an alias machine |
-| `links` | After a blank line: each link's name, then its URL in a column of its own. The name column is as wide as the longest name, at most 20 characters; a longer name ends with `…`. A URL too long for its column continues on the next line in the same column, breaking before a `/`, `?`, `&` or `#` where it can. `none` when the machine has no links |
+| `links` | After a blank line: each link's name, then its URL in a column of its own. The name column is as wide as the longest name, at most 20 characters; a longer name ends with `…`. A URL too long for its column continues on the next line in the same column, breaking before a `/`, `?`, `&` or `#` where it can, else before a `.` or `-`. `none` when the machine has no links |
 
 When the details pane is narrower than 48 columns, each label sits above its
 value and each link's URL goes on the line below its name, indented two. That

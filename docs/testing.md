@@ -68,8 +68,8 @@ size in `SIZES` in `scripts/capture_look.py`: 80x24, 120x30, 100x30, 120x40,
 | List | At 80x50 every row stays one line high |
 
 The matrix runs on `MATRIX_MACHINES`: a direct machine with every details row
-set and three links, one long enough to wrap, an alias machine and a plain
-direct machine. The column header is checked in
+set and three links, two of which wrap at 80 columns, an alias machine and a
+plain direct machine. The column header is checked in
 `test_xwide_rows_line_up_under_a_column_header` instead, at 130x40, 160x50
 and 200x60 with 5 and 60 machines: every visible row's name, target and user
 line up under `name`, `target` and `user`, and at 120x30 the header and the
@@ -85,8 +85,9 @@ Not one of the six checks: it renders the app at every matrix size to
 `look-WxH.svg` files in the ignored `.local/captures/look/`, for a look at the
 layout without a terminal. Five fictional machines show online, offline, can't
 check and alias not found, and the first, which is selected, has three links,
-one long enough to wrap; a stand-in checker answers, so no SSH, network or
-browser call runs, and the user and SSH folders point at a temporary folder.
+two of which wrap at 80 columns; a stand-in checker answers, so no SSH,
+network or browser call runs, and the user and SSH folders point at a
+temporary folder.
 `--sizes 80x24,40x16` picks sizes and `--out DIR` another folder. The captures
 wait for the checks, so Checking never shows. They do not replace the check in
 a real terminal.
