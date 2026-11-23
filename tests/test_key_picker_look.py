@@ -164,6 +164,38 @@ async def test_the_rings_show_the_target_by_shape(tmp_path: Path) -> None:
     assert results == [KeyPlan(CHOICES[0], True)]
 
 
+LONG_LABEL = (
+    "Create a new key: "
+    "id_ed25519_rack-machine-number-one-far-corner-of-the-second-fictional-room"
+)
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20), (40, 16)])
+async def test_a_long_key_label_is_shown_whole(
+    tmp_path: Path, size: tuple[int, int]
+) -> None:
+    app = saved_app(tmp_path)
+    choices = [
+        KeyChoice(SSH / "id_a", "id_a.pub"),
+        KeyChoice(SSH / "id_ed25519_rack", LONG_LABEL, True),
+    ]
+    async with app.run_test(size=size) as pilot:
+        app.push_screen(KeySetup(GARDEN, choices, None), [].append)
+        await wait_for(pilot, lambda: showing(app, KeySetup))
+        await pilot.pause()
+        body = app.screen.query_one("#key-body")
+        options = app.screen.query_one("#key-choices", OptionList)
+        # The list is no wider than the body, so no cell of it is hidden.
+        assert len(LONG_LABEL) > body.content_region.width
+        assert body.region.contains_region(options.region)
+        assert body.max_scroll_x == 0
+        drawn = "".join(
+            "".join(segment.text for segment in options.render_line(y)).strip()
+            for y in range(options.size.height)
+        )
+        assert LONG_LABEL.replace(" ", "") in drawn.replace(" ", "")
+
+
 async def test_the_highlighted_key_has_a_marker(tmp_path: Path) -> None:
     app = saved_app(tmp_path)
     results: list[KeyPlan | None] = []
