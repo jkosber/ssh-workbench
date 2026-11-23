@@ -128,7 +128,7 @@ def run_k(
                         await pilot.pause()
                 picker = app.screen.query_one(OptionList)
                 options.extend(
-                    str(picker.get_option_at_index(index).prompt)
+                    str(picker.get_option_at_index(index).prompt)[1:]
                     for index in range(picker.option_count)
                 )
                 await answer(app, pilot, events)

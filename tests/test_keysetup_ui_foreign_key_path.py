@@ -112,7 +112,7 @@ def showing_picker(app: SSHWorkbenchApp) -> bool:
 def option_labels(screen: KeySetup) -> list[str]:
     options = screen.query_one(OptionList)
     return [
-        str(options.get_option_at_index(index).prompt)
+        str(options.get_option_at_index(index).prompt)[1:]
         for index in range(options.option_count)
     ]
 

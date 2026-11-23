@@ -165,7 +165,7 @@ def workspace(
 def option_labels(screen: KeySetup) -> list[str]:
     options = screen.query_one(OptionList)
     return [
-        str(options.get_option_at_index(index).prompt)
+        str(options.get_option_at_index(index).prompt)[1:]
         for index in range(options.option_count)
     ]
 
@@ -1157,6 +1157,7 @@ async def test_the_picker_shows_its_note_and_keys_whole(
         await pilot.pause()
         box = screen.query_one("#key-setup")
         assert box.region.bottom <= size[1]
+        assert screen.query_one("#key-body").max_scroll_y == 0
         for widget in ("#key-note", "#key-help", "#key-choices", "#key-system"):
             region = screen.query_one(widget).region
             assert region.height > 0, widget
@@ -1445,7 +1446,7 @@ async def test_the_picker_shows_its_unlisted_keys_whole(
         assert box.region.bottom <= size[1]
         # The box's region includes its border, so only this catches a row
         # hidden behind it.
-        assert box.max_scroll_y == 0
+        assert screen.query_one("#key-body").max_scroll_y == 0
         for widget in (
             "#key-note",
             "#key-choices",
@@ -1494,7 +1495,7 @@ async def test_the_picker_fits_60x20_with_a_real_note_and_the_not_listed_line(
         await wait_for(pilot, lambda: note(screen) == note_text)
         await pilot.pause()
         box = screen.query_one("#key-setup")
-        assert box.max_scroll_y == 0
+        assert screen.query_one("#key-body").max_scroll_y == 0
         for widget in (
             "#key-note",
             "#key-choices",
