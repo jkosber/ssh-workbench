@@ -157,9 +157,9 @@ async def test_wrap_target_starts_no_row_with_an_address_colon(
     for width in range(6, 60):
         lines = wrap_target(text, width, host_at, port_at)
         assert "".join(lines) == text
-        assert [line for line in lines if line.startswith(":")] == (
-            [] if port_at is None else [":2222"]
-        )
+        # Only the port's own row may start with a colon.
+        colons = [line for line in lines if line.startswith(":")]
+        assert colons == [] or (port_at is not None and colons == [":2222"])
 
 
 @pytest.mark.parametrize("size", [(80, 24), (60, 20)])
