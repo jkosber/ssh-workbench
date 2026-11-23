@@ -7,7 +7,14 @@ from unittest.mock import Mock
 
 import pytest
 from support import TWO_MACHINES as APP_MACHINES
-from support import empty_lines, empty_text, handoff, load_capture_look
+from support import (
+    contrast,
+    empty_lines,
+    empty_text,
+    handoff,
+    load_capture_look,
+    luminance,
+)
 from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.content import Content, Span
@@ -114,29 +121,6 @@ def rule(selector: str) -> str:
     """The single declaration of one generated rule, whitespace collapsed."""
     body = state_css().split(f"{selector} {{", 1)[1].split("}", 1)[0]
     return " ".join(body.split())
-
-
-def luminance(color: Color) -> float:
-    """WCAG 2 relative luminance."""
-
-    def linear(channel: int) -> float:
-        value = channel / 255
-        return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
-
-    return (
-        0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
-    )
-
-
-def contrast(foreground: Color, background: Color) -> float:
-    """The WCAG 2 contrast ratio; a translucent foreground is first composited
-    onto the background."""
-    if foreground.a < 1:
-        foreground = background.tint(foreground)
-    lighter, darker = sorted(
-        (luminance(foreground), luminance(background)), reverse=True
-    )
-    return (lighter + 0.05) / (darker + 0.05)
 
 
 async def test_the_workbench_theme_is_active() -> None:
