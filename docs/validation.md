@@ -28,6 +28,54 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## TUI overhaul Task 29: list rows and details, 2026-11-22
+
+Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (the wrapper
+printed `TERM=xterm-ghostty`), Python 3.14.8, Textual 8.2.8,
+`feat/task29-list-and-details` at `065fcd6`; the later commits change the
+capture example and docs, not the app. A coding agent drove a floating
+Ghostty window and took screenshots with grim, as for Task 28. Keys went
+through Hyprland's `send_key_state`, one at a time. The app ran from a
+launcher in an ignored folder, built the way `scripts/capture_look.py` builds
+its app: 50 fictional machines (the size matrix's Studio box, a machine with
+an 86-character ID, a long link name and a long URL, alias, offline, proxied
+and missing-alias machines, and 44 fillers), a stand-in checker, a temporary
+machine file and state file, the user and SSH folders in a temporary folder,
+`NO_COLOR` unset, and the process, socket and browser entry points rejected.
+No port check, no `ssh -G`, no `ssh`, no browser; C, K and O were never
+pressed. Window sizes were set in cells, and the window's pixel size matched
+each grid.
+
+| Check | Observed |
+| --- | --- |
+| 80x24 | Header `50 machines · × 1 alias not found · ◇ 8 can't check`. On the selected row a cyan `▌` in column 0 and a blue-grey band across the list; only the selected name was bold. No row targets. Studio box's details: `status ● online · 192.0.2.40` (word green, address muted), `connect direct · studio@192.0.2.40:2222`, `key`, `addresses` on two lines, a blank row, `links` alone, then three links with names in one column and URLs in another. Nothing scrolled; the footer showed all nine keys on one row |
+| Link wrapping at 80x24 | The URL column was 29 columns. `Grafana` broke before `/fictional-studio-overview` and before `?orgId=1&refresh=30s`. `Status page` broke at the column edge, as `https://studio-box.example.co` over `m/status`: its only `/` after the scheme is one column too far. No URL line started under the name column |
+| Tab and back at 80x24 | The thick cyan line moved under the details' label row and `machines` lost its cyan. The list band dimmed to grey and the `▌` stayed. A second Tab put everything back |
+| Unset rows | The long-ID machine had no `key` row; the alias machines had no `key` or `addresses` rows; machines without links showed `links  none` muted |
+| Other states | Lab `○ offline`; Hop `◇ can't check · the alias uses ProxyJump or ProxyCommand`; Archive `× alias not found. Fix your SSH config and press R, or press E and save to keep or change the alias.` with `connect alias · archive-host`, and the footer hid `c connect`. Garden demo and Hop showed `(not in your SSH config)` in red: the launcher's SSH folder has no `Host` lines |
+| Long link name and URL at 80x24 | The name was cut at 20 columns as `Fictional monitorin…`; the URL wrapped over nine rows inside its column, with five breaks before a `/`, `?` or `&` and three at the column edge |
+| Long name and long ID | The label row read `Long identifier machin…fictional-long-identi…`: the name's `…` sat directly against the ID, with no space, at 80x24, 60x20 and 40x16 |
+| `?`, Escape | The panel opened at the right with cyan keys and lowercase labels; Escape closed it |
+| `?`, `a`, Escape, Escape | `a` opened the Add machine form over the panel. The first Escape closed the form and the panel was still open; the second closed the panel |
+| 120x30 | All five header entries. Row targets muted and right-aligned: Studio box `192.0.2.40` (the address that answered, not the first), the alias for alias machines, the address for the other direct machines. The long name ended `with a …` before its target. Studio box's links each fit on one row except Grafana, which broke once, before `/fictional-studio-overview`. Tab dimmed the band and kept the marker |
+| 160x50 | A muted `name  target  user` header above the list and three aligned columns; the user column was blank for alias machines and for direct machines without a user. Studio box's three links each took one row. After Page Down the list showed Node 01 to Node 44 under the same header, columns still aligned; the selection stayed on 1/50, out of view |
+| 60x20 | Side by side, list 24 columns. Details labels above their values; each link name on its own line with its URL on the next, indented two; a one-column scrollbar. Footer on two rows |
+| 50x24 | Stacked panes: seven machines, the details' label row, then details with labels beside their values and links in two columns. Footer on two rows; the band dimmed on Tab here too |
+| 40x16 | Header `50 · ×1 ◇8 ○26 ●15`; four machines, the details' label row, then details rows with labels above values and a scrollbar; footer on three rows. Nothing overlapped, also with a two-row result line |
+| 120x18 | Two keys in the launcher put fictional results on the result line. One the length of Task 28's connect result took two rows, whole; a longer one took two rows ending `repeats t…`. The details still showed their last links row; nothing overlapped |
+| Glyphs | `▌ ● ○ ◇ × ·` and `…` each took one cell, in the colors of their states |
+| Bands | Sampled pixels: focused rgb(32,59,81), unfocused rgb(34,43,57), list surface rgb(34,37,46). Text on both bands read clearly; the unfocused band was faint but visible |
+| Home in the list | The selection stayed where it was (6/50) |
+| Q | `APP EXIT STATUS: 0` and the `check$` prompt after both runs |
+| Automated | 1389 passed; ruff check and format clean; `uv build` and the package check passed |
+
+Not checked: Windows Terminal (the design defers it to after Task 30); a
+physical keyboard; 100x30, 120x40, 200x60 and 80x50 in Ghostty, which the
+size matrix test covers headless; `· exported as ssh <id>` in the connect
+row; a selected row in a scrolled list from 130 columns; a result line made
+by C, K, O or a save; text contrast on the bands as a measured ratio in the
+terminal (the theme test measures it from the theme's values).
+
 ## TUI overhaul Task 28, 2026-11-09
 
 Arch Linux (Omarchy 4.5, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (the
