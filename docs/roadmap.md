@@ -160,6 +160,7 @@ in the pull request description.
 | - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | 0.4.0 |
 | 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | 0.4.0 |
 | 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | [#45](https://github.com/jkosber/ssh-workbench/pull/45) | 0.4.0 |
+| - | 20 audit findings fixed in key setup, SSH config reading, exports and the package check | [#46](https://github.com/jkosber/ssh-workbench/pull/46) | 0.4.0 |
 | - | AGENTS.md keeps only the repository-specific rules and adds the plan-location and test-guard rules | [#47](https://github.com/jkosber/ssh-workbench/pull/47) | 0.4.0 |
 | - | AGENTS.md opens with its Extends line and links CONTRIBUTING.md for setup, commands and dependencies | [#48](https://github.com/jkosber/ssh-workbench/pull/48) | 0.4.0 |
 | - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | 0.4.0 |
