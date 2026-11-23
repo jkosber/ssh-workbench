@@ -730,16 +730,18 @@ def wrap_url(text: str, width: int) -> list[str]:
 
 # A direct target too wide for its row breaks before one of these in its
 # address, when its port's colon and its `@` are both out of reach.
-TARGET_BREAKS = ".-:"
+TARGET_BREAKS = ".-"
 
 
 def wrap_target(text: str, width: int, host_at: int, port_at: int | None) -> list[str]:
     """A direct target, `user@address:port`, in lines of at most `width`
     cells (2 at least) that join back to it. The address starts at `host_at`
     and the port's colon is at `port_at`. While the rest is too wide, a line
-    ends before the port's colon, else after the `@`, else before the last
-    `.`, `-` or `:` of the address that keeps it within the width, else at
-    the width. So a port stays whole on any row wide enough for it."""
+    ends before the port's colon, else after the `@`, else at the last place
+    in the address that keeps it within the width: before a `.` or `-`, or
+    after a `:` that no `:` follows. Else it ends at the width. So a port
+    stays whole on any row wide enough for it, and no row of an IPv6 address
+    starts with a colon, like a port."""
     address_end = len(text) if port_at is None else port_at
 
     def cut(start: int, end: int) -> int | None:
@@ -749,8 +751,9 @@ def wrap_target(text: str, width: int, host_at: int, port_at: int | None) -> lis
         return next(
             (
                 index
-                for index in range(min(end, address_end - 1), max(start, host_at), -1)
-                if text[index] in TARGET_BREAKS
+                for index in range(min(end, address_end), max(start, host_at), -1)
+                if (index < address_end and text[index] in TARGET_BREAKS)
+                or (text[index - 1] == ":" and text[index] != ":")
             ),
             None,
         )
@@ -842,6 +845,8 @@ class ConnectValue(Static):
         return self._drawn(self.size.width)
 
     def get_content_height(self, container: Size, viewport: Size, width: int) -> int:
+        if width < 1:
+            return 0
         return self._drawn(width).get_height(self.styles, width)
 
 
