@@ -1551,7 +1551,24 @@ async def selected(app: SSHWorkbenchApp, pilot, machine_id: str) -> None:
             ],
         ),
         ("a" * 70, 30, ["a" * 30, "a" * 30, "a" * 10]),
-        ("https://example.com", 8, ["https://", "example.", "com"]),
+        # No /, ?, & or # in reach: the last . or - that fits, then the edge.
+        ("https://example.com", 8, ["https://", "example", ".com"]),
+        (
+            "https://studio-box.example.com/status",
+            29,
+            ["https://studio-box.example", ".com/status"],
+        ),
+        (
+            "/fictional-studio-overview-of-everything",
+            20,
+            ["/fictional-studio", "-overview-of", "-everything"],
+        ),
+        # A / in reach wins over a later dot.
+        (
+            "https://example.com/a.b.c.d.e.f.g.h",
+            24,
+            ["https://example.com", "/a.b.c.d.e.f.g.h"],
+        ),
     ],
 )
 async def test_wrap_url(text: str, width: int, lines: list[str]) -> None:
@@ -1569,6 +1586,12 @@ async def test_link_lines() -> None:
         "  Dashboard    https://192.0.2.40:8006",
         "  Status page  https://studio-box.example.com",
         "               /status",
+    ]
+    # 44 is the block's width at 80x24, where the URL column is 29.
+    assert plain_lines(link_lines(links, 44, stacked=False)) == [
+        "  Dashboard    https://192.0.2.40:8006",
+        "  Status page  https://studio-box.example",
+        "               .com/status",
     ]
     assert plain_lines(link_lines(links, 33, stacked=True)) == [
         "Dashboard",
@@ -1599,6 +1622,21 @@ async def test_link_lines() -> None:
         lines = link_lines(wide, width, stacked)
         assert all(line.cell_length <= width for line in lines), (width, stacked)
     assert link_lines(wide, 45, stacked=False)[0].plain.startswith("  " + "東京" * 5)
+
+
+async def test_the_matrix_machine_links_at_80x24() -> None:
+    app = SSHWorkbenchApp(MATRIX_MACHINES)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "studio-box")
+        assert app.query_one("#machine-links", LinkBlock).region.width == 44
+        assert block_lines(app) == [
+            "  Dashboard    https://192.0.2.40:8006",
+            "  Status page  https://studio-box.example",
+            "               .com/status",
+            "  Grafana      https://grafana.example.com/d",
+            "               /fictional-studio-overview",
+            "               ?orgId=1&refresh=30s",
+        ]
 
 
 async def test_details_rows_of_a_direct_machine() -> None:
