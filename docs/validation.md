@@ -28,6 +28,52 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Release 0.4.0, 2026-11-23
+
+Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (JetBrainsMono
+Nerd Font, size 9; the wrapper printed `TERM=xterm-ghostty size=80x24`),
+Python 3.14.10, Textual 8.2.8, `release/0.4.0` at `dbdaa8d`. The built wheel
+installed as a tool into ignored folders (`UV_TOOL_DIR`, `UV_TOOL_BIN_DIR`),
+with the install output kept, leaving Jadon's own tool alone. A coding agent
+drove a floating Ghostty window and took screenshots with grim, as for Task
+30; keys went through Hyprland's `send_key_state`, and window sizes were set
+in cells. `NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at ignored folders with no Workbench files.
+Every run used `--config` on a copy of the example machine file in an ignored
+folder, so the status rounds tried the example's fictional names. No SSH
+connection and no browser: C, K and O were never pressed.
+
+This is the second full run. The first, on the wheel built at `86ad113`,
+showed a port split across two rows in the `connect` value, which Task 31
+(below) fixed before the release. Of this run's 55 screenshots, 29 matched the
+first run's pixel for pixel; the others differed in the `connect` rows, the
+mouse pointer or the status drawn behind a form.
+
+| Check | Observed |
+| --- | --- |
+| Installed tool | `uv tool install --reinstall` of `ssh_workbench-0.4.0-py3-none-any.whl` into the ignored folders ended with `Installed 1 executable: ssh-workbench`; that executable's `--version` printed `ssh-workbench 0.4.0`, while the `ssh-workbench` on `PATH` printed `ssh-workbench 0.3.4`; every row below ran that executable |
+| 80x24 | The header read `2 machines · ◇ 1 can't check · ▖ 1 checking`, then `○ 1 offline` once the check finished. Garden demo was selected, with a cyan `▌`, a band and a bold name, and `1/2` in the list's label row. Its details read `◇ can't check · SSH could not resolve the alias` (the empty SSH folder has no config file) and `alias · garden-demo-host (not in your SSH config)`, with the link's URL wrapped before `/fictional`. The result line was blank, and the nine footer keys were on one row: `c connect  o link  a add  e edit  x delete  k key  r check  ? keys  q quit` |
+| Down, Up, Tab | Down showed Studio box: `2/2`, `○ offline`, the `connect` value on three rows (`direct ·`, `studio@studio-box.example.com` and `:2222`), the key, both addresses and two links. Up showed Garden demo and `1/2` again. Tab moved the thick cyan line to the details' label row and dimmed the band; a second Tab moved both back. Page Down and Page Up left Garden demo's details as they were, as they fit |
+| `?` | A panel at the right of the panes listed `↑ ↓ tab pgup pgdn`, then the nine keys. `?` again closed it; opened once more, Escape closed it |
+| R | The header read `▖ 1 checking` with a blue block on Studio box's row; in the next screenshot, six seconds later, it read `○ 1 offline` again |
+| Resizes | 120x30: each row showed its alias or first address at the right. 60x20: side by side, the footer on two rows, each details label above its value. 50x24: the list above the details with the details' label row between them, labels beside their values, the footer on two rows, the header cut to `2 machines · ◇ 1 can't check`. 40x16: stacked, the header as symbols (`2 · ◇1 ○1`), the footer on three rows with all nine keys, the details with a scrollbar. 120x18: one footer row, a blank result line, nothing overlapping. 160x50: a header row `name  target  user` over the list and `studio` in the user column |
+| Details scrolling, 60x20 | Studio box's details had a scrollbar, and the `connect` value broke before `:2222`. With the details focused, Page Down showed the end of the links block and Page Up the top again |
+| Form during a resize | E at 80x24, then 52x22: the edit form stayed open, its labels moved above their fields, the fields scrolled and the buttons stayed on the last row. After Escape the browser was stacked with the footer on two rows |
+| Add form, 80x24 and 60x20 | A opened `Add machine` over a screen dimmed to faint text; the header, the machine names and the details could still be read. Labels sat beside their fields and the links box showed its grey explanation. `x` then Backspace put `expected a nonempty string` in red under `id`, and typing `x` again removed the row. Tab moved the cyan `▌` to `name`. Tab, Down, Space filled the `Direct (addresses)` ring and emptied the other, and the frame grew to show `addresses`, `user`, `port`, `key` and `export` with their grey explanations. The last row was `^s save` and `esc cancel`; Escape closed the form and nothing was saved. Narrowed from 80x24 to 50x24, the labels went above their fields and the two rings stacked; back at 80x24 they were beside them again, and the typed `x` was kept |
+| Delete question, 80x24 and 60x20 | X on Garden demo: a red frame with `Delete Garden demo (garden-demo)?`, the rewrite warning after it, as the copy has comments, a blank row and `y delete  n keep` as the last row. N kept the machine |
+| Include question | E on Studio box, seven Tabs to `export`, Space: `·` became `X`. The first Ctrl+S showed the rewrite sentence ending `Press Ctrl+S again to save.` above the buttons. The second saved and showed `Exported aliases`: the question naming the config in the ignored SSH folder, `Include ssh-workbench.config` in bold with a blank row above and below, `The file doesn't exist yet; Workbench creates it with this line.`, a blank row and `y add  n not now`. N closed it; the result line read `· Exported aliases work once your SSH config starts with: Include ssh-workbench.config` on two rows, and the `connect` value ended with the rows `:2222 · exported as ssh` and `studio-box` |
+| Quit | Q in two runs and Ctrl+Q in a third: the wrapper printed `APP EXIT STATUS: 0`, and `echo typed-ok` at the prompt printed `typed-ok`. After the run with the resizes, the wrapper's own lines above the prompt were cut at 40 columns, that run's narrowest width |
+| Files | A state file beside the copied machine file. After the save: the copy without its comments and with `export_alias = true`, `machines.toml.bak` with the old text, and `ssh-workbench.config` with `Host studio-box` in the ignored SSH folder, where no `config` file was created. The `APPDATA` folder stayed empty and nothing changed under `examples/` |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1493 passed |
+
+Not checked: Windows Terminal (the look check below ran on `728d023`, before
+Task 31 and the version change) and macOS; C, K and O, as the fixture scripts were not run
+for the release; the result line's limit of two rows at 120x18, as the only
+result shown was at 80x24; Y in either question; the `?` panel at other
+sizes; a physical keyboard and the mouse; the install from the tag, which
+needs the tag. The readable text behind the form is a backlog row in
+[the roadmap](roadmap.md), "From 0.4.0".
+
 ## Task 31: the connect value breaks before its port, 2026-11-23
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (JetBrainsMono

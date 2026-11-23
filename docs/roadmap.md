@@ -38,6 +38,7 @@ request for later ones. Each needs its own task before work starts.
 | Under 60 columns the first frame after startup or a resize shows the panes side by side for about 100 ms before they stack: Textual 8.2.8 keeps a container's arrangement cache across its own `layout` change, and clearing it needs a private method | 28 |
 | In the details' label row a cut-off name's `…` sits directly against the ID, with no space, such as `Long identifier machin…fictional-long-identi…`; a one-cell gap has to fit the ID's half-row cap and the two label-row tests that pin the ID's width and the name's half | 29 |
 | A question's text cannot be scrolled from the keyboard when it overflows its frame, as the delete question with a long name, a long ID and the rewrite warning does at 40x16: nothing in it takes the focus, so Down, Page Down and End do nothing | 30 |
+| Behind a form or question the main screen stays readable as faint text, while the app smoke check in the testing guide expects no readable text there; one of the two should change | 0.4.0 |
 
 ### Status and aliases
 
@@ -155,19 +156,21 @@ in the pull request description.
 | 24 | Letter keys work with Caps Lock on or typed as capitals | [#39](https://github.com/jkosber/ssh-workbench/pull/39) | 0.3.4 |
 | 25 | Details reset before the next frame, so the scroll test's check after Down no longer depends on a refresh | [#40](https://github.com/jkosber/ssh-workbench/pull/40) | 0.3.4 |
 | - | Release 0.3.4 | [#41](https://github.com/jkosber/ssh-workbench/pull/41) | 0.3.4 |
-| - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | Unreleased |
-| 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | Unreleased |
-| 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | [#45](https://github.com/jkosber/ssh-workbench/pull/45) | Unreleased |
-| - | AGENTS.md keeps only the repository-specific rules and adds the plan-location and test-guard rules | [#47](https://github.com/jkosber/ssh-workbench/pull/47) | Unreleased |
-| - | AGENTS.md opens with its Extends line and links CONTRIBUTING.md for setup, commands and dependencies | [#48](https://github.com/jkosber/ssh-workbench/pull/48) | Unreleased |
-| - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | Unreleased |
-| - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | Unreleased |
-| 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | Unreleased |
-| 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | Unreleased |
-| - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | Unreleased |
-| 30 | Forms and pickers: a near-solid backdrop, frames sized to their content, a hint row in the footer's style on every modal, one-row form fields with labels beside them, error rows on demand, named buttons, radio and checkbox marks that differ by shape, a selection marker in both pickers, two-line link options, key picker spacing | [#54](https://github.com/jkosber/ssh-workbench/pull/54) | Unreleased |
-| - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | Unreleased |
-| 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | Unreleased |
+| - | The validation log records Caps Lock in Windows Terminal | [#42](https://github.com/jkosber/ssh-workbench/pull/42) | 0.4.0 |
+| 26 | Tooling hygiene: the package check reads the loader child's stderr, four test and doc fixes from the backlog, and the Windows check policy | [#43](https://github.com/jkosber/ssh-workbench/pull/43) | 0.4.0 |
+| 27 | Colors, glyphs and states: one color table, muted offline, lowercase state words, a block spinner, the attention-ordered header | [#45](https://github.com/jkosber/ssh-workbench/pull/45) | 0.4.0 |
+| - | 20 audit findings fixed in key setup, SSH config reading, exports and the package check | [#46](https://github.com/jkosber/ssh-workbench/pull/46) | 0.4.0 |
+| - | AGENTS.md keeps only the repository-specific rules and adds the plan-location and test-guard rules | [#47](https://github.com/jkosber/ssh-workbench/pull/47) | 0.4.0 |
+| - | AGENTS.md opens with its Extends line and links CONTRIBUTING.md for setup, commands and dependencies | [#48](https://github.com/jkosber/ssh-workbench/pull/48) | 0.4.0 |
+| - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | 0.4.0 |
+| - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | 0.4.0 |
+| 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | 0.4.0 |
+| 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | 0.4.0 |
+| - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | 0.4.0 |
+| 30 | Forms and pickers: a near-solid backdrop, frames sized to their content, a hint row in the footer's style on every modal, one-row form fields with labels beside them, error rows on demand, named buttons, radio and checkbox marks that differ by shape, a selection marker in both pickers, two-line link options, key picker spacing | [#54](https://github.com/jkosber/ssh-workbench/pull/54) | 0.4.0 |
+| - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | 0.4.0 |
+| 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | 0.4.0 |
+| - | Release 0.4.0 | [#56](https://github.com/jkosber/ssh-workbench/pull/56) | 0.4.0 |
 
 ## Deferred ideas
 
