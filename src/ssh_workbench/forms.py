@@ -722,11 +722,13 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
         max-width: 100%;
     }
     /* Borderless lists keep the picker within 60x20 with a wrapped note. */
+    /* As wide as the body less its scrollbar: a label longer than that wraps
+       and stays whole, and the body never scrolls sideways. */
     #key-choices, #key-system {
         border: none;
         padding: 0;
         height: auto;
-        width: auto;
+        width: 1fr;
     }
     #key-choices {
         max-height: 8;
