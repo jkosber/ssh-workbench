@@ -28,6 +28,45 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Dependency update, 2026-11-22
+
+Arch Linux (Omarchy), uv 0.13.4 from the Arch package, Textual 8.2.8,
+`ci/dependency-update`. No SSH and no browser.
+
+| Check | Observed |
+| --- | --- |
+| `uv python list 3.14 --all-versions --only-downloads` on uv 0.13.4 | The newest build listed is 3.14.8; uv's release notes add 3.14.10 in 0.13.6 |
+| `uv python install 3.14.10 --no-bin` on uv 0.13.4, with `UV_PYTHON_INSTALL_DIR` at an empty folder | `error: No download found for request: cpython-3.14.10-linux-x86_64-gnu` |
+| `uv sync --locked --dry-run` on uv 0.13.4, with that empty folder and `UV_PYTHON_PREFERENCE=only-managed` | `error: No interpreter found for Python 3.14.10 in managed installations`, with a hint to retry on a newer uv |
+| `uv tool run --from uv==0.13.9 uv python install 3.14.10 --no-bin` | uv 0.13.9, run as a tool, installed 3.14.10 among uv's managed Pythons |
+| `uv sync --locked` on uv 0.13.4, with `.python-version` at 3.14.10 | The environment was recreated on the managed 3.14.10; before, it ran the system's 3.14.8. `ssl.OPENSSL_VERSION` is OpenSSL 3.5.9 |
+| `uv lock --check` on uv 0.13.4 and on 0.13.9 | Both accept the lockfile, which uv 0.13.4 wrote |
+| `uv build` on uv 0.13.4 with `uv_build>=0.13.9,<0.14.0` | Both artifacts built, with no warning about the backend's range |
+| Re-inspection | The 3.14.9 and 3.14.10 changelogs and the CPython `v3.14.8..v3.14.10` diff change no code that the earlier notes rely on; see [architecture](architecture.md#installed-source-and-local-runs) |
+
+Then in a real terminal: Ghostty 1.4.0 at 80x24 (Hyprland 0.56.2, Wayland; the
+wrapper printed `TERM=xterm-ghostty size=80x24`), Python 3.14.10, at
+`2d29495`. At Jadon's request, a coding agent drove a floating Ghostty
+window, sent keys one at a time through Hyprland's `send_key_state` and took
+screenshots with grim. `NO_COLOR` was unset and `APPDATA`,
+`XDG_CONFIG_HOME` and `SSH_WORKBENCH_SSH_DIR` pointed at ignored folders. C
+was pressed only in `scripts/check_terminal.py`; K and O never.
+
+| Check | Observed |
+| --- | --- |
+| `check_terminal.py` 1 | C: the child printed `Local child: fixture-zero; terminal stdin/stdout/stderr: [True, True, True]` and `Local child stderr is visible.`; `return` gave "SSH exited with status 0. Machine 1: fixture-zero" after a green `●`, with machine 1 still selected |
+| `check_terminal.py` 2 | Tab, C, `return`: "SSH exited with status 7. Check the SSH client's message and alias; C retries. Machine 2: fixture-seven" after a red `×`, on two rows; Down then selected fixture-interrupt |
+| `check_terminal.py` 3 | C, then Ctrl+C: the child printed `Child received Ctrl+C.` and the result read "SSH exited with status 130. Check the SSH client's message and alias; C retries. Machine 3: fixture-interrupt"; the app kept running |
+| `check_terminal.py` 4 | After each of two Ctrl+C presses the child printed `Child received Ctrl+C.` and `Child still owns the terminal; type return to finish.`; `return` gave "SSH exited with status 0. Machine 4: fixture-continue" |
+| `check_terminal.py` 5 | "SSH not found. Install OpenSSH and add it to PATH. Machine 5: fixture-missing"; "Could not start SSH. Check its installation and executable permissions." with "Machine 6: fixture-error" on the next row; "SSH interrupted. Press C to retry or Q to quit. Machine 7: fixture-keyboard". Each kept its selection, and a second C on machine 7 left a byte-identical screenshot |
+| `check_terminal.py` 6 | Q printed `APP EXIT STATUS: 0` and gave back the `check$` prompt, where `echo hello` printed `hello`; the shell's screen kept every child's output. In a second run, C on machine 1 and `return` gave status 0, then Ctrl+Q gave the same exit status and a working prompt |
+| App smoke check on `examples/machines.example.toml` | The list, the details and the nine footer keys drew on one row each, with a blank result line; the header read `2 machines · ◇ 1 can't check · ○ 1 offline`. Down selected Studio box, with `2/2` in the list's label row and its details; Tab moved the thick cyan line to the details' label row and dimmed the band; Page Down changed nothing, since the details fit. ? opened the key panel at the right of the panes with ↑ ↓ tab pgup pgdn first, and Escape closed it; R turned Studio box to `checking`, and the header counted `1 checking`. Q, and Ctrl+Q in a second run, printed `APP EXIT STATUS: 0` and left a prompt where `echo hello` printed `hello` |
+| Resize during that run | At 60x20 the panes stayed side by side, the footer took two rows and each details label sat above its value; at 120x30 each row showed its target, `garden-demo-host` and `studio-box.example.com`; back at 80x24, Q exited as above |
+
+Not checked: Windows Terminal, which rests on the CI runner; K and O; ? a
+second time to close the key panel; the other sizes of the smoke check's
+resize list and a resize with a form open; a real SSH target.
+
 ## TUI overhaul Task 29: list rows and details, 2026-11-22
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (the wrapper

@@ -14,7 +14,7 @@ dependencies = [
 ssh-workbench = "ssh_workbench.cli:main"
 
 [build-system]
-requires = ["uv_build>=0.13.4,<0.14.0"]
+requires = ["uv_build>=0.13.9,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.ruff]
@@ -30,9 +30,9 @@ asyncio_mode = "strict"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.1.1",
-    "pytest-asyncio>=1.4.0",
-    "ruff>=0.16.10",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "ruff>=0.17.6",
 ]
 
 # Mutation testing, run by hand on Linux: uv run --locked --with mutmut mutmut run "ssh_workbench.<module>*"
