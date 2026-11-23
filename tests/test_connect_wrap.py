@@ -3,6 +3,7 @@
 import pytest
 from support import wait_for
 from textual.content import Content
+from textual.geometry import Size
 from textual.widgets import Static
 
 from ssh_workbench.app import SSHWorkbenchApp, wrap_target
@@ -18,6 +19,8 @@ TARGET = "studio@studio-box.example.com:2222"
 LONG_USER = "administrator@studio-box.example.com:2222"
 LONG_HOST = "a-very-long-host-name.department.example.com:2222"
 IPV6 = "admin@[2001:db8:85a3::8a2e:370:7334]:2222"
+IPV6_SHORT = "2001:db8:85a3::8a2e:370:7334"
+IPV6_LONG = "2001:db8:85a3:1234:5678:8a2e:370:7334"
 STUDIO = Machine(
     "studio-box",
     "Studio box",
@@ -36,6 +39,16 @@ class SecondAddressOnline:
 
     def port_open(self, host: str, port: int) -> bool:
         return host == "192.0.2.40"
+
+
+class NameOnline:
+    """Only studio-box.example.com answers."""
+
+    def resolve_alias(self, alias: str) -> AliasTarget | None:
+        return None
+
+    def port_open(self, host: str, port: int) -> bool:
+        return host == "studio-box.example.com"
 
 
 def connect(app: SSHWorkbenchApp) -> Static:
@@ -86,14 +99,17 @@ async def selected(app: SSHWorkbenchApp, pilot, machine_id: str) -> None:
             None,
             ["studio@", "a-very-long-host", "-name.example.com"],
         ),
-        # No port and no user: an IPv6 address breaks before a colon.
+        # An IPv6 address breaks after a colon, so no row starts like a port,
         (
             "2001:db8:85a3:1234:5678:8a2e:370:7334",
             20,
             0,
             None,
-            ["2001:db8:85a3:1234", ":5678:8a2e:370:7334"],
+            ["2001:db8:85a3:1234:", "5678:8a2e:370:7334"],
         ),
+        # after both colons of a `::`, never between them.
+        (IPV6_SHORT, 15, 0, None, ["2001:db8:85a3::", "8a2e:370:7334"]),
+        (IPV6_SHORT, 14, 0, None, ["2001:db8:", "85a3::8a2e:", "370:7334"]),
         # Nothing to break before: at the width.
         ("a" * 40 + ":2222", 30, 0, 40, ["a" * 30, "a" * 10 + ":2222"]),
     ],
@@ -123,6 +139,27 @@ async def test_wrap_target_never_splits_the_port(
         assert "".join(lines) == text
         assert all(Content(line).cell_length <= width for line in lines)
         assert [line for line in lines if ":2222" in line] == [lines[-1]]
+
+
+@pytest.mark.parametrize(
+    ("text", "host_at", "port_at"),
+    [
+        (IPV6_LONG, 0, None),
+        (IPV6_SHORT, 0, None),
+        (f"admin@{IPV6_LONG}", 6, None),
+        (f"admin@[{IPV6_LONG}]:2222", 6, 45),
+        (IPV6, 6, 36),
+    ],
+)
+async def test_wrap_target_starts_no_row_with_an_address_colon(
+    text: str, host_at: int, port_at: int | None
+) -> None:
+    for width in range(6, 60):
+        lines = wrap_target(text, width, host_at, port_at)
+        assert "".join(lines) == text
+        assert [line for line in lines if line.startswith(":")] == (
+            [] if port_at is None else [":2222"]
+        )
 
 
 @pytest.mark.parametrize("size", [(80, 24), (60, 20)])
@@ -157,6 +194,37 @@ async def test_a_target_as_wide_as_the_row_is_not_broken() -> None:
         widget = connect(app)
         assert widget.size.width >= 34
         assert shown_rows(widget) == ["direct ·", TARGET]
+
+
+async def test_a_target_exactly_as_wide_as_the_row_is_not_broken() -> None:
+    app = SSHWorkbenchApp([STUDIO])
+    async with app.run_test(size=(37, 16)) as pilot:
+        await selected(app, pilot, "studio-box")
+        widget = connect(app)
+        assert widget.size.width == 34
+        assert shown_rows(widget) == ["direct ·", TARGET]
+
+
+async def test_an_ipv6_address_without_a_port_shows_no_row_like_a_port() -> None:
+    machine = Machine("box", "Box", user="admin", addresses=(IPV6_LONG,))
+    app = SSHWorkbenchApp([machine])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "box")
+        widget = connect(app)
+        assert widget.size.width == 33
+        assert shown_rows(widget) == [
+            "direct · admin@",
+            "2001:db8:85a3:1234:5678:8a2e:370:",
+            "7334",
+        ]
+
+
+async def test_no_width_is_no_height() -> None:
+    app = SSHWorkbenchApp([STUDIO])
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "studio-box")
+        size = Size(80, 24)
+        assert connect(app).get_content_height(size, size, 0) == 0
 
 
 async def test_the_exported_note_follows_the_port() -> None:
@@ -208,6 +276,23 @@ async def test_the_break_follows_the_address_a_check_finds() -> None:
         )
         await wait_for(pilot, lambda: widget.region.height == 1)
         assert shown_rows(widget) == ["direct · studio@192.0.2.40:2222"]
+
+
+async def test_a_wide_address_a_check_finds_breaks_before_its_port() -> None:
+    machine = Machine(
+        "studio-box",
+        "Studio box",
+        user="studio",
+        addresses=("192.0.2.41", "studio-box.example.com"),
+        port=2222,
+    )
+    app = SSHWorkbenchApp([machine], checker=NameOnline())
+    async with app.run_test(size=(80, 24)) as pilot:
+        await selected(app, pilot, "studio-box")
+        widget = connect(app)
+        await wait_for(pilot, lambda: str(widget.content) == f"direct · {TARGET}")
+        await wait_for(pilot, lambda: widget.region.height == 3)
+        assert shown_rows(widget) == WRAPPED
 
 
 async def test_an_alias_value_is_drawn_as_before() -> None:
