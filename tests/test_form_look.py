@@ -79,7 +79,7 @@ def saved_app(
     """A saved file holding FULL and an alias machine, and an SSH folder whose
     config names three hosts."""
     folder = tmp_path / "fictional-ssh"
-    folder.mkdir()
+    folder.mkdir(parents=True)
     (folder / "config").write_text(
         "Host garden-host\nHost lab-host\nHost web-host\n", encoding="utf-8"
     )
