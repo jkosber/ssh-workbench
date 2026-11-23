@@ -66,7 +66,7 @@ def status_text(app: SSHWorkbenchApp) -> str:
 
 
 def details_id(app: SSHWorkbenchApp) -> str:
-    return str(app.query_one("#machine-id", Static).content)
+    return str(app.query_one("#details-id", Static).content)
 
 
 async def wait_for(pilot, predicate) -> None:
@@ -102,10 +102,10 @@ async def test_startup_shows_checking_then_each_result() -> None:
                 State.UNKNOWN,
             ]
             expected = [
-                "● online via alias",
-                "● online: 192.0.2.40",
+                "● online · via alias",
+                "● online · 192.0.2.40",
                 "○ offline",
-                "◇ can't check: the alias uses ProxyJump or ProxyCommand",
+                "◇ can't check · the alias uses ProxyJump or ProxyCommand",
             ]
             for index, text in enumerate(expected):
                 app.query_one(ListView).index = index
@@ -292,7 +292,7 @@ async def test_a_check_that_fails_says_so() -> None:
         await checked(app, pilot)
         app.query_one(ListView).index = 2
         await wait_for(pilot, lambda: details_id(app) == "lab")
-        assert status_text(app) == "◇ can't check: the check failed"
+        assert status_text(app) == "◇ can't check · the check failed"
 
 
 @pytest.mark.parametrize("key", ["q", "ctrl+q"])
@@ -419,7 +419,7 @@ async def test_a_save_starts_a_round_without_resolving(tmp_path: Path) -> None:
         assert "new-host" not in checker.resolved
         assert symbols(app)[4] is State.UNKNOWN
         assert app.query_one(ListView).index == 4
-        assert status_text(app) == "◇ can't check: press R to resolve this alias"
+        assert status_text(app) == "◇ can't check · press R to resolve this alias"
         await pilot.press("r")
         await wait_for(pilot, lambda: "new-host" in checker.resolved)
 
@@ -466,7 +466,7 @@ async def test_a_save_while_ssh_g_runs_keeps_its_answers(tmp_path: Path) -> None
             assert symbols(app)[0] is State.ONLINE
             app.query_one(ListView).index = 0
             await wait_for(pilot, lambda: details_id(app) == "garden")
-            assert status_text(app) == "● online via alias"
+            assert status_text(app) == "● online · via alias"
             assert symbols(app)[3] is State.UNKNOWN
             assert sorted(checker.resolved) == ["garden-host", "hop-host"]
             assert state_path(path, platform.node()).exists()
@@ -517,7 +517,7 @@ async def test_changing_an_alias_while_ssh_g_runs_waits_for_r(
             await checked(app, pilot)
             app.query_one(ListView).index = 0
             await wait_for(pilot, lambda: details_id(app) == "garden")
-            assert status_text(app) == "◇ can't check: press R to resolve this alias"
+            assert status_text(app) == "◇ can't check · press R to resolve this alias"
             assert "other-host" not in checker.resolved
     finally:
         hold.set()
@@ -542,7 +542,7 @@ async def test_an_alias_waiting_for_r_needs_no_thread(
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: len(app.query(StatusSymbol)) == 5)
         await wait_for(pilot, lambda: details_id(app) == "new")
-        assert status_text(app) == "◇ can't check: press R to resolve this alias"
+        assert status_text(app) == "◇ can't check · press R to resolve this alias"
 
 
 class OneSlowHost(FakeChecker):
@@ -655,7 +655,7 @@ async def test_checks_that_cannot_start_leave_the_timer_and_r_working(
         await wait_for(pilot, lambda: symbols(app) == [State.UNKNOWN] * 4)
         app.query_one(ListView).index = 2
         await wait_for(pilot, lambda: details_id(app) == "lab")
-        assert status_text(app) == "◇ can't check: the check could not start"
+        assert status_text(app) == "◇ can't check · the check could not start"
         assert app.check_action("refresh", ()) is True
         started = app._round
         app._timer_round()

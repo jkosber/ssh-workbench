@@ -2,7 +2,9 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
+from support import handoff
 from textual.containers import VerticalScroll
+from textual.content import Span
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Footer, ListView, Static
 
@@ -85,8 +87,8 @@ async def test_connect_is_visible_and_never_automatic(
         assert "C" in connect_key.render().plain.upper()
         assert app.screen.region.contains_region(connect_key.region)
         await pilot.press("down", "up", "enter", "tab", "enter")
-        await pilot.click("#machine-id")
-        await pilot.click("#machine-name")
+        await pilot.click("#details-id")
+        await pilot.click("#details-name")
         launch.assert_not_called()
         assert app.is_running
 
@@ -158,13 +160,13 @@ async def test_connect_uses_selected_machine_and_restores_focus(
         assert app._driver._auto_restart
         assert app.focused is machine_list
         assert machine_list.index == 1
-        assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
+        assert str(app.query_one("#details-name", Static).content) == "Studio demo"
         status = app.query_one("#connection-status", ResultSlot)
         assert status.message == "SSH exited with status 0. Machine 2: studio-demo"
         assert app.screen.region.contains_region(status.region)
         await pilot.press("up")
         assert machine_list.index == 0
-        assert str(app.query_one("#machine-name", Static).content) == "Garden demo"
+        assert str(app.query_one("#details-name", Static).content) == "Garden demo"
         await pilot.press("tab", "q")
         assert not app.is_running
         assert app.return_code == 0
@@ -236,6 +238,47 @@ async def test_all_launch_outcomes_resume_real_suspend_context(
         await pilot.press("ctrl+q")
         assert not app.is_running
         assert app.return_code == 0
+
+
+@pytest.mark.parametrize(
+    "outcome, glyph, style",
+    [
+        (0, "●", "$success"),
+        (7, "×", "$error"),
+        (255, "×", "$error"),
+        (SSHLaunchError("SSH not found."), "×", "$error"),
+        (KeyboardInterrupt(), "×", "$error"),
+        # None: a terminal that cannot be handed off.
+        (None, "×", "$error"),
+    ],
+)
+async def test_each_connect_outcome_has_its_glyph(
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: int | BaseException | None,
+    glyph: str,
+    style: str,
+) -> None:
+    if outcome is None:
+        launch = Mock(side_effect=AssertionError("Unexpected SSH launch"))
+        monkeypatch.setattr(app_module, "launch_ssh", launch)
+    else:
+        launch = handoff(monkeypatch)
+        if isinstance(outcome, BaseException):
+            launch.side_effect = outcome
+        else:
+            launch.return_value = outcome
+    app = SSHWorkbenchApp(MACHINES)
+    async with app.run_test() as pilot:
+        await pilot.press("c")
+        slot = app.result.connection
+        async with asyncio.timeout(5):
+            while not (slot.message and slot.size.width):
+                await pilot.pause()
+        assert launch.call_count == (0 if outcome is None else 1)
+        rendered = slot.render()
+        assert rendered.plain[0] == glyph
+        assert rendered.spans[0] == Span(0, 1, style)
+        assert slot.message.endswith(" Machine 1: garden-demo")
 
 
 async def test_launch_boundary_errors_restore_browser(
@@ -371,9 +414,9 @@ async def test_return_preserves_scroll_and_literal_details(
         await pilot.press("c")
         assert suspend_events == ["suspend", "resume"]
         assert pane.scroll_y == scroll_y
-        rendered = app.query_one("#machine-name", Static).render()
+        rendered = app.query_one("#details-name", Static).render()
         assert rendered.plain == machine.name
         assert not rendered.spans
         await pilot.press("down")
         assert pane.scroll_y == 0
-        assert str(app.query_one("#machine-name", Static).content) == "Studio demo"
+        assert str(app.query_one("#details-name", Static).content) == "Studio demo"

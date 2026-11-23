@@ -13,6 +13,7 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.css.query import NoMatches
+from textual.geometry import Size
 from textual.message import Message
 from textual.reactive import reactive
 from textual.screen import ModalScreen
@@ -119,7 +120,7 @@ WORKBENCH_THEME = Theme(
     secondary="#7AA2F7",
     accent="#F2B25C",
     warning="#E5C07B",
-    error="#EF6B73",
+    error="#F18087",
     success="#7FD48C",
     foreground="#D8DEE9",
     background="#10141B",
@@ -136,7 +137,7 @@ WORKBENCH_THEME = Theme(
         "footer-key-foreground": "#4FC1E9",
         "footer-background": "#161B24",
         "footer-description-foreground": "#AAB0BA",
-        "block-cursor-background": "#24435A",
+        "block-cursor-background": "#1D3A50",
         "block-cursor-foreground": "#F2F6FA",
         "block-cursor-text-style": "bold",
         "block-cursor-blurred-background": "#1F2A38",
@@ -244,6 +245,14 @@ class StatusSymbol(Widget):
         return Content(self.state.symbol)
 
 
+class RowMarker(Widget):
+    """The selection marker in column 0 of a list row, shown on the highlighted
+    row. Not a `Static`, so the name stays the row's only one."""
+
+    def render(self) -> Content:
+        return Content("▌")
+
+
 class RowTarget(Widget):
     """Where a machine connects, shown in its list row on wide terminals. Not a
     `Static`, so the name stays the row's only one."""
@@ -261,12 +270,27 @@ class RowTarget(Widget):
     }
     """
 
+    # A status check can change the text; the auto width follows it.
+    target: reactive[str] = reactive("", layout=True)
+
     def __init__(self, target: str) -> None:
         super().__init__(classes="row-target")
-        self.target = target
+        self.set_reactive(RowTarget.target, target)
 
     def render(self) -> Content:
         return Content(self.target)
+
+
+class RowUser(Widget):
+    """A direct machine's user, shown in its list row from 130 columns. Not a
+    `Static`, so the name stays the row's only one."""
+
+    def __init__(self, user: str) -> None:
+        super().__init__(classes="row-user")
+        self.user = user
+
+    def render(self) -> Content:
+        return Content(self.user)
 
 
 @dataclass(frozen=True)
@@ -574,6 +598,107 @@ class KeyHelp(HelpPanel):
         yield KeyList(id="keys-help")
 
 
+# A URL too wide for its column breaks before one of the first set, or, with
+# none of those in reach, before one of the second.
+URL_BREAKS = ("/?&#", ".-")
+
+
+def wrap_url(text: str, width: int) -> list[str]:
+    """`text` in lines of at most `width` cells (2 at least) that join back
+    to it. While the rest is too wide, a line ends before the last `/`, `?`,
+    `&` or `#` that keeps it within the width, else before the last `.` or
+    `-` that does, else at the width. The two slashes of a leading
+    `scheme://` never start a line."""
+    width = max(width, 2)
+    head, separator, _ = text.partition("://")
+    scheme = (
+        separator
+        and head.isascii()
+        and head[:1].isalpha()
+        and all(character.isalnum() or character in "+.-" for character in head)
+    )
+    kept = {len(head) + 1, len(head) + 2} if scheme else set()
+    cells = [Content(character).cell_length for character in text]
+    rest = sum(cells)
+    lines: list[str] = []
+    start = 0
+    while rest > width:
+        # The widest prefix that fits, at least one character; `end` is the
+        # index right after it.
+        end = start + 1
+        used = cells[start]
+        while used + cells[end] <= width:
+            used += cells[end]
+            end += 1
+        cut = next(
+            (
+                index
+                for breaks in URL_BREAKS
+                for index in range(end, start, -1)
+                if text[index] in breaks and index not in kept
+            ),
+            end,
+        )
+        lines.append(text[start:cut])
+        rest -= sum(cells[start:cut])
+        start = cut
+    lines.append(text[start:])
+    return lines
+
+
+def link_lines(links: Sequence[Link], width: int, stacked: bool) -> list[Content]:
+    """A machine's links in `width` cells. Side by side, each name sits in a
+    column of the widest name's width, at most 20, and its URL wraps inside
+    the column after it. Stacked, each name has its own line and its URL
+    follows, indented two."""
+    if width < 1 or not links:
+        return []
+    shown = [(_display_text(link.name), _display_text(link.url)) for link in links]
+    lines: list[Content] = []
+    if stacked:
+        for name, url in shown:
+            lines.append(Content(name).truncate(width, ellipsis=True))
+            lines.extend(Content(f"  {piece}") for piece in wrap_url(url, width - 2))
+        return lines
+    column = min(20, max(Content(name).cell_length for name, _ in shown))
+    indent = " " * (column + 4)
+    for name, url in shown:
+        first, *rest = wrap_url(url, width - 4 - column)
+        lines.append(
+            Content.assemble(
+                "  ",
+                Content(name).truncate(column, ellipsis=True, pad=True),
+                "  ",
+                first,
+            )
+        )
+        lines.extend(Content(f"{indent}{piece}") for piece in rest)
+    return lines
+
+
+def details_width(width: int) -> int:
+    """The details pane's width on a screen `width` columns wide: all of it
+    under 60, where the panes stack, else what the list pane's CSS width
+    (40%, at least 24, at most 56, or 80 from 130 columns) leaves."""
+    if width < 60:
+        return width
+    return width - max(24, min(80 if width >= 130 else 56, int(width * 0.4)))
+
+
+class LinkBlock(Widget):
+    """The selected machine's links, drawn from the widget's own width, so its
+    height is right on the first frame after a selection change or a resize."""
+
+    links: reactive[tuple[Link, ...]] = reactive((), layout=True)
+    stacked: reactive[bool] = reactive(False, layout=True)
+
+    def render(self) -> Content:
+        return Content("\n").join(link_lines(self.links, self.size.width, self.stacked))
+
+    def get_content_height(self, container: Size, viewport: Size, width: int) -> int:
+        return len(link_lines(self.links, width, self.stacked))
+
+
 class MachinePanes(Vertical):
     """The browser panes. A save rebuilds them in place: `App.recompose` would
     rebuild whichever screen is active, which can be an open form."""
@@ -610,9 +735,10 @@ class SSHWorkbenchApp(App[None]):
     TITLE = "SSH Workbench"
     ENABLE_COMMAND_PALETTE = False
     # Screen classes for the layout: the list stacks above the details when
-    # narrow, rows show their target when wide or wider, the list's width cap
-    # rises when extra wide, and the result line takes at most two rows when
-    # short. The footer's rows follow the width itself.
+    # narrow, rows show their target when wide or wider, the list gains its
+    # column header and user column and a higher width cap when extra wide,
+    # and the result line takes at most two rows when short. The footer's
+    # rows follow the width itself.
     HORIZONTAL_BREAKPOINTS = [
         (0, "-narrow"),
         (60, "-normal"),
@@ -636,6 +762,8 @@ class SSHWorkbenchApp(App[None]):
         # columns past a 45-column terminal.
         Binding("r,R", "refresh", "check"),
         Binding("question_mark", "toggle_key_panel", "keys"),
+        # Escape closes the key panel; a modal's own Escape runs first.
+        Binding("escape", "close_key_panel", "close", show=False),
         Binding("q,Q", "quit", "quit"),
         Binding("ctrl+q", "quit", "quit", show=False),
     ]
@@ -721,7 +849,10 @@ class SSHWorkbenchApp(App[None]):
     }
     #details-id {
         width: auto;
+        max-width: 50%;
         color: $text-muted;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
     }
     #machine-list, #machine-details {
         height: 1fr;
@@ -732,10 +863,63 @@ class SSHWorkbenchApp(App[None]):
     }
     #machine-list ListItem {
         height: 1;
-        padding: 0 1;
+        padding: 0 1 0 0;
     }
     #machine-list ListItem Horizontal {
         height: 1;
+    }
+    RowMarker {
+        width: 1;
+        height: 1;
+        color: $primary;
+        visibility: hidden;
+    }
+    #machine-list ListItem.-highlight RowMarker {
+        visibility: visible;
+    }
+    /* Textual makes every part of the focused selected row bold; only the
+       name stays bold. */
+    #machine-list:focus > ListItem.-highlight {
+        text-style: none;
+    }
+    #machine-list:focus > ListItem.-highlight Static {
+        text-style: bold;
+    }
+    RowUser {
+        display: none;
+        width: 15%;
+        height: 1;
+        padding-left: 1;
+        color: $text-muted;
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+    /* The column header lines up with the rows: its lead matches the marker
+       and symbol, its right padding the row's padding and the list's gutter. */
+    #list-columns {
+        display: none;
+        height: 1;
+        padding: 0 2 0 0;
+        background: $surface;
+        color: $text-muted;
+    }
+    #list-columns Static {
+        text-wrap: nowrap;
+        text-overflow: ellipsis;
+    }
+    #list-columns .col-lead {
+        width: 3;
+    }
+    #list-columns .col-name {
+        width: 1fr;
+    }
+    #list-columns .col-target {
+        width: 35%;
+        padding-left: 1;
+    }
+    #list-columns .col-user {
+        width: 15%;
+        padding-left: 1;
     }
     #machine-list Static {
         width: 1fr;
@@ -750,15 +934,27 @@ class SSHWorkbenchApp(App[None]):
         height: auto;
     }
     .field-label {
-        width: 12;
+        width: 11;
         color: $text-muted;
-        text-style: bold;
     }
     .field-value {
         width: 1fr;
     }
-    #machine-name {
-        text-style: bold;
+    #machine-links-row {
+        margin-top: 1;
+    }
+    #machine-links-none {
+        color: $text-muted;
+    }
+    LinkBlock {
+        height: auto;
+    }
+    /* Under 48 columns of details pane; set by SSHWorkbenchApp._stack_details. */
+    #machine-details.-stacked .field-row {
+        layout: vertical;
+    }
+    #machine-details.-stacked .field-label {
+        width: 1fr;
     }
     #result-line {
         height: auto;
@@ -772,7 +968,7 @@ class SSHWorkbenchApp(App[None]):
         padding: 1 2;
         scrollbar-size-vertical: 1;
         scrollbar-color: $divider;
-        scrollbar-background: $surface;
+        scrollbar-background: $background;
     }
     #empty-state Static {
         color: $text-muted;
@@ -796,11 +992,17 @@ class SSHWorkbenchApp(App[None]):
         height: 1fr;
         border-left: none;
     }
-    Screen.-narrow .field-label {
-        width: 11;
-    }
     Screen.-wide RowTarget, Screen.-xwide RowTarget {
         display: block;
+    }
+    Screen.-xwide RowTarget {
+        width: 35%;
+    }
+    Screen.-xwide RowUser, Screen.-xwide #list-columns {
+        display: block;
+    }
+    Screen.-xwide #machine-list {
+        scrollbar-gutter: stable;
     }
     Screen.-short #result-line {
         max-height: 2;
@@ -904,16 +1106,23 @@ class SSHWorkbenchApp(App[None]):
                     with Horizontal(id="list-label", classes="pane-label"):
                         yield Static("machines", id="list-title", markup=False)
                         yield Static(id="list-position", markup=False)
+                    # Shown from 130 columns, outside the list's scroll.
+                    with Horizontal(id="list-columns"):
+                        yield Static(classes="col-lead")
+                        for column in ("name", "target", "user"):
+                            yield Static(column, classes=f"col-{column}", markup=False)
                     yield ListView(
                         *(
                             ListItem(
                                 Horizontal(
+                                    RowMarker(),
                                     StatusSymbol(self._status_of(machine).state),
                                     Static(_display_text(machine.name), markup=False),
-                                    RowTarget(
-                                        _display_text(
-                                            machine.alias or machine.addresses[0]
-                                        )
+                                    RowTarget(self._row_target(machine)),
+                                    RowUser(
+                                        ""
+                                        if machine.alias
+                                        else _display_text(machine.user or "")
                                     ),
                                 )
                             )
@@ -927,29 +1136,27 @@ class SSHWorkbenchApp(App[None]):
                         yield Static(id="details-name", markup=False)
                         yield Static(id="details-id", markup=False)
                     with VerticalScroll(id="machine-details"):
-                        for field, label in (
-                            ("id", "ID"),
-                            ("name", "Name"),
-                            ("status", "Status"),
-                            ("connection", "Connection"),
-                            ("target", "SSH alias"),
-                            ("user", "User"),
-                            ("port", "Port"),
-                            ("key", "Key"),
-                            ("links", "Links"),
-                        ):
-                            with Horizontal(classes="field-row"):
-                                yield Static(
-                                    label,
-                                    id=f"machine-{field}-label",
-                                    classes="field-label",
-                                    markup=False,
-                                )
+                        # A row whose value is unset is hidden. The links row
+                        # holds `none` or nothing; the links follow it.
+                        for field in ("status", "connect", "key", "addresses"):
+                            with Horizontal(
+                                id=f"machine-{field}-row", classes="field-row"
+                            ):
+                                yield Static(field, classes="field-label", markup=False)
                                 yield Static(
                                     id=f"machine-{field}",
                                     classes="field-value",
                                     markup=False,
                                 )
+                        with Horizontal(id="machine-links-row", classes="field-row"):
+                            yield Static("links", classes="field-label", markup=False)
+                            yield Static(
+                                "none",
+                                id="machine-links-none",
+                                classes="field-value",
+                                markup=False,
+                            )
+                        yield LinkBlock(id="machine-links")
         else:
             # A long path can make the message taller than a short screen.
             with VerticalScroll(id="empty-state"):
@@ -993,6 +1200,7 @@ class SSHWorkbenchApp(App[None]):
             # Marked now: the focus event reaches the app only after it has
             # bubbled up from the list, which is after the first frame.
             self._mark_pane(machine_list, True)
+            self._stack_details(self.size.width)
         if self.checker is not None:
             self._start_round(resolve=True)
             self.set_interval(STATUS_INTERVAL, self._timer_round)
@@ -1028,39 +1236,21 @@ class SSHWorkbenchApp(App[None]):
 
     def _show_details(self, index: int) -> None:
         machine = self.machines[index]
-        direct = machine.alias is None
-        unset = "Not set" if direct else "From your SSH config"
         self._show_status(machine)
         self.query_one("#details-name", Static).update(_display_text(machine.name))
         self.query_one("#details-id", Static).update(_display_text(machine.id))
-        for field, value in (
-            ("id", _display_text(machine.id)),
-            ("name", _display_text(machine.name)),
-            (
-                "connection",
-                (
-                    f"Direct, exported as ssh {machine.id}"
-                    if machine.export_alias
-                    else "Direct"
-                )
-                if direct
-                else "SSH alias",
-            ),
-            ("target", self._target_text(machine)),
-            ("user", _display_text(machine.user) if machine.user else unset),
-            ("port", str(machine.port) if machine.port is not None else unset),
-            ("key", _display_text(machine.key) if machine.key else unset),
-            (
-                "links",
-                _display_lines([f"{link.name}: {link.url}" for link in machine.links])
-                if machine.links
-                else "None",
-            ),
-        ):
-            self.query_one(f"#machine-{field}", Static).update(value)
-        self.query_one("#machine-target-label", Static).update(
-            "Addresses" if direct else "SSH alias"
+        self.query_one("#machine-connect", Static).update(self._connect_text(machine))
+        self.query_one("#machine-key-row").display = bool(machine.key)
+        if machine.key:
+            self.query_one("#machine-key", Static).update(_display_text(machine.key))
+        self.query_one("#machine-addresses-row").display = machine.alias is None
+        self.query_one("#machine-addresses", Static).update(
+            _display_lines(machine.addresses)
         )
+        self.query_one("#machine-links-none").display = not machine.links
+        links = self.query_one("#machine-links", LinkBlock)
+        links.display = bool(machine.links)
+        links.links = machine.links
         # Immediate, or Textual scrolls only after the next refresh, whose frame
         # would show the new machine still scrolled down.
         self.query_one("#machine-details", VerticalScroll).scroll_home(
@@ -1137,6 +1327,19 @@ class SSHWorkbenchApp(App[None]):
 
     def on_resize(self, event: events.Resize) -> None:
         self._update_summary(event.size.width)
+        self._stack_details(event.size.width)
+
+    def _stack_details(self, width: int) -> None:
+        """Under 48 columns of details pane, each label sits above its value and
+        each link's URL below its name. Set from the screen width: the panes'
+        own resize can still report the widths of the previous layout."""
+        found = self.query("#machine-details")
+        # The empty screen has no details.
+        if not found:
+            return
+        stacked = details_width(width) < 48
+        found.first().set_class(stacked, "-stacked")
+        self.query_one("#machine-links", LinkBlock).stacked = stacked
 
     # The pane that holds the focus carries -focused, which styles its label
     # row. In 8.2.8 a `:focus-within` rule does not restyle the label on Tab.
@@ -1154,49 +1357,87 @@ class SSHWorkbenchApp(App[None]):
             return
         pane.set_class(focused, "-focused")
 
-    def _target_text(self, machine: Machine) -> str:
-        if machine.alias is None:
-            return _display_lines(machine.addresses)
-        alias = _display_text(machine.alias)
-        # Information only: SSH may still resolve it through a pattern.
-        if (
-            self._host_names is not None
-            and machine.alias not in self._host_names
-            and machine.alias not in self._missing
-        ):
-            return f"{alias} (not in your SSH config)"
-        return alias
+    def _connect_text(self, machine: Machine) -> Content:
+        """How C connects. Direct: the user, the address the last check found
+        online else the first, and the port, with an IPv6 address in brackets
+        before a port. Alias: the alias; what `ssh -G` resolves is never shown."""
+        if machine.alias is not None:
+            alias = _display_text(machine.alias)
+            # Information only: SSH may still resolve it through a pattern.
+            if (
+                self._host_names is not None
+                and machine.alias not in self._host_names
+                and machine.alias not in self._missing
+            ):
+                return Content.assemble(
+                    f"alias · {alias}", (" (not in your SSH config)", "$text-error")
+                )
+            return Content(f"alias · {alias}")
+        address = self._online_address(machine) or machine.addresses[0]
+        target = _display_text(address)
+        if machine.port is not None:
+            if ":" in address:
+                target = f"[{target}]"
+            target = f"{target}:{machine.port}"
+        if machine.user:
+            target = f"{_display_text(machine.user)}@{target}"
+        if machine.export_alias:
+            target = f"{target} · exported as ssh {_display_text(machine.id)}"
+        return Content(f"direct · {target}")
 
     def _rename_offer(self, machine: Machine) -> str | None:
         return self._missing.get(machine.alias) if machine.alias is not None else None
 
-    def _status_text(self, machine: Machine) -> str:
+    def _status_text(self, machine: Machine) -> Content:
+        """The symbol and word in the state's color, then any detail: muted, or
+        for a missing alias, its sentence in the foreground color."""
         status = self._status_of(machine)
         text = f"{status.state.symbol} {status.state.word}"
         if status.state is State.NOT_FOUND:
             offer = self._rename_offer(machine)
             if offer is None:
-                return (
-                    f"{text}. Fix your SSH config and press R, or press E and save "
+                sentence = (
+                    ". Fix your SSH config and press R, or press E and save "
                     "to keep or change the alias."
                 )
-            return (
-                f"{text}. Looks like {_display_text(machine.alias)} became "
-                f"{_display_text(offer)}. Press U to update."
-            )
+            else:
+                sentence = (
+                    f". Looks like {_display_text(machine.alias)} became "
+                    f"{_display_text(offer)}. Press U to update."
+                )
+            return Content.assemble(text, (sentence, "$foreground"))
+        detail = None
         if status.state is State.ONLINE:
-            if status.address is None:
-                return f"{text} via alias"
-            return f"{text}: {_display_text(status.address)}"
-        if status.state is State.UNKNOWN and status.reason:
-            return f"{text}: {status.reason}"
-        return text
+            detail = (
+                "via alias" if status.address is None else _display_text(status.address)
+            )
+        elif status.state is State.UNKNOWN and status.reason:
+            detail = status.reason
+        if detail is None:
+            return Content(text)
+        return Content.assemble(text, (f" · {detail}", "$text-muted"))
 
     def _online_address(self, machine: Machine) -> str | None:
         """The address the last finished check found online, for direct machines."""
         address = self._online.get(machine.id)
         # An edit may have removed the address since that check.
         return address if address in machine.addresses else None
+
+    def _row_target(self, machine: Machine) -> str:
+        """Where a list row says its machine connects: the alias, else the
+        address the last check found online, else the first address."""
+        return _display_text(
+            machine.alias or self._online_address(machine) or machine.addresses[0]
+        )
+
+    def _show_row_targets(self) -> None:
+        machine_list = self._machine_list()
+        if machine_list is None or self._rebuilding:
+            return
+        for target, machine in zip(
+            machine_list.query(RowTarget), self.machines, strict=False
+        ):
+            target.target = self._row_target(machine)
 
     def action_refresh(self) -> None:
         if self.check_action("refresh", ()) is True:
@@ -1488,12 +1729,16 @@ class SSHWorkbenchApp(App[None]):
             machine_list.query(StatusSymbol), self.machines, strict=False
         ):
             symbol.state = self._status_of(machine).state
+        self._show_row_targets()
         index = machine_list.index
         if index is not None and index < len(self.machines):
             machine = self.machines[index]
             self._show_status(machine)
-            # A review changes whether the alias is marked.
-            self.query_one("#machine-target", Static).update(self._target_text(machine))
+            # A review changes whether the alias is marked, a check which
+            # address connects.
+            self.query_one("#machine-connect", Static).update(
+                self._connect_text(machine)
+            )
 
     def _tick_animation(self) -> None:
         if self.animation_level == "none" or not self.is_running:
@@ -1523,6 +1768,8 @@ class SSHWorkbenchApp(App[None]):
             # Dimmed, not hidden, so the footer keeps its keys during a
             # rebuild or a connect.
             return True if self._browsing() else None
+        if action == "close_key_panel":
+            return self._browsing() and bool(self.query(HelpPanel))
         if action == "refresh":
             ready = (
                 self.checker is not None
@@ -1611,6 +1858,12 @@ class SSHWorkbenchApp(App[None]):
             panels.remove()
         else:
             self.query_one("#panes").mount(KeyHelp())
+
+    def action_close_key_panel(self) -> None:
+        """Close the key panel, which Escape does as well as a second ?."""
+        if self.check_action("close_key_panel", ()) is not True:
+            return
+        self.query(HelpPanel).remove()
 
     def action_add(self) -> None:
         if self.check_action("add", ()) is not True:
@@ -1767,6 +2020,8 @@ class SSHWorkbenchApp(App[None]):
             self._rebuilding = False
         # A new list, and the panes' size did not change: no resize caps it.
         panes.cap_list()
+        # The new details are composed without the class.
+        self._stack_details(self.size.width)
         self._update_summary()
         machine_list = self._machine_list()
         if machine_list is not None:

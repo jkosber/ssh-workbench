@@ -5,12 +5,11 @@ import dataclasses
 import platform
 import threading
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
+from support import handoff
 from textual import events
-from textual.drivers.headless_driver import HeadlessDriver
-from textual.widgets import Footer, ListView, Static
+from textual.widgets import Footer, HelpPanel, ListView, Static
 
 from ssh_workbench import app as app_module
 from ssh_workbench.aliases import (
@@ -23,6 +22,7 @@ from ssh_workbench.aliases import (
 )
 from ssh_workbench.app import (
     AliasesReviewed,
+    KeyTable,
     ResultSlot,
     SSHWorkbenchApp,
     StatusSymbol,
@@ -113,6 +113,10 @@ def field(app: SSHWorkbenchApp, name: str) -> str:
     return str(app.query_one(f"#machine-{name}", Static).content)
 
 
+def details_id(app: SSHWorkbenchApp) -> str:
+    return str(app.query_one("#details-id", Static).content)
+
+
 def connection_status(app: SSHWorkbenchApp) -> str:
     return app.query_one("#connection-status", ResultSlot).message
 
@@ -151,15 +155,6 @@ def tracked_threads(monkeypatch: pytest.MonkeyPatch) -> list[threading.Thread]:
     return started
 
 
-def allow_connect(monkeypatch: pytest.MonkeyPatch) -> Mock:
-    launcher = Mock(return_value=0)
-    monkeypatch.setattr(app_module, "launch_ssh", launcher)
-    monkeypatch.setattr(HeadlessDriver, "can_suspend", property(lambda self: True))
-    monkeypatch.setattr(HeadlessDriver, "suspend_application_mode", lambda self: None)
-    monkeypatch.setattr(HeadlessDriver, "resume_application_mode", lambda self: None)
-    return launcher
-
-
 @pytest.mark.parametrize("key", ["u", "U"])
 async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, key: str
@@ -185,14 +180,52 @@ async def test_a_vanished_alias_offers_its_rename_and_u_applies_it(
 
         updated = dataclasses.replace(GARDEN, alias="new-host")
         assert read_machines(path)[0] == [updated, LAB]
-        assert field(app, "status") == "● online via alias"
-        assert field(app, "target") == "new-host"
+        assert field(app, "status") == "● online · via alias"
+        assert field(app, "connect") == "alias · new-host"
         assert connection_status(app) == (
             "Updated machine 1: garden now uses alias new-host."
         )
         assert checker.resolved == ["new-host"]
         assert app.check_action("connect", ()) is True
         assert app.check_action("update_alias", ()) is False
+
+
+def key_panel_rows(app: SSHWorkbenchApp) -> list[list[str]]:
+    """The words of the key panel's Workbench rows, after the navigation keys."""
+    lines = app.screen.query_one(KeyTable).render().plain.splitlines()
+    return [line.split() for line in lines[lines.index("", 1) + 1 :]]
+
+
+async def test_the_key_panel_lists_update_during_a_rename_offer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    machines = (GARDEN, LAB)
+    path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
+    checker = FakeChecker({"new-host": SAME})
+    app = SSHWorkbenchApp(machines, config_path=path, file_text=text, checker=checker)
+    async with app.run_test() as pilot:
+        await checked(app, pilot)
+        await wait_for(pilot, lambda: "update_alias" in footer_actions(app))
+        await pilot.press("question_mark")
+        await wait_for(
+            pilot,
+            lambda: (
+                bool(app.screen.query(KeyTable))
+                and app.screen.query_one(KeyTable).region.height > 0
+            ),
+        )
+        rows = key_panel_rows(app)
+        assert rows[0] == ["u", "update"]
+        assert not any(row[-1:] == ["connect"] for row in rows)
+
+        assert app.query(HelpPanel)
+        await pilot.press("u")
+        await wait_for(pilot, lambda: symbols(app)[:1] == [State.ONLINE])
+        updated = dataclasses.replace(GARDEN, alias="new-host")
+        assert read_machines(path)[0] == [updated, LAB]
+        assert connection_status(app) == (
+            "Updated machine 1: garden now uses alias new-host."
+        )
 
 
 async def test_without_exactly_one_match_there_is_no_offer(
@@ -215,7 +248,7 @@ async def test_without_exactly_one_match_there_is_no_offer(
 async def test_c_never_connects_a_missing_alias(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    launcher = allow_connect(monkeypatch)
+    launcher = handoff(monkeypatch)
     machines = (GARDEN, LAB)
     path, text = workspace(tmp_path, monkeypatch, machines, ["new-host"], PREVIOUS)
     app = SSHWorkbenchApp(
@@ -320,11 +353,11 @@ async def test_an_alias_outside_the_ssh_config_is_marked(
     async with app.run_test() as pilot:
         await checked(app, pilot)
         assert symbols(app) == [State.ONLINE, State.ONLINE]
-        assert field(app, "target") == "pattern-host (not in your SSH config)"
+        assert field(app, "connect") == "alias · pattern-host (not in your SSH config)"
         assert app.check_action("connect", ()) is True
         app.query_one(ListView).index = 1
         await pilot.pause()
-        assert field(app, "target") == "listed-host"
+        assert field(app, "connect") == "alias · listed-host"
 
 
 async def test_update_asks_again_before_dropping_comments(
@@ -366,9 +399,9 @@ async def test_moving_away_between_two_u_presses_asks_again(
         await pilot.pause()
         assert connection_status(app) == WARNING
         app.query_one(ListView).index = 1
-        await wait_for(pilot, lambda: field(app, "id") == "lab")
+        await wait_for(pilot, lambda: details_id(app) == "lab")
         app.query_one(ListView).index = 0
-        await wait_for(pilot, lambda: field(app, "id") == "garden")
+        await wait_for(pilot, lambda: details_id(app) == "garden")
         await pilot.press("u")
         await pilot.pause()
         assert connection_status(app) == WARNING
@@ -391,7 +424,7 @@ async def test_r_save_and_reload_never_resolve_a_missing_alias(
 
     async def save_lab() -> None:
         app.query_one(ListView).index = 1
-        await wait_for(pilot, lambda: field(app, "id") == "lab")
+        await wait_for(pilot, lambda: details_id(app) == "lab")
         await pilot.press("e")
         await wait_for(pilot, lambda: showing(app, MachineForm))
         started = app._round
@@ -439,7 +472,7 @@ async def test_an_alias_that_returns_clears_alias_not_found_on_r(
         write_hosts(tmp_path / "ssh", ["new-host", "old-host"])
         await pilot.press("r")
         await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
-        assert field(app, "status") == "● online via alias"
+        assert field(app, "status") == "● online · via alias"
         assert app.check_action("connect", ()) is True
         await wait_for(
             pilot,
@@ -526,7 +559,7 @@ async def test_a_failed_review_still_checks_every_alias(
     async with app.run_test() as pilot:
         await checked(app, pilot)
         assert symbols(app) == [State.ONLINE, State.OFFLINE]
-        assert field(app, "target") == "garden-host"
+        assert field(app, "connect") == "alias · garden-host"
 
 
 async def test_a_failed_review_keeps_an_alias_missing_from_the_last_run(
@@ -620,7 +653,7 @@ async def test_saving_the_machine_from_the_form_keeps_its_alias(
         await wait_for(pilot, lambda: showing(app, MachineForm))
         await pilot.press("ctrl+s")
         await wait_for(pilot, lambda: symbols(app)[:1] == [State.UNKNOWN])
-        assert field(app, "status") == "◇ can't check: press R to resolve this alias"
+        assert field(app, "status") == "◇ can't check · press R to resolve this alias"
         assert app.check_action("connect", ()) is True
         state = state_path(path, platform.node())
         await wait_for(
@@ -631,7 +664,7 @@ async def test_saving_the_machine_from_the_form_keeps_its_alias(
         )
         await pilot.press("r")
         await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
-        assert field(app, "target") == "old-host (not in your SSH config)"
+        assert field(app, "connect") == "alias · old-host (not in your SSH config)"
         assert checker.resolved == ["hop-host", "old-host"]
 
 
@@ -659,7 +692,7 @@ async def test_a_save_during_the_review_keeps_it(
         async with app.run_test() as pilot:
             await wait_for(pilot, lambda: calls and symbols(app)[1:] == [State.OFFLINE])
             app.query_one(ListView).index = 1
-            await wait_for(pilot, lambda: field(app, "id") == "lab")
+            await wait_for(pilot, lambda: details_id(app) == "lab")
             await pilot.press("e")
             await wait_for(pilot, lambda: showing(app, MachineForm))
             await pilot.press("ctrl+s")
@@ -667,7 +700,7 @@ async def test_a_save_during_the_review_keeps_it(
             release.set()
             await wait_for(pilot, lambda: symbols(app)[0] is State.NOT_FOUND)
             app.query_one(ListView).index = 0
-            await wait_for(pilot, lambda: field(app, "id") == "garden")
+            await wait_for(pilot, lambda: details_id(app) == "garden")
             assert field(app, "status") == OFFER
             assert checker.resolved == ["new-host"]
             await wait_for(
@@ -715,7 +748,7 @@ async def test_keeping_a_missing_alias_during_r_survives_the_review(
             await wait_for(pilot, lambda: len(app.screen_stack) == 1)
             release.set()
             await wait_for(pilot, lambda: symbols(app)[0] is State.ONLINE)
-            assert field(app, "target") == "old-host (not in your SSH config)"
+            assert field(app, "connect") == "alias · old-host (not in your SSH config)"
     finally:
         release.set()
 

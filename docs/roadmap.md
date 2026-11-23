@@ -10,10 +10,14 @@ No task is in progress.
 
 ## Next
 
-Tasks 29 and 30 follow from
-[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks):
-29 list and details content, 30 forms and pickers. Each starts as its own
-task.
+Task 30, forms and pickers, follows from
+[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks)
+and starts as its own task.
+
+- Dependency update (pytest, pytest-asyncio, ruff; check uv, the CI action
+  and the Python patch), its own pull request after Task 29.
+- Scoped refactor: split `app.py` into modules and remove the parser copy in
+  `exports.py`, behavior unchanged, after Task 30 and its release.
 
 ## Backlog
 
@@ -38,6 +42,7 @@ request for later ones. Each needs its own task before work starts.
 | Toast notifications could report connection and link results; the result line stays, because it survives a terminal handoff and toasts expire | 27 |
 | Timer rounds turn every machine to checking every 30 seconds, so the header leaves `all online` and every row spins each round; keeping the last result until the new one arrives would calm the screen | 27 |
 | Under 60 columns the first frame after startup or a resize shows the panes side by side for about 100 ms before they stack: Textual 8.2.8 keeps a container's arrangement cache across its own `layout` change, and clearing it needs a private method | 28 |
+| In the details' label row a cut-off name's `…` sits directly against the ID, with no space, such as `Long identifier machin…fictional-long-identi…`; a one-cell gap has to fit the ID's half-row cap and the two label-row tests that pin the ID's width and the name's half | 29 |
 
 ### Status and aliases
 
@@ -152,6 +157,7 @@ in the pull request description.
 | - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | Unreleased |
 | - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | Unreleased |
 | 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | Unreleased |
+| 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | Unreleased |
 
 ## Deferred ideas
 

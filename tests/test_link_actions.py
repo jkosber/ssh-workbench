@@ -11,6 +11,7 @@ from textual.widgets import Footer, ListView, OptionList
 
 from ssh_workbench import app as app_module
 from ssh_workbench.app import (
+    LinkBlock,
     LinkFinished,
     LinkPicker,
     LinkRequest,
@@ -88,7 +89,7 @@ async def test_visible_bindings_and_no_automatic_open(monkeypatch, size) -> None
         await pilot.press("down", "up", "enter", "tab", "enter", "pagedown", "home")
         await pilot.press("r", "d")
         app.query_one("#machine-details", VerticalScroll).scroll_to_widget(
-            app.query_one("#machine-links"), animate=False
+            app.query_one("#machine-links", LinkBlock), animate=False
         )
         await pilot.pause()
         await pilot.click("#machine-links")
@@ -217,6 +218,9 @@ async def test_results_are_literal_sanitized_and_retryable(
     machine = Machine(
         "literal[bold]\x1b", "Literal", alias="literal-host", links=MACHINES[0].links
     )
+    glyph, style = (
+        ("›", "$success") if outcome is LinkResult.ACCEPTED else ("×", "$error")
+    )
     app = SSHWorkbenchApp([machine])
     async with app.run_test() as pilot:
         for count in (1, 2):
@@ -231,6 +235,8 @@ async def test_results_are_literal_sanitized_and_retryable(
             rendered = app.query_one("#link-status", ResultSlot).render()
             # Only the glyph is styled; the machine data stays literal.
             assert [(span.start, span.end) for span in rendered.spans] == [(0, 1)]
+            assert rendered.plain[0] == glyph
+            assert rendered.spans[0].style == style
             assert all(
                 word not in rendered.plain for word in ("secret", "private", "\x1b")
             )
@@ -266,12 +272,15 @@ async def test_pending_request_is_bounded_and_preserves_new_selection_and_scroll
 
     opener = Mock(side_effect=open_url)
     monkeypatch.setattr(app_module, "open_link", opener)
+    # One link long enough that PgDn stops well short of the bottom: the pane
+    # grows a row when the result line shrinks, which must not move it. More
+    # links would make O open the picker instead of the link.
     machines = list(MACHINES) + [
         Machine(
             f"demo-{i}",
             "Long name " * 50,
             alias="host",
-            links=(Link("Repository", "https://example.invalid/" + "path/" * 100),),
+            links=(Link("Repository", "https://example.invalid/" + "path/" * 300),),
         )
         for i in range(30)
     ]

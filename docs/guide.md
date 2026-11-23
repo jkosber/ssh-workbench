@@ -6,7 +6,7 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 | Section | Covers |
 | --- | --- |
 | [Install, upgrade and remove](#install-upgrade-and-remove) | uv tool commands |
-| [The screen](#the-screen) | What each part shows, at every terminal size |
+| [The screen](#the-screen) | What each part shows, at every terminal size, and [the details](#the-details) |
 | [The machine file](#the-machine-file) | Where it lives, the [schema](#schema) and the value rules |
 | [Adding, editing and deleting](#adding-editing-and-deleting) | The form and how saving works |
 | [Connecting](#connecting) | What C runs and how host keys work |
@@ -41,12 +41,12 @@ Everything SSH Workbench does, in the order you meet it. For a first run, the
 | Part | Shows |
 | --- | --- |
 | Header | The app's name, and your machines counted by [status](#status), most urgent first, such as `5 machines · ○ 1 offline · ● 4 online`. When the words don't fit, the least urgent statuses drop first, then the counts shrink to symbols: `5 · ○1 ●4` |
-| Label rows | One row above each pane. Over the list: `machines` and the selected machine's position, such as `2/10`. Over the details: the selected machine's name, and its ID at the right. The line under the focused pane's label row is thick and cyan; the other is thin and dim. A dim vertical line separates the panes |
-| Machines | The list, with each machine's status symbol. The highlighted row is the selected machine |
-| Machine details | One row per field for the selected machine. The status takes its color |
+| Label rows | One row above each pane. Over the list: `machines` and the selected machine's position, such as `2/10`. Over the details: the selected machine's name, and its ID at the right; an ID longer than half the row ends with `…`. The line under the focused pane's label row is thick and cyan; the other is thin and dim. A dim vertical line separates the panes |
+| Machines | The list: each machine's status symbol and name. The selected row has a cyan `▌` in its first column and a band behind it, brighter while the list has the focus than while the details have it. Only the selected name is bold, and only while the list has the focus |
+| Machine details | The selected machine in up to five rows; see [the details](#the-details) |
 | Result line | Blank until something happens. Then the last connection result and the last link result, the newest first, each after a symbol: `●` success, `×` failure, `›` a browser request accepted, `·` anything else, such as a pending browser request. It takes up to three rows; a longer result ends with `…` |
 | Footer | The keys for each action; dimmed keys can't act right now. Click one to use it |
-| Key panel | **?** shows it at the right of the panes and **?** again hides it: the keys for moving around (↑ ↓ tab pgup pgdn), then Workbench's own keys. A short terminal shows the first rows only; every Workbench key is in the footer too |
+| Key panel | **?** shows it at the right of the panes, and **?** again or **Escape** hides it: the keys for moving around (↑ ↓ tab pgup pgdn), then Workbench's own keys. A short terminal shows the first rows only; every Workbench key is in the footer too |
 
 The layout follows the terminal's size, and changes as soon as you resize the
 window, even while a form is open:
@@ -55,13 +55,31 @@ window, even while a form is open:
 | --- | --- |
 | Under 60 columns | The list sits above the details and takes at most 40% of the screen's height; the details' label row is the line between them |
 | 60 columns or more | The list and details side by side. The list takes two fifths of the width, from 24 to 56 columns, and never more than half |
-| 100 columns or more | Each row in the list also shows where the machine connects: its alias, or its first address |
-| 130 columns or more | The list can grow to 80 columns |
+| 100 columns or more | Each row in the list also shows, muted at the right, where the machine connects: its alias, or the address that answered the last check, else its first address |
+| 130 columns or more | The list can grow to 80 columns. A muted header row names its columns, `name`, `target` and `user`; the user column shows a direct machine's user and stays blank for an alias machine |
 | Under 80 columns | The footer takes two rows; under 45 columns, three |
 | Under 24 rows | The result line takes at most two rows instead of three |
 
 Workbench draws its own colors, so it looks the same in any terminal theme.
 Every status keeps its own symbol and word, so nothing depends on color.
+
+### The details
+
+Each row has a muted label at the left. A row with nothing to show is left out.
+
+| Row | Shows |
+| --- | --- |
+| `status` | The [status](#status) symbol and word in the status's color, then any detail, muted, after ` · `: `● online · 192.0.2.40`, `● online · via alias` or `◇ can't check · press R to resolve this alias`. A missing alias adds its sentence instead, such as `× alias not found. Looks like old became new. Press U to update.` |
+| `connect` | How **C** connects. A direct machine: `direct · admin@192.0.2.20:2222`, with the user and the port only when they are set, and the address that answered the last check, else the first. An IPv6 address with a port is in brackets: `[2001:db8::1]:2222`. An exported machine adds `· exported as ssh <id>`. An alias machine: `alias · garden-host`; Workbench never shows what SSH resolves the alias to |
+| `key` | The key path. Left out when the machine has no key |
+| `addresses` | A direct machine's addresses, one per line. Left out for an alias machine |
+| `links` | After a blank line: each link's name, then its URL in a column of its own. The name column is as wide as the longest name, at most 20 characters; a longer name ends with `…`. A URL too long for its column continues on the next line in the same column, breaking before a `/`, `?`, `&` or `#` where it can, else before a `.` or `-`. `none` when the machine has no links |
+
+When the details pane is narrower than 48 columns, each label sits above its
+value and each link's URL goes on the line below its name, indented two. That
+happens on terminals under 48 columns and from 60 to 78 columns. From 48 to 59
+columns the list sits above the details, which then have the whole width, so
+the labels stay beside their values.
 
 ## The machine file
 
@@ -220,7 +238,7 @@ details, with color on top:
 | Symbol | Status | Color | Meaning |
 | --- | --- | --- | --- |
 | `▖` (turning) | checking | Blue | A check is running |
-| `●` | online | Green | The SSH port answered. The details show the address that answered, or "via alias" |
+| `●` | online | Green | The SSH port answered. The details add the address that answered, such as `● online · 192.0.2.40`, or `via alias` |
 | `○` | offline | Grey | No address answered. Each connection attempt waits up to 3 seconds; a refused connection or a name that doesn't resolve also counts as offline |
 | `◇` | can't check | Amber | SSH could not resolve the alias, the alias uses `ProxyJump` or `ProxyCommand`, an added or edited alias waits for **R**, or the check itself failed |
 | `×` | alias not found | Red | The alias was in your SSH config at an earlier check and is gone now; see [Renamed aliases](#renamed-aliases) |
@@ -243,7 +261,7 @@ For an alias, Workbench asks `ssh -G` which host and port the alias uses, at
 startup and on **R** only. `ssh -G` reads your whole SSH config, including any
 `Match exec` lines that run commands, so the 30-second timer reuses the last
 answer. Those commands run without Workbench's terminal, so they cannot draw
-on its screen. The details show "via alias" rather than the host.
+on its screen. The details show `● online · via alias` rather than the host.
 
 | Timing rule | Why |
 | --- | --- |
@@ -270,7 +288,7 @@ neither `ssh -G` nor a status check for it.
 Workbench checks again at each startup and **R**, so an offer can appear later,
 for example once a second matching name is gone. An alias that is not a
 literal `Host` name, for example one matched by `Host *.example`, still
-connects; the details mark it "not in your SSH config".
+connects; the details' `connect` row marks it `(not in your SSH config)`.
 
 This memory is a state file next to the machine file, one per computer:
 `machines.state.<computer>.json` for `machines.toml`. A machine file in a
@@ -415,6 +433,7 @@ at a time, and Q still quits while it waits.
 | Tab, Ctrl+S, Escape | In the form: next field, save, close without saving |
 | Y / N | When deleting: delete / keep |
 | ? | Show or hide the key panel |
+| Escape | Hide the key panel. In a form, a question, the key picker or the link list, Escape closes that first |
 | Q or Ctrl+Q | Quit (in a form or the delete question, only Ctrl+Q) |
 
 Letter keys work in either case, so Caps Lock and Shift make no difference.
@@ -433,7 +452,7 @@ below that. Keys that can't act right now are dimmed or hidden:
 | O | Dimmed when the machine has no links |
 | A, E, X | Dimmed when Workbench has no file location |
 | R | Dimmed while the alias checks of the last startup or R are still running |
-| ? | Dimmed while a form, a question or the link list is open |
+| ? | Dimmed while a form, a question, the key picker or the link list is open |
 
 Startup, selection and Enter in the machine list never connect, open or change
 anything; the status checks are the only thing that starts on its own.

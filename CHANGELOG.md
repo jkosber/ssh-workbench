@@ -34,11 +34,29 @@ Changes by release, newest first. Version numbers follow the policy in
   spaces between keys. The footer takes one row from 80 columns, two from 45
   and three below that, so every key stays on screen.
 - `?` shows a panel at the right of the panes with the keys for moving around,
-  then Workbench's own; `?` again hides it.
-- Rows show where each machine connects from 100 columns instead of 110. The
-  list still moves above the details under 60 columns, now with the details'
-  label row between them, and the result line's two-row limit starts under 24
-  rows instead of 20.
+  then Workbench's own; `?` again or Escape hides it.
+- Rows show where each machine connects from 100 columns instead of 110: the
+  alias, or the address that answered the last check, else the first. From
+  130 columns a header row names the list's columns, `name`, `target` and
+  `user`, and a direct machine's user shows in its own column. The list still
+  moves above the details under 60 columns, now with the details' label row
+  between them, and the result line's two-row limit starts under 24 rows
+  instead of 20.
+- The selected row has a cyan `▌` in its first column and a band that is
+  brighter while the list has the focus; only the selected name is bold. The
+  red of a missing alias and of failures is a little lighter, so it stays
+  readable on the band.
+- The details show up to five rows with lowercase labels: `status`,
+  `connect`, `key`, `addresses` and `links`. `connect` says how C
+  connects, such as `direct · admin@192.0.2.20:2222` or
+  `alias · garden-host`, and takes the place of the connection, user and port
+  rows. A row with nothing to show is left out instead of reading `Not set`
+  or `From your SSH config`, and the ID and name rows are gone: the label row
+  above shows both. A long ID there ends with `…`.
+- Links show as a name column and a URL column, and a long URL wraps inside its
+  own column, before a `/`, `?`, `&` or `#` where it can, else before a `.` or
+  `-`. When the details are narrower than 48 columns, each label sits above
+  its value and each URL below its link's name.
 - The empty screens are muted lines instead of a box, such as
   `no machines in this file yet · a to add` with the file's path below, and
   they scroll when a long path doesn't fit.
@@ -51,8 +69,8 @@ Changes by release, newest first. Version numbers follow the policy in
   Muted text, such as labels, is a little brighter.
 - Checking machines show a turning block glyph that common terminal fonts
   have, and online dots no longer pulse.
-- Status words in the details are lowercase now, as in the header:
-  `● online: 192.0.2.20`.
+- Status words in the details are lowercase now, as in the header, and any
+  detail follows, muted, after a dot: `● online · 192.0.2.20`.
 - The form's Addresses label says which address is used: the one the latest
   status check found online, else the first. It said the first one was used.
 
