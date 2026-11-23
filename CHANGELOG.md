@@ -74,6 +74,13 @@ Changes by release, newest first. Version numbers follow the policy in
 - The form's Addresses label says which address is used: the one the latest
   status check found online, else the first. It said the first one was used.
 
+### Security
+
+- CI uses uv 0.13.9, and builds require `uv_build` 0.13.9 or later. Since
+  0.13.5, uv rejects certificate chains that contain the compromised eMudhra
+  intermediate keys
+  ([release notes](https://github.com/astral-sh/uv/releases/tag/0.13.5)).
+
 ### Fixed
 
 - A machine file nested too deeply, or with an integer too long to read, now
