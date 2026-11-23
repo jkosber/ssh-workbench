@@ -740,8 +740,8 @@ def wrap_target(text: str, width: int, host_at: int, port_at: int | None) -> lis
     ends before the port's colon, else after the `@`, else at the last place
     in the address that keeps it within the width: before a `.` or `-`, or
     after a `:` that no `:` follows. Else it ends at the width. So a port
-    stays whole on any row wide enough for it, and no row of an IPv6 address
-    starts with a colon, like a port."""
+    stays whole on any row wide enough for it, and from 7 cells no row of an
+    IPv6 address starts with a colon, like a port."""
     address_end = len(text) if port_at is None else port_at
 
     def cut(start: int, end: int) -> int | None:
