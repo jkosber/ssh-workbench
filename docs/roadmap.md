@@ -6,13 +6,11 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+| Task | Branch | Delivers | Acceptance |
+| --- | --- | --- | --- |
+| 30 | `feat/task30-forms-and-pickers` | Backdrop, hint rows, one-row fields, sized inputs, error rows on demand, named buttons, visible radio rings, two-line link options, key picker spacing, sized questions | Each modal fits at 60x20 and 80x24 with its hint row visible; form tests keep every validation and save behavior |
 
 ## Next
-
-Task 30, forms and pickers, follows from
-[the TUI overhaul design](superpowers/specs/2026-10-31-tui-overhaul-design.md#tasks)
-and starts as its own task.
 
 - Scoped refactor: split `app.py` into modules and remove the parser copy in
   `exports.py`, behavior unchanged, after Task 30 and its release.
