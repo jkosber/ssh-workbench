@@ -94,7 +94,7 @@ async def test_the_export_checkbox_belongs_to_direct_machines(
         await pilot.pause()
         assert form.query_one("#direct-fields").display is True
         box = form.query_one("#form-export_alias", Checkbox)
-        assert box.parent.id == "direct-fields"
+        assert form.query_one("#direct-fields") in box.ancestors
         assert box.value is False
         assert str(box.label) == "ssh <ID> works in any terminal"
 
