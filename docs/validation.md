@@ -45,7 +45,7 @@ connection and no browser: C, K and O were never pressed.
 
 This is the second full run. The first, on the wheel built at `86ad113`,
 showed a port split across two rows in the `connect` value, which Task 31
-(below) fixed before the release. Of this run's 55 screenshots, 33 matched the
+(below) fixed before the release. Of this run's 55 screenshots, 29 matched the
 first run's pixel for pixel; the others differed in the `connect` rows, the
 mouse pointer or the status drawn behind a form.
 
@@ -73,6 +73,7 @@ result shown was at 80x24; Y in either question; the `?` panel at other
 sizes; a physical keyboard and the mouse; the install from the tag, which
 needs the tag. The readable text behind the form is a backlog row in
 [the roadmap](roadmap.md), "From 0.4.0".
+
 ## Task 31: the connect value breaks before its port, 2026-11-23
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (JetBrainsMono
