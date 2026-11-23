@@ -41,6 +41,20 @@ MANY = Machine(
         for i in range(1, 13)
     ),
 )
+# Twelve links whose URLs have a long run with no place to break, so at every
+# size the list scrolls and some URL pieces are as wide as a line may be.
+LONG = Machine(
+    "long-rack",
+    "Long rack",
+    alias="long-rack-host",
+    links=tuple(
+        Link(
+            f"Service {i:02}",
+            f"https://service-{i:02}.example.com/" + "fictionalpathsegment" * 6,
+        )
+        for i in range(1, 13)
+    ),
+)
 HINT = " enter open  esc cancel "
 
 
@@ -132,6 +146,30 @@ async def test_many_links_scroll_between_the_name_and_the_hint(
         assert options.highlighted == 11
         assert hint.region == before
         assert hint.content.plain == HINT
+
+
+@pytest.mark.parametrize("size", [(80, 24), (60, 20), (40, 16)])
+async def test_the_scrollbar_never_rewraps_a_url_piece(size: tuple[int, int]) -> None:
+    app = SSHWorkbenchApp((LONG,))
+    async with app.run_test(size=size) as pilot:
+        picker = await open_picker(app, pilot)
+        options = picker.query_one("#link-options", OptionList)
+        assert options.max_scroll_y > 0
+        widest = max(
+            Content(line).cell_length
+            for prompt in prompts(options)
+            for line in url_lines(prompt)
+        )
+        assert widest >= options.size.width - 1
+        # Textual draws exactly the lines the prompts were built with: a piece
+        # it rewrapped for the scrollbar's column would add a row at column 0.
+        assert options.virtual_size.height == sum(
+            len(prompt.plain.split("\n")) for prompt in prompts(options)
+        )
+        for y in range(options.size.height):
+            drawn = "".join(segment.text for segment in options.render_line(y))
+            assert drawn[0] in " ▌", drawn
+        await pilot.press("escape")
 
 
 async def test_the_highlighted_link_has_a_marker(monkeypatch) -> None:

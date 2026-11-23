@@ -134,6 +134,31 @@ async def test_a_small_terminal_scrolls_the_body_not_the_hint(tmp_path: Path) ->
         assert body.region.contains_region(system.region)
 
 
+async def test_the_highlighted_key_stays_in_view_on_a_small_terminal(
+    tmp_path: Path,
+) -> None:
+    app = saved_app(tmp_path)
+    async with app.run_test(size=(40, 16)) as pilot:
+        screen = await open_picker(app, pilot, [])
+        body = screen.query_one("#key-body")
+        options = screen.query_one("#key-choices", OptionList)
+        note = screen.query_one("#key-note", Static)
+        for highlighted in (1, 2, 3):
+            await pilot.press("down")
+            await wait_for(pilot, lambda: str(note.content) == NOTE)
+            for _ in range(6):
+                await pilot.pause()
+            assert options.highlighted == highlighted
+            assert body.max_scroll_y > 0
+            # The marker's row, counted from the top of the screen.
+            (row,) = [
+                options.region.y + y
+                for y in range(options.size.height)
+                if "".join(s.text for s in options.render_line(y)).startswith("▌")
+            ]
+            assert body.region.y <= row < body.region.bottom, highlighted
+
+
 def ring(button: RadioButton) -> tuple[str, Color]:
     """The ring glyph a radio button draws and its color."""
     (segment,) = [

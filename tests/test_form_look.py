@@ -317,6 +317,43 @@ async def test_an_error_above_the_focused_field_keeps_it_in_view(
         assert form.query_one("#form-fields").region.contains_region(user.region)
 
 
+@pytest.mark.parametrize("size", [(40, 16), (59, 20)])
+async def test_a_failed_save_shows_the_field_it_focuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, size: tuple[int, int]
+) -> None:
+    app, _ = saved_app(tmp_path, monkeypatch)
+    async with app.run_test(size=size) as pilot:
+        form = await open_form(app, pilot)
+        form.query_one("#form-links", TextArea).focus()
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.press("ctrl+s")
+        identifier = form.query_one("#form-id", Input)
+        await wait_for(pilot, lambda: app.focused is identifier)
+        for _ in range(6):
+            await pilot.pause()
+        assert form.query_one("#form-id-error", Static).display is True
+        assert app.focused is identifier
+        assert form.query_one("#form-fields").region.contains_region(identifier.region)
+
+
+async def test_narrowing_keeps_the_focused_field_in_view(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app, _ = saved_app(tmp_path, monkeypatch)
+    async with app.run_test(size=(80, 24)) as pilot:
+        form = await open_form(app, pilot, "edit")
+        links = form.query_one("#form-links", TextArea)
+        links.focus()
+        await pilot.pause()
+        await pilot.pause()
+        await pilot.resize_terminal(59, 20)
+        for _ in range(6):
+            await pilot.pause()
+        assert app.focused is links
+        assert form.query_one("#form-fields").region.contains_region(links.region)
+
+
 @pytest.mark.parametrize(
     ("size", "alias", "direct"), [((160, 50), 13, 16), ((60, 20), 14, 16)]
 )
