@@ -10,12 +10,14 @@ from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.content import Content
 from textual.screen import ModalScreen
 from textual.suggester import SuggestFromList
+from textual.visual import VisualType
 from textual.widget import Widget
 from textual.widgets import (
     Button,
@@ -121,6 +123,16 @@ def marked(label: str | Content, on: bool) -> Content:
     return Content.assemble(("▌" if on else " ", "$primary"), label)
 
 
+class FormMessage(Static):
+    """The form's message: takes a row only while it has text."""
+
+    def update(self, content: VisualType = "", *, layout: bool = True) -> None:
+        super().update(content, layout=layout)
+        self.display = bool(str(content))
+        if self.is_mounted and isinstance(self.screen, MachineForm):
+            self.screen._cap_fields()
+
+
 class MachineForm(WorkbenchModal[None]):
     """Add a machine, or edit one, without writing anything until it is valid."""
 
@@ -136,42 +148,134 @@ class MachineForm(WorkbenchModal[None]):
     #machine-form {
         width: 90%;
         max-width: 100;
-        height: 90%;
+        height: auto;
+        max-height: 90%;
         border: round $primary;
         border-title-color: $primary;
         border-title-style: bold;
         background: $surface;
         padding: 0 1;
     }
+    /* Its cap is set from Python: see _cap_fields. */
     #form-fields {
-        height: 1fr;
+        height: auto;
+        scrollbar-size-vertical: 1;
+    }
+    /* One field: the label beside its cell from 60 columns, above it below. */
+    .form-field {
+        layout: horizontal;
+        height: auto;
+    }
+    MachineForm.-narrow .form-field {
+        layout: vertical;
     }
     .form-label {
-        text-style: bold;
-        margin-top: 1;
+        width: 12;
+        height: 1;
+        padding-right: 1;
+        color: $text-muted;
     }
+    MachineForm.-narrow .form-label {
+        width: 1fr;
+    }
+    /* An input's own width: 100% beside the label would overflow the row. */
+    .form-cell {
+        width: 1fr;
+        height: auto;
+    }
+    /* The focused field gets a left bar; the padding it replaces keeps the
+       text in place. Compact widgets set border: none !important. */
+    #form-fields Input {
+        background: $panel;
+        padding: 0 1;
+    }
+    #form-fields Input:focus {
+        border-left: outer $primary !important;
+        padding: 0 1 0 0;
+    }
+    /* Textual's placeholder, suggestion and selection text are under 4.5:1. */
+    #form-fields Input > .input--placeholder,
+    #form-fields Input > .input--suggestion {
+        color: $text-muted;
+    }
+    #form-fields Input > .input--selection {
+        color: $block-cursor-foreground;
+    }
+    #form-id, #form-user, #form-port {
+        width: 32;
+        max-width: 100%;
+    }
+    /* Shown only while there is an error; see _validate. */
     .form-error {
         color: $error;
         height: auto;
+        display: none;
     }
     #form-hosts {
         color: $text-muted;
-    }
-    #form-kind {
-        height: auto;
     }
     /* A Vertical defaults to 1fr, which a scrolling form squeezes to one row. */
     #alias-fields, #direct-fields {
         height: auto;
     }
+    /* Side by side the two choices need exactly the 38 cells of a 60-column
+       frame, so no margin between them; under 60 they stack. */
+    #form-kind {
+        layout: horizontal;
+        width: 1fr;
+        height: auto;
+        padding-left: 1;
+    }
+    #form-kind > RadioButton {
+        width: auto;
+    }
+    MachineForm.-narrow #form-kind {
+        layout: vertical;
+    }
+    #form-kind:focus, #form-export_alias:focus, #form-links:focus {
+        border-left: outer $primary !important;
+        padding-left: 0;
+    }
+    #form-export_alias {
+        padding-left: 1;
+        max-width: 100%;
+    }
     #form-links {
         height: 5;
+        background: $panel;
+        scrollbar-size-vertical: 1;
     }
     #form-message {
         height: auto;
+        display: none;
     }
+    /* The button row is the form's hint row: each button names its key. */
     #form-buttons {
-        height: auto;
+        height: 1;
+    }
+    #form-buttons Button {
+        min-width: 0;
+        margin-right: 2;
+    }
+    #form-save {
+        background: $primary;
+        color: $background;
+    }
+    #form-save:hover {
+        background: $primary-darken-1;
+    }
+    #form-cancel {
+        background: $surface;
+        color: $foreground;
+    }
+    /* Marks differ by shape; the selected one is not green, which means Online. */
+    #form-kind > RadioButton > .toggle--button,
+    #form-export_alias > .toggle--button {
+        color: $text-muted;
+    }
+    #form-kind > RadioButton.-on > .toggle--button,
+    #form-export_alias.-on > .toggle--button {
+        color: $foreground;
     }
     """
 
@@ -215,63 +319,103 @@ class MachineForm(WorkbenchModal[None]):
         with Vertical(id="machine-form") as form:
             form.border_title = "Edit machine" if machine else "Add machine"
             with VerticalScroll(id="form-fields"):
-                yield from _field("id", "ID", Input(values["id"], id="form-id"))
-                yield from _field("name", "Name", Input(values["name"], id="form-name"))
-                yield Static("Connection", classes="form-label", markup=False)
-                yield RadioSet(
-                    RadioButton("SSH alias", value=not direct, id="kind-alias"),
-                    RadioButton("Direct (addresses)", value=direct, id="kind-direct"),
-                    id="form-kind",
+                yield _field(
+                    "id", "id", Input(values["id"], id="form-id", compact=True)
+                )
+                yield _field(
+                    "name", "name", Input(values["name"], id="form-name", compact=True)
+                )
+                yield Horizontal(
+                    Static("connection", classes="form-label", markup=False),
+                    RadioSet(
+                        Ring("SSH alias", value=not direct, id="kind-alias"),
+                        Ring("Direct (addresses)", value=direct, id="kind-direct"),
+                        id="form-kind",
+                        compact=True,
+                    ),
+                    classes="form-field",
+                    id="field-kind",
                 )
                 with Vertical(id="alias-fields"):
                     alias = Input(
                         values["alias"],
                         id="form-alias",
+                        compact=True,
                         suggester=SuggestFromList(
                             self.host_names, case_sensitive=False
                         ),
                     )
-                    yield from _field("alias", "SSH alias", alias)
-                    yield Static(self._hosts_text(), id="form-hosts", markup=False)
+                    yield _field(
+                        "alias",
+                        "alias",
+                        alias,
+                        Static(self._hosts_text(), id="form-hosts", markup=False),
+                    )
                 with Vertical(id="direct-fields"):
-                    for field, label in (
-                        (
-                            "addresses",
-                            "Addresses (the one found online is used, else the first)",
-                        ),
-                        ("user", "User (optional)"),
-                        ("port", "Port (optional)"),
-                        ("key", "Key: path of the private key (optional)"),
+                    for field, placeholder in (
+                        ("addresses", "online one is used, else the first"),
+                        ("user", "optional"),
+                        ("port", "optional"),
+                        ("key", "path of the private key, optional"),
                     ):
-                        yield from _field(
-                            field, label, Input(values[field], id=f"form-{field}")
+                        yield _field(
+                            field,
+                            field,
+                            Input(
+                                values[field],
+                                id=f"form-{field}",
+                                placeholder=placeholder,
+                                compact=True,
+                            ),
                         )
-                    # A checkbox label does not wrap; the field label does.
-                    yield from _field(
+                    yield _field(
                         "export_alias",
-                        "Export as an SSH alias (optional)",
-                        Checkbox(
+                        "export",
+                        Box(
                             "ssh <ID> works in any terminal",
                             values["export_alias"] == "true",
                             id="form-export_alias",
+                            compact=True,
                         ),
                     )
-                yield from _field(
+                yield _field(
                     "links",
-                    "Links: one per line, the name and then the URL",
-                    TextArea(values["links"], id="form-links", tab_behavior="focus"),
+                    "links",
+                    TextArea(
+                        values["links"],
+                        id="form-links",
+                        tab_behavior="focus",
+                        compact=True,
+                        placeholder="one per line: the name, then the URL",
+                    ),
                 )
-            yield Static("", id="form-message", markup=False)
+            yield FormMessage("", id="form-message", markup=False)
             with Horizontal(id="form-buttons"):
-                yield Button("Save", id="form-save", variant="primary")
-                yield Button("Cancel", id="form-cancel")
-            yield Static(
-                "Tab: next field   Ctrl+S: save   Escape: cancel", markup=False
-            )
+                yield Button(
+                    Content("^s save"), id="form-save", variant="primary", compact=True
+                )
+                yield Button(Content("esc cancel"), id="form-cancel", compact=True)
 
     def on_mount(self) -> None:
         self._show_kind()
+        self._cap_fields()
         self.query_one("#form-id", Input).focus()
+
+    def on_resize(self, event: events.Resize) -> None:
+        self._cap_fields()
+
+    def _cap_fields(self) -> None:
+        """Cap the fields' scroll area, so a frame at most 90% of the screen
+        keeps its border, the message and the button row. CSS alone cannot:
+        the same pattern as MachinePanes.cap_list."""
+        message = self.query_one("#form-message", FormMessage)
+        rows = 0
+        if message.display:
+            width = self.query_one("#machine-form").size.width or self.size.width
+            rows = message.get_content_height(self.size, self.size, width)
+        self.query_one("#form-fields").styles.max_height = max(
+            1, int(self.size.height * 0.9) - 2 - 1 - rows
+        )
 
     def _hosts_text(self) -> str:
         if not self.host_names:
@@ -308,13 +452,22 @@ class MachineForm(WorkbenchModal[None]):
 
     def _validate(self) -> Machine | None:
         machine, field, problem = self._check()
+        moved = False
         for name in FIELDS:
             shown = name == field and (self._attempted or name in self._touched)
-            self.query_one(f"#form-{name}-error", Static).update(
-                problem if shown else ""
-            )
+            error = self.query_one(f"#form-{name}-error", Static)
+            error.update(problem if shown else "")
+            visible = shown and bool(problem)
+            moved |= error.display != visible
+            error.display = visible
         if field is None and problem:
             self.query_one("#form-message", Static).update(problem)
+        # A row shown or hidden above the focused field moves it out of view.
+        if moved and self.focused is not None:
+            for node in self.focused.ancestors_with_self:
+                if isinstance(node, Widget) and node.has_class("form-field"):
+                    self.call_after_refresh(node.scroll_visible, animate=False)
+                    break
         return machine
 
     def _check(self) -> tuple[Machine | None, str | None, str]:
@@ -668,10 +821,19 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
             self.dismiss(plan)
 
 
-def _field(field: str, label: str, widget: Widget) -> ComposeResult:
-    yield Static(label, classes="form-label", markup=False)
-    yield widget
-    yield Static("", id=f"form-{field}-error", classes="form-error", markup=False)
+def _field(field: str, label: str, widget: Widget, *extra: Widget) -> Horizontal:
+    """One form row: the label beside a cell with the widget and its error."""
+    return Horizontal(
+        Static(label, classes="form-label", markup=False),
+        Vertical(
+            widget,
+            *extra,
+            Static("", id=f"form-{field}-error", classes="form-error", markup=False),
+            classes="form-cell",
+        ),
+        classes="form-field",
+        id=f"field-{field}",
+    )
 
 
 def _place(message: str, line_numbers: Sequence[int]) -> tuple[str | None, str]:
