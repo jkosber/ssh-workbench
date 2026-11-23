@@ -67,6 +67,8 @@ from ssh_workbench.forms import (
     KeySetup,
     MachineForm,
     WorkbenchModal,
+    hint_row,
+    marked,
 )
 from ssh_workbench.keys import (
     KeySetupError,
@@ -306,6 +308,67 @@ class LinkFinished(Message):
     result: LinkResult
 
 
+def link_prompt(name: str, url: str, width: int | None, on: bool) -> Content:
+    """A link option: its name, with the selection marker when `on`, over its
+    URL indented three cells. With a `width`, the URL wraps by `wrap_url` so no
+    line is wider than that. `name` and `url` are display text already."""
+    pieces = [url] if width is None else wrap_url(url, max(width - 3, 2))
+    return Content("\n").join(
+        [
+            marked(name, on),
+            *(Content.styled("   " + piece, "$text-muted") for piece in pieces),
+        ]
+    )
+
+
+class LinkOptions(OptionList):
+    """A machine's links, each a name over its URL, rebuilt for the list's width."""
+
+    def __init__(self, links: Sequence[Link], id: str | None = None) -> None:
+        self._links = [
+            (_display_text(link.name), _display_text(link.url)) for link in links
+        ]
+        self._built_width: int | None = None
+        super().__init__(*self._build(None, None), id=id)
+
+    def _build(self, width: int | None, highlighted: int | None) -> list[Option]:
+        return [
+            Option(link_prompt(name, url, width, index == highlighted))
+            for index, (name, url) in enumerate(self._links)
+        ]
+
+    def get_content_width(self, container: Size, viewport: Size) -> int:
+        # The unwrapped width, so wrapping never feeds back into the frame's
+        # width, and one column for the scrollbar.
+        return 1 + max(
+            (
+                max(Content(name).cell_length + 1, Content(url).cell_length + 3)
+                for name, url in self._links
+            ),
+            default=0,
+        )
+
+    def on_resize(self) -> None:
+        # Built one column narrower than the list: the scrollbar narrows the
+        # region without a resize, and Textual would rewrap a URL piece to
+        # column 0.
+        width = self.size.width - 1
+        if width > 0 and width != self._built_width:
+            self._built_width = width
+            keep = self.highlighted
+            self.set_options(self._build(width, keep))
+            self.highlighted = keep
+
+    def mark(self, old: int | None, new: int | None) -> None:
+        """Move the selection marker from option `old` to option `new`."""
+        for index in (old, new):
+            if index is not None and index < len(self._links):
+                name, url = self._links[index]
+                self.replace_option_prompt_at_index(
+                    index, link_prompt(name, url, self._built_width, index == new)
+                )
+
+
 class LinkPicker(WorkbenchModal[Link | None]):
     """Choose one of a machine's links; Escape cancels without opening anything."""
 
@@ -319,21 +382,26 @@ class LinkPicker(WorkbenchModal[Link | None]):
         Binding("q,Q", "app.quit", "Quit"),
         Binding("ctrl+q", "app.quit", "Quit", show=False),
     ]
+    # Docked rows add nothing to the frame's auto width: the 24-cell hint row
+    # needs 28 with the border and padding.
+    # The machine name and the hint row stay; only the list scrolls.
     DEFAULT_CSS = """
     #link-picker {
-        width: 90%;
-        max-width: 100;
-        height: auto;
-        max-height: 90%;
-        border: round $primary;
-        border-title-color: $primary;
-        border-title-style: bold;
-        background: $surface;
-        padding: 0 1;
+        min-width: 28;
+    }
+    #link-machine {
+        dock: top;
+    }
+    #link-picker > .hint {
+        dock: bottom;
     }
     #link-options {
+        border: none;
+        padding: 0;
+        scrollbar-size-vertical: 1;
         height: auto;
-        max-height: 60vh;
+        width: auto;
+        max-width: 100%;
     }
     """
 
@@ -341,28 +409,29 @@ class LinkPicker(WorkbenchModal[Link | None]):
         super().__init__()
         self.machine = machine
         self._answered = False
+        self._marked: int | None = None
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="link-picker") as picker:
+        with Vertical(id="link-picker", classes="frame") as picker:
             picker.border_title = "Open a link"
-            yield Static(_display_text(self.machine.name), markup=False)
-            yield OptionList(
-                *(
-                    Option(
-                        Content(
-                            f"{_display_text(link.name)}  {_display_text(link.url)}"
-                        )
-                    )
-                    for link in self.machine.links
-                ),
-                id="link-options",
+            yield Static(
+                _display_text(self.machine.name), id="link-machine", markup=False
             )
-            yield Static("Enter: open   Escape: cancel", markup=False)
+            yield LinkOptions(self.machine.links, id="link-options")
+            yield Static(
+                hint_row([("enter", "open"), ("esc", "cancel")]), classes="hint"
+            )
 
     def on_mount(self) -> None:
         options = self.query_one(OptionList)
         options.highlighted = 0
         options.focus()
+
+    def on_option_list_option_highlighted(
+        self, event: OptionList.OptionHighlighted
+    ) -> None:
+        self.query_one(LinkOptions).mark(self._marked, event.option_index)
+        self._marked = event.option_index
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         self._close(self.machine.links[event.option_index])
