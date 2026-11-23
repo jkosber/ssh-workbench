@@ -64,8 +64,16 @@ size in `SIZES` in `scripts/capture_look.py`: 80x24, 120x30, 100x30, 120x40,
 | Panes | Stacked exactly under 60 columns; side by side, the list takes at most half the width |
 | Row targets | Shown exactly from 100 columns |
 | Result line | One row idle; after two long results at most two rows under 24 rows and three otherwise |
-| Details | At 80x24 they fit without scrolling; at 60x20 they scroll and every row, scrolled into view, is whole; at 80x50 they start at the top |
+| Details | At 80x24 they fit without scrolling; at 60x20 they scroll, nothing is cut at the pane's right edge, and the end of the links block scrolls into view; at 80x50 they start at the top |
 | List | At 80x50 every row stays one line high |
+
+The matrix runs on `MATRIX_MACHINES`: a direct machine with every details row
+set and three links, one long enough to wrap, an alias machine and a plain
+direct machine. The column header is checked in
+`test_xwide_rows_line_up_under_a_column_header` instead, at 130x40, 160x50
+and 200x60 with 5 and 60 machines: every visible row's name, target and user
+line up under `name`, `target` and `user`, and at 120x30 the header and the
+user column are gone.
 
 ### Look captures: `scripts/capture_look.py`
 
@@ -75,12 +83,13 @@ uv run --locked python scripts/capture_look.py
 
 Not one of the six checks: it renders the app at every matrix size to
 `look-WxH.svg` files in the ignored `.local/captures/look/`, for a look at the
-layout without a terminal. Five fictional machines show online, offline,
-can't check and alias not found; a stand-in checker answers, so no SSH,
-network or browser call runs, and the user and SSH folders point at a
-temporary folder. `--sizes 80x24,40x16` picks sizes and `--out DIR` another
-folder. The captures wait for the checks, so Checking never shows. They do not
-replace the check in a real terminal.
+layout without a terminal. Five fictional machines show online, offline, can't
+check and alias not found, and the first, which is selected, has three links,
+one long enough to wrap; a stand-in checker answers, so no SSH, network or
+browser call runs, and the user and SSH folders point at a temporary folder.
+`--sizes 80x24,40x16` picks sizes and `--out DIR` another folder. The captures
+wait for the checks, so Checking never shows. They do not replace the check in
+a real terminal.
 
 ## What tests may touch
 
@@ -145,21 +154,25 @@ uv run --locked ssh-workbench --config examples/machines.example.toml
 ```
 
 At 80x24: the list, details and footer draw, with all nine footer keys on one
-row and a blank result line above them; Up and Down change the selected
-machine, its details and the position in the list's label row; Tab moves
-between the panes, and the thick cyan line moves to the focused pane's label
-row; Page Up and Page Down scroll the details; ? opens the key panel at the
-right of the panes, with ↑ ↓ tab pgup pgdn first, and ? again closes it; R
-checks again; Q exits, and a second run exits with Ctrl+Q. After each exit
-the shell prompt, echo and keys work normally.
+row and a blank result line above them; the selected row has a cyan `▌` in its
+first column and a band, and only its name is bold; Up and Down change the
+selected machine, its details and the position in the list's label row; Tab
+moves between the panes, the thick cyan line moves to the focused pane's label
+row, and the band dims; Page Up and Page Down scroll the details; ? opens the
+key panel at the right of the panes, with ↑ ↓ tab pgup pgdn first, and ? again
+closes it, as does Escape; R checks again; Q exits, and a second run exits
+with Ctrl+Q. After each exit the shell prompt, echo and keys work normally.
 
 Resize while it runs, through 80x24, 120x30, 60x20, 50x24, 40x16, 120x18 and
 160x50: under 60 columns the list moves above the details, and the details'
-label row is the line between them; under 80 columns the footer takes two
-rows and under 45 three, with every key visible; from 100 columns each row
-shows where it connects. Resize once with a form open (E, then Escape): the
-browser behind it follows. Windows Terminal will not go narrower than about
-47 columns (Ghostty: about 19, see the validation log).
+label row is the line between them; under 80 columns the footer takes two rows
+and under 45 three, with every key visible; from 100 columns each row shows
+where it connects, and from 130 a header names the list's columns; at 60x20
+each details label sits above its value, and at 50x24 beside it; at 120x18 the
+result line takes at most two rows and nothing overlaps. Resize once with a
+form open (E, then Escape): the browser behind it follows. Windows Terminal
+will not go narrower than about 47 columns (Ghostty: about 19, see the
+validation log).
 If everything is grey, the shell has `NO_COLOR` set (coding agents set it);
 clear it first with `unset NO_COLOR` in bash or `Remove-Item Env:NO_COLOR` in
 PowerShell.
