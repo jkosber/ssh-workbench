@@ -6,9 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-| Task | Branch | Delivers | Acceptance |
-| --- | --- | --- | --- |
-| 29 | `feat/task29-list-and-details` | Row marker, selection bands, targets from 100 columns, columns from 130, position counter, the details rows and links block, narrow stacking | Tests for each row form, unset rows omitted, URL wrapping at the URL column, the counter following selection and deletes |
+No task is in progress.
 
 ## Next
 
@@ -159,6 +157,7 @@ in the pull request description.
 | - | App icon: full, launcher and contained SVGs, a launcher PNG and a Windows `.ico`; the README shows it | [#49](https://github.com/jkosber/ssh-workbench/pull/49) | Unreleased |
 | - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | Unreleased |
 | 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | Unreleased |
+| 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | Unreleased |
 
 ## Deferred ideas
 
