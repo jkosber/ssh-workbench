@@ -28,6 +28,46 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## TUI overhaul: the look in Windows Terminal, 2026-11-23
+
+Windows 11, Windows Terminal 1.25.3131.0 (MesloLGM Nerd Font Mono, size 11,
+the profile's dark scheme at 85% opacity), PowerShell 7.6.10, Python 3.14.10,
+Textual 8.2.8, `main` at `728d023`. This is the one Windows Terminal look
+check the overhaul's design recommended after Task 30. At Jadon's request, a
+coding agent on another machine drove the window through a scheduled task in
+the Windows workstation's desktop session and the Windows Terminal harness, as
+in the Caps Lock entry of 2026-10-31; the task was unregistered afterwards.
+Three launchers were used: the Task 30 look launcher (51 fictional machines, a
+stand-in checker, a temporary machine file, state file and SSH folder, the
+process, socket and browser entry points rejected), `scripts/check_keys.py`
+for the key picker, and a launcher of the same build with five fictional
+machines for the README image. `NO_COLOR` was unset. No port check, no
+`ssh -G`, no `ssh`, no browser. C was never pressed, and K only in
+`check_keys.py`. Windows opened at 80x24, 60x20, 120x30 and 110x22; resizing
+an open window by pixels gave 57x19, 78x23 and 58x19.
+
+| Check | Observed |
+| --- | --- |
+| Bold | The selected machine's name, the details' name, the border titles, the footer and hint keys, the form's two buttons, the key picker's section labels, the highlighted option and the focused radio label drew in a heavier weight, each in its own color |
+| Glyphs | `▌ ● ○ ◇ × · X ↑↓` and the rounded frame corners each took one cell and drew in MesloLGM Nerd Font Mono |
+| Main screen | 80x24: the header with two counts, the `▌` marker and band on the selected row, five details rows and the links block with wrapped URLs, nine footer keys on one row. 60x20: labels above their values, the footer on two rows. 120x30: all five header counts and row targets |
+| `?` | The key panel opened at the right with cyan keys; Escape closed it |
+| Backdrop | Behind every modal the main screen was dimmed to faint text on the background color; the frames were solid |
+| Add form, 80x24 | `Add machine` in the border, lowercase labels beside the fields, the muted placeholder in the links box, `^s save` filled and `esc cancel` plain on the last row. Ctrl+S on the empty form put `expected a nonempty string` in red under `id` and the frame grew by a row; typing `demo` moved the error under `name` |
+| Focus bar and marks | Tab moved a cyan `▌` to the connection row, the checkbox and the links box without moving their text. Down then Space filled the `Direct (addresses)` ring and emptied the other, and the frame grew to show the direct fields with their placeholders. Space on the checkbox turned `·` into `X` |
+| Edit form | Studio box's values in their fields, the links box at five rows. Tab, Tab: the band was on `SSH alias` while the filled ring was on `Direct (addresses)`, as in the roadmap's backlog row |
+| Form across 60 columns | With an id and a name typed at 80x24, narrowing to 57x19 put the labels above their fields and stacked the two rings; the focused name field stayed in view and the buttons on the last row. Back at 78x23 the labels were beside their fields and both values were kept |
+| Link picker | Three links: the machine's name, each link's name over its muted URL, Grafana's URL wrapped under the name, the `▌` marker and band following Down, `enter open  esc cancel` on the last row; the same at 60x20 and 120x30. Twelve links at 80x24: the list scrolled with a one-column scrollbar between the name and the hint row, and End showed the twelfth with its marker |
+| Delete question | A red frame as wide as `Delete Studio box (studio-box)?`, a blank row, `y delete  n keep`; for the long name and 86-character ID the frame went to its width cap with the ID wrapped. N and Escape kept the machine |
+| Key picker (`check_keys.py`) | `Key login`, the intro, a blank row, `Key` bold, three options with the `▌` marker, a blank row, `Target system`, the filled and empty rings, and `↑↓ key  tab system  enter start  esc cancel` on the last row. Tab, Down, Space filled the Windows ring. For the alias machine the amber note and the muted `Not listed` line showed, and everything fit 80x24. Narrowed to 58x19 the body scrolled under the hint row with the highlighted key in view. Escape closed it and nothing started |
+| README image | `docs/images/workbench.png` retaken at 110x22 from the five-machine launcher with the second machine selected, cropped to the terminal area |
+| Q | `APP EXIT STATUS: 0` after each of the eight runs but the first, whose window was closed by the harness after a script error before Q was sent |
+
+Not checked: 40x16 and 160x50 in Windows Terminal; Enter in either picker, Y
+in either question and a save (no machine file was changed); the Include
+question; the mouse and a physical keyboard; text contrast as a measured
+ratio; other fonts and Windows Terminal's default profile settings.
+
 ## TUI overhaul Task 30: forms and pickers, 2026-11-22
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0
