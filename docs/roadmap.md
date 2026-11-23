@@ -6,9 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-| Task | Branch | Delivers | Acceptance |
-| --- | --- | --- | --- |
-| - | `ci/dependency-update` | pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10; the other locked packages refreshed | The six checks pass with no change to code or tests; the CI uv pin and the `uv_build` lower bound move together; what Python 3.14.9 and 3.14.10 change in the modules Workbench relies on is read again and recorded |
+No task is in progress.
 
 ## Next
 
@@ -158,6 +156,7 @@ in the pull request description.
 | - | The circuit S sits at the center of the tile in every icon version | [#50](https://github.com/jkosber/ssh-workbench/pull/50) | Unreleased |
 | 28 | Layout and breakpoints: label rows and dividers instead of borders, a clamped list width, one result line with glyphs, a width-driven footer with `?` and the key panel, breakpoints at 60/100/130 columns and 24 rows, lowercase empty states, the headless capture script | [#51](https://github.com/jkosber/ssh-workbench/pull/51) | Unreleased |
 | 29 | List rows and details: a selection marker and readable bands, row targets from 100 columns that follow the last check, a column header and user column from 130, five details rows with unset rows left out, a links block whose URLs wrap in their own column, labels above values in a narrow details pane, Escape on the key panel, shared test helpers | [#52](https://github.com/jkosber/ssh-workbench/pull/52) | Unreleased |
+| - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | Unreleased |
 
 ## Deferred ideas
 
