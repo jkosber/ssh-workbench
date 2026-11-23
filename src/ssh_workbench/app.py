@@ -16,7 +16,6 @@ from textual.css.query import NoMatches
 from textual.geometry import Size
 from textual.message import Message
 from textual.reactive import reactive
-from textual.screen import ModalScreen
 from textual.theme import Theme
 from textual.widget import Widget
 from textual.widgets import (
@@ -67,6 +66,7 @@ from ssh_workbench.forms import (
     KeyPlan,
     KeySetup,
     MachineForm,
+    WorkbenchModal,
 )
 from ssh_workbench.keys import (
     KeySetupError,
@@ -306,7 +306,7 @@ class LinkFinished(Message):
     result: LinkResult
 
 
-class LinkPicker(ModalScreen[Link | None]):
+class LinkPicker(WorkbenchModal[Link | None]):
     """Choose one of a machine's links; Escape cancels without opening anything."""
 
     # A modal screen hides the app's bindings, so Q and Ctrl+Q are repeated here.
@@ -320,9 +320,6 @@ class LinkPicker(ModalScreen[Link | None]):
         Binding("ctrl+q", "app.quit", "Quit", show=False),
     ]
     DEFAULT_CSS = """
-    LinkPicker {
-        align: center middle;
-    }
     #link-picker {
         width: 90%;
         max-width: 100;

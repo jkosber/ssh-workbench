@@ -47,7 +47,81 @@ FIELDS = (
 _LOCATION = re.compile(r"machine(?:\.(\w+)(?:\[(\d+)\])?(?:\.(\w+))?)?")
 
 
-class MachineForm(ModalScreen[None]):
+class WorkbenchModal[T](ModalScreen[T]):
+    """The base of every modal: a near-solid backdrop and a frame sized to its
+    content, at most 90% of the screen and, from 80 columns, 72 cells."""
+
+    # A screen's own breakpoints replace the app's horizontal classes for it.
+    HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (60, "-normal"), (80, "-large")]
+    DEFAULT_CSS = """
+    WorkbenchModal {
+        align: center middle;
+        background: $background 88%;
+    }
+    WorkbenchModal .frame {
+        width: auto;
+        max-width: 90%;
+        height: auto;
+        max-height: 90%;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-style: bold;
+        background: $surface;
+        padding: 0 1;
+    }
+    /* A cell cap does not clamp to the screen, so it applies only from 80. */
+    WorkbenchModal.-large .frame {
+        max-width: 72;
+    }
+    /* An auto-width frame needs auto-width text, or the text gets no cells. */
+    WorkbenchModal .frame > Static {
+        width: auto;
+        max-width: 100%;
+    }
+    /* A docked hint row covers its whole row, or scrolled text shows beside it. */
+    WorkbenchModal .frame > .hint {
+        width: 100%;
+    }
+    """
+
+
+def hint_row(pairs: Sequence[tuple[str, str]]) -> Content:
+    """A row of keys in the footer's style: each key, a space and its label."""
+    parts: list[str | tuple[str, str]] = [" "]
+    for index, (key, label) in enumerate(pairs):
+        if index:
+            parts.append("  ")
+        parts += [
+            (key, "$footer-key-foreground bold"),
+            " ",
+            (label, "$footer-description-foreground"),
+        ]
+    parts.append(" ")
+    return Content.assemble(*parts)
+
+
+class Ring(RadioButton):
+    """A radio button whose mark changes shape: filled when selected."""
+
+    @property
+    def BUTTON_INNER(self) -> str:  # noqa: N802
+        return "●" if self.value else "○"
+
+
+class Box(Checkbox):
+    """A checkbox whose mark changes shape: X when checked."""
+
+    @property
+    def BUTTON_INNER(self) -> str:  # noqa: N802
+        return "X" if self.value else "·"
+
+
+def marked(label: str | Content, on: bool) -> Content:
+    """An option prompt with a lead cell: the selection marker when `on`."""
+    return Content.assemble(("▌" if on else " ", "$primary"), label)
+
+
+class MachineForm(WorkbenchModal[None]):
     """Add a machine, or edit one, without writing anything until it is valid."""
 
     # Priority bindings keep keys typed into the fields from triggering app
@@ -59,9 +133,6 @@ class MachineForm(ModalScreen[None]):
         Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
     DEFAULT_CSS = """
-    MachineForm {
-        align: center middle;
-    }
     #machine-form {
         width: 90%;
         max-width: 100;
@@ -338,7 +409,7 @@ class MachineForm(ModalScreen[None]):
             self.dismiss(None)
 
 
-class ConfirmDelete(ModalScreen[bool]):
+class ConfirmDelete(WorkbenchModal[bool]):
     """Ask before deleting; Y deletes, N or Escape keeps the machine."""
 
     BINDINGS = [
@@ -348,18 +419,19 @@ class ConfirmDelete(ModalScreen[bool]):
         Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
     DEFAULT_CSS = """
-    ConfirmDelete {
-        align: center middle;
-    }
+    /* The border title needs the frame at least its width + 6. The text
+       may scroll under the docked hint row on a very small screen. */
     #confirm-delete {
-        width: 90%;
-        max-width: 80;
-        height: auto;
         border: round $error;
         border-title-color: $error;
-        border-title-style: bold;
-        background: $surface;
-        padding: 0 1;
+        min-width: 20;
+        overflow-y: auto;
+        scrollbar-size-vertical: 1;
+    }
+    /* A docked row's margin is not painted; padding gives the blank row. */
+    #confirm-delete > .hint {
+        dock: bottom;
+        padding-top: 1;
     }
     """
 
@@ -370,7 +442,7 @@ class ConfirmDelete(ModalScreen[bool]):
         self._answered = False
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="confirm-delete") as box:
+        with Vertical(id="confirm-delete", classes="frame") as box:
             box.border_title = "Delete machine"
             yield Static(
                 f"Delete {display_text(self.machine.name)} "
@@ -379,7 +451,7 @@ class ConfirmDelete(ModalScreen[bool]):
             )
             if self.rewrite_warning:
                 yield Static(self.rewrite_warning, markup=False)
-            yield Static("Y: delete   N or Escape: keep", markup=False)
+            yield Static(hint_row([("y", "delete"), ("n", "keep")]), classes="hint")
 
     def action_answer(self, confirmed: bool) -> None:
         if not self._answered:
@@ -387,7 +459,7 @@ class ConfirmDelete(ModalScreen[bool]):
             self.dismiss(confirmed)
 
 
-class ConfirmInclude(ModalScreen[bool]):
+class ConfirmInclude(WorkbenchModal[bool]):
     """Ask before adding the one Include line; Y adds it, N or Escape does not."""
 
     BINDINGS = [
@@ -397,18 +469,17 @@ class ConfirmInclude(ModalScreen[bool]):
         Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
     DEFAULT_CSS = """
-    ConfirmInclude {
-        align: center middle;
-    }
+    /* The border title needs the frame at least its width + 6. The text
+       may scroll under the docked hint row on a very small screen. */
     #confirm-include {
-        width: 90%;
-        max-width: 80;
-        height: auto;
-        border: round $primary;
-        border-title-color: $primary;
-        border-title-style: bold;
-        background: $surface;
-        padding: 0 1;
+        min-width: 22;
+        overflow-y: auto;
+        scrollbar-size-vertical: 1;
+    }
+    /* A docked row's margin is not painted; padding gives the blank row. */
+    #confirm-include > .hint {
+        dock: bottom;
+        padding-top: 1;
     }
     #include-line {
         text-style: bold;
@@ -423,7 +494,7 @@ class ConfirmInclude(ModalScreen[bool]):
         self._answered = False
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="confirm-include") as box:
+        with Vertical(id="confirm-include", classes="frame") as box:
             box.border_title = "Exported aliases"
             yield Static(
                 "SSH sees exported aliases once your SSH config includes "
@@ -439,7 +510,7 @@ class ConfirmInclude(ModalScreen[bool]):
                 else "The file doesn't exist yet; Workbench creates it with this line.",
                 markup=False,
             )
-            yield Static("Y: add the line   N or Escape: not now", markup=False)
+            yield Static(hint_row([("y", "add"), ("n", "not now")]), classes="hint")
 
     def action_answer(self, confirmed: bool) -> None:
         if not self._answered:
@@ -469,7 +540,7 @@ class KeyPlan:
     windows: bool
 
 
-class KeySetup(ModalScreen[KeyPlan | None]):
+class KeySetup(WorkbenchModal[KeyPlan | None]):
     """Pick a key and the target system; Enter starts, Escape cancels."""
 
     BINDINGS = [
@@ -478,9 +549,6 @@ class KeySetup(ModalScreen[KeyPlan | None]):
         Binding("ctrl+q", "app.quit", "Quit", show=False, priority=True),
     ]
     DEFAULT_CSS = """
-    KeySetup {
-        align: center middle;
-    }
     #key-setup {
         width: 90%;
         max-width: 100;
