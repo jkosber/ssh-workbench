@@ -664,9 +664,39 @@ class KeyHelp(HelpPanel):
         yield KeyList(id="keys-help")
 
 
+# What a direct machine's `connect` value starts with.
+DIRECT = "direct · "
+
 # A URL too wide for its column breaks before one of the first set, or, with
 # none of those in reach, before one of the second.
 URL_BREAKS = ("/?&#", ".-")
+
+
+def _wrap_at(text: str, width: int, cut: Callable[[int, int], int | None]) -> list[str]:
+    """`text` in lines of at most `width` cells (2 at least) that join back
+    to it. While the rest is too wide, a line ends at `cut(start, end)`: an
+    index after `start`, where the line began, and up to `end`, the index
+    right after the widest prefix that fits. With None it ends at `end`."""
+    width = max(width, 2)
+    cells = [Content(character).cell_length for character in text]
+    rest = sum(cells)
+    lines: list[str] = []
+    start = 0
+    while rest > width:
+        # At least one character fits.
+        end = start + 1
+        used = cells[start]
+        while used + cells[end] <= width:
+            used += cells[end]
+            end += 1
+        index = cut(start, end)
+        if index is None:
+            index = end
+        lines.append(text[start:index])
+        rest -= sum(cells[start:index])
+        start = index
+    lines.append(text[start:])
+    return lines
 
 
 def wrap_url(text: str, width: int) -> list[str]:
@@ -675,7 +705,6 @@ def wrap_url(text: str, width: int) -> list[str]:
     `&` or `#` that keeps it within the width, else before the last `.` or
     `-` that does, else at the width. The two slashes of a leading
     `scheme://` never start a line."""
-    width = max(width, 2)
     head, separator, _ = text.partition("://")
     scheme = (
         separator
@@ -684,32 +713,49 @@ def wrap_url(text: str, width: int) -> list[str]:
         and all(character.isalnum() or character in "+.-" for character in head)
     )
     kept = {len(head) + 1, len(head) + 2} if scheme else set()
-    cells = [Content(character).cell_length for character in text]
-    rest = sum(cells)
-    lines: list[str] = []
-    start = 0
-    while rest > width:
-        # The widest prefix that fits, at least one character; `end` is the
-        # index right after it.
-        end = start + 1
-        used = cells[start]
-        while used + cells[end] <= width:
-            used += cells[end]
-            end += 1
-        cut = next(
+
+    def cut(start: int, end: int) -> int | None:
+        return next(
             (
                 index
                 for breaks in URL_BREAKS
                 for index in range(end, start, -1)
                 if text[index] in breaks and index not in kept
             ),
-            end,
+            None,
         )
-        lines.append(text[start:cut])
-        rest -= sum(cells[start:cut])
-        start = cut
-    lines.append(text[start:])
-    return lines
+
+    return _wrap_at(text, width, cut)
+
+
+# A direct target too wide for its row breaks before one of these in its
+# address, when its port's colon and its `@` are both out of reach.
+TARGET_BREAKS = ".-:"
+
+
+def wrap_target(text: str, width: int, host_at: int, port_at: int | None) -> list[str]:
+    """A direct target, `user@address:port`, in lines of at most `width`
+    cells (2 at least) that join back to it. The address starts at `host_at`
+    and the port's colon is at `port_at`. While the rest is too wide, a line
+    ends before the port's colon, else after the `@`, else before the last
+    `.`, `-` or `:` of the address that keeps it within the width, else at
+    the width. So a port stays whole on any row wide enough for it."""
+    address_end = len(text) if port_at is None else port_at
+
+    def cut(start: int, end: int) -> int | None:
+        for index in (port_at, host_at):
+            if index is not None and start < index <= end:
+                return index
+        return next(
+            (
+                index
+                for index in range(min(end, address_end - 1), max(start, host_at), -1)
+                if text[index] in TARGET_BREAKS
+            ),
+            None,
+        )
+
+    return _wrap_at(text, width, cut)
 
 
 def link_lines(links: Sequence[Link], width: int, stacked: bool) -> list[Content]:
@@ -763,6 +809,40 @@ class LinkBlock(Widget):
 
     def get_content_height(self, container: Size, viewport: Size, width: int) -> int:
         return len(link_lines(self.links, width, self.stacked))
+
+
+class ConnectValue(Static):
+    """The details' `connect` value. Its text stays one line. Drawn, a direct
+    target wider than the row is cut by `wrap_target`, so no row ends inside
+    the port; like `LinkBlock`, it draws from its own width."""
+
+    _text = Content("")
+    _target: tuple[int, int, int, int | None] | None = None
+
+    def show(
+        self, text: Content, target: tuple[int, int, int, int | None] | None
+    ) -> None:
+        """`text`, with where a direct target starts and ends in it and
+        `wrap_target`'s two indexes, or None for an alias."""
+        self._text = text
+        self._target = target
+        self.update(text)
+
+    def _drawn(self, width: int) -> Content:
+        if self._target is None:
+            return self._text
+        start, end, host_at, port_at = self._target
+        target = self._text.plain[start:end]
+        if Content(target).cell_length <= width:
+            return self._text
+        pieces = wrap_target(target, width, host_at, port_at)
+        return Content.assemble(self._text[:start], "\n".join(pieces), self._text[end:])
+
+    def render(self) -> Content:
+        return self._drawn(self.size.width)
+
+    def get_content_height(self, container: Size, viewport: Size, width: int) -> int:
+        return self._drawn(width).get_height(self.styles, width)
 
 
 class MachinePanes(Vertical):
@@ -1209,7 +1289,8 @@ class SSHWorkbenchApp(App[None]):
                                 id=f"machine-{field}-row", classes="field-row"
                             ):
                                 yield Static(field, classes="field-label", markup=False)
-                                yield Static(
+                                value = ConnectValue if field == "connect" else Static
+                                yield value(
                                     id=f"machine-{field}",
                                     classes="field-value",
                                     markup=False,
@@ -1305,7 +1386,7 @@ class SSHWorkbenchApp(App[None]):
         self._show_status(machine)
         self.query_one("#details-name", Static).update(_display_text(machine.name))
         self.query_one("#details-id", Static).update(_display_text(machine.id))
-        self.query_one("#machine-connect", Static).update(self._connect_text(machine))
+        self._show_connect(machine)
         self.query_one("#machine-key-row").display = bool(machine.key)
         if machine.key:
             self.query_one("#machine-key", Static).update(_display_text(machine.key))
@@ -1439,17 +1520,33 @@ class SSHWorkbenchApp(App[None]):
                     f"alias · {alias}", (" (not in your SSH config)", "$text-error")
                 )
             return Content(f"alias · {alias}")
+        target, _, _ = self._direct_target(machine)
+        if machine.export_alias:
+            target = f"{target} · exported as ssh {_display_text(machine.id)}"
+        return Content(f"{DIRECT}{target}")
+
+    def _direct_target(self, machine: Machine) -> tuple[str, int, int | None]:
+        """A direct machine's `user@address:port`, with `wrap_target`'s two
+        indexes: where the address starts and where the port's colon is."""
         address = self._online_address(machine) or machine.addresses[0]
         target = _display_text(address)
+        user = f"{_display_text(machine.user)}@" if machine.user else ""
+        port_at = None
         if machine.port is not None:
             if ":" in address:
                 target = f"[{target}]"
+            port_at = len(user) + len(target)
             target = f"{target}:{machine.port}"
-        if machine.user:
-            target = f"{_display_text(machine.user)}@{target}"
-        if machine.export_alias:
-            target = f"{target} · exported as ssh {_display_text(machine.id)}"
-        return Content(f"direct · {target}")
+        return f"{user}{target}", len(user), port_at
+
+    def _show_connect(self, machine: Machine) -> None:
+        target = None
+        if machine.alias is None:
+            text, host_at, port_at = self._direct_target(machine)
+            target = (len(DIRECT), len(DIRECT) + len(text), host_at, port_at)
+        self.query_one("#machine-connect", ConnectValue).show(
+            self._connect_text(machine), target
+        )
 
     def _rename_offer(self, machine: Machine) -> str | None:
         return self._missing.get(machine.alias) if machine.alias is not None else None
@@ -1802,9 +1899,7 @@ class SSHWorkbenchApp(App[None]):
             self._show_status(machine)
             # A review changes whether the alias is marked, a check which
             # address connects.
-            self.query_one("#machine-connect", Static).update(
-                self._connect_text(machine)
-            )
+            self._show_connect(machine)
 
     def _tick_animation(self) -> None:
         if self.animation_level == "none" or not self.is_running:
