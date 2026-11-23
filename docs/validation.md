@@ -28,6 +28,37 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Task 31: the connect value breaks before its port, 2026-11-23
+
+Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (JetBrainsMono
+Nerd Font, size 9; the wrapper printed `TERM=xterm-ghostty size=80x24`),
+Python 3.14.10, Textual 8.2.8, the working tree of
+`fix/task31-connect-port-wrap` later committed as `90ef02c`. A coding agent
+drove a floating Ghostty window and took screenshots with grim, as for Task
+30; keys went through Hyprland's `send_key_state`, and window sizes were set
+in cells.
+`NO_COLOR` was unset and `APPDATA`, `XDG_CONFIG_HOME` and
+`SSH_WORKBENCH_SSH_DIR` pointed at ignored folders. The run was
+`uv run --locked ssh-workbench --config` on a copy of the example machine
+file in an ignored folder, so the status rounds tried the example's fictional
+names. No SSH connection and no browser: C, K and O were never pressed.
+
+| Check | Observed |
+| --- | --- |
+| 80x24 | Down showed Studio box with its `connect` value on three rows: `direct ·`, `studio@studio-box.example.com` and `:2222`. The `key` row followed directly under them |
+| 60x20 | The same three rows under the `connect` label |
+| 120x30 | One row: `direct · studio@studio-box.example.com:2222` |
+| Exported, 80x24 | After E, `export` ticked, Ctrl+S twice and N at the Include question, four rows: `direct ·`, `studio@studio-box.example.com`, `:2222 · exported as ssh` and `studio-box` |
+| Q | The wrapper printed `APP EXIT STATUS: 0` |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1493 passed, at the branch's last code commit |
+
+Not checked: Windows Terminal, as the change is to how one value is drawn and
+not to the terminal handoff, key handling or the key-install script; in a
+terminal, a long user name, a host name longer than the row and an IPv6
+address, which headless tests cover; 40x16. The break after an IPv6 address's
+colon came after this run, from the review, and was seen in headless tests
+only.
+
 ## TUI overhaul: the look in Windows Terminal, 2026-11-23
 
 Windows 11, Windows Terminal 1.25.3131.0 (MesloLGM Nerd Font Mono, size 11,
