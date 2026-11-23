@@ -80,6 +80,12 @@ Changes by release, newest first. Version numbers follow the policy in
   0.13.5, uv rejects certificate chains that contain the compromised eMudhra
   intermediate keys
   ([release notes](https://github.com/astral-sh/uv/releases/tag/0.13.5)).
+- Development and CI use Python 3.14.10. Since 3.14.8 it fixes security
+  issues in `ssl`, which now rejects the same eMudhra keys, `tarfile`,
+  `tempfile`, `http.cookiejar` and `mimetypes`, and updates the bundled pip
+  and libexpat
+  ([3.14.9](https://www.python.org/downloads/release/python-3149/),
+  [3.14.10](https://www.python.org/downloads/release/python-31410/)).
 
 ### Fixed
 

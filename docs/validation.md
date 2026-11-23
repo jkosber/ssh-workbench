@@ -28,6 +28,25 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Dependency update, 2026-11-22
+
+Arch Linux (Omarchy), uv 0.13.4 from the Arch package, Textual 8.2.8,
+`ci/dependency-update`. No terminal, no SSH, no browser.
+
+| Check | Observed |
+| --- | --- |
+| `uv python list 3.14 --all-versions --only-downloads` on uv 0.13.4 | The newest build listed is 3.14.8; uv's release notes add 3.14.10 in 0.13.6 |
+| `uv tool run --from uv==0.13.9 uv python install 3.14.10 --no-bin` | uv 0.13.9, run as a tool, installed 3.14.10 among uv's managed Pythons |
+| `uv sync --locked` on uv 0.13.4, with `.python-version` at 3.14.10 | The environment was recreated on the managed 3.14.10; before, it ran the system's 3.14.8. `ssl.OPENSSL_VERSION` is OpenSSL 3.5.9 |
+| `uv lock --check` on uv 0.13.4 and on 0.13.9 | Both accept the lockfile, which uv 0.13.4 wrote |
+| `uv build` on uv 0.13.4 with `uv_build>=0.13.9,<0.14.0` | Both artifacts built, with no warning about the backend's range |
+| Re-inspection | The 3.14.9 and 3.14.10 changelogs and the CPython `v3.14.8..v3.14.10` diff change no code that the earlier notes rely on; see [architecture](architecture.md#installed-source-and-local-runs) |
+
+Not checked: a real terminal. No handoff, key or screen check ran on Python
+3.14.10 in Ghostty or Windows Terminal: Workbench's code did not change, and
+the re-inspection found `subprocess`, `signal` and `asyncio/runners.py`
+unchanged. Windows rests on the CI runner.
+
 ## TUI overhaul Task 29: list rows and details, 2026-11-22
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (the wrapper
