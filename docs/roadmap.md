@@ -167,6 +167,7 @@ in the pull request description.
 | - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | Unreleased |
 | 30 | Forms and pickers: a near-solid backdrop, frames sized to their content, a hint row in the footer's style on every modal, one-row form fields with labels beside them, error rows on demand, named buttons, radio and checkbox marks that differ by shape, a selection marker in both pickers, two-line link options, key picker spacing | [#54](https://github.com/jkosber/ssh-workbench/pull/54) | Unreleased |
 | - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | Unreleased |
+| 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | Unreleased |
 
 ## Deferred ideas
 
