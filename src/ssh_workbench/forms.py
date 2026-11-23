@@ -703,24 +703,30 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
     ]
     DEFAULT_CSS = """
     #key-setup {
-        width: 90%;
-        max-width: 100;
-        height: auto;
         /* The whole height before it scrolls: at 60x20 a note and a
            "Not listed" line need every row. */
         max-height: 100%;
-        border: round $primary;
-        border-title-color: $primary;
-        border-title-style: bold;
-        background: $surface;
-        padding: 0 1;
-        overflow-y: auto;
+        min-width: 15;
+    }
+    /* The body scrolls inside the frame; the hint row stays under it. */
+    #key-setup > .hint {
+        dock: bottom;
+    }
+    #key-body {
+        height: auto;
+        max-height: 100%;
+        scrollbar-size-vertical: 1;
+    }
+    #key-body > Static {
+        width: auto;
+        max-width: 100%;
     }
     /* Borderless lists keep the picker within 60x20 with a wrapped note. */
     #key-choices, #key-system {
         border: none;
         padding: 0;
         height: auto;
+        width: auto;
     }
     #key-choices {
         max-height: 8;
@@ -728,13 +734,30 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
     .key-label {
         text-style: bold;
     }
+    #key-system-label {
+        margin-top: 1;
+    }
+    /* The note's last row, or the empty note itself, is the blank row
+       above "Key". */
     #key-note {
         height: auto;
         color: $warning;
+        padding-bottom: 1;
+    }
+    #key-note.-empty {
+        height: 1;
+        padding-bottom: 0;
     }
     #key-unlisted {
         height: auto;
         color: $text-muted;
+    }
+    /* An id selector beats Textual's own ring colors. */
+    #key-system > RadioButton > .toggle--button {
+        color: $text-muted;
+    }
+    #key-system > RadioButton.-on > .toggle--button {
+        color: $foreground;
     }
     """
 
@@ -753,40 +776,59 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
         # Names the configured keys the list leaves out, if any.
         self.unlisted = unlisted
         self._answered = False
+        # The option that draws the selection marker.
+        self._marked = 0
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="key-setup") as box:
+        with Vertical(id="key-setup", classes="frame") as box:
             box.border_title = "Key login"
-            yield Static(
-                f"Set up key login for {display_text(self.machine.name)} "
-                f"({display_text(self.machine.id)}).",
-                markup=False,
-            )
-            # Above the lists, so a small terminal still shows it.
-            yield Static("", id="key-note", markup=False)
-            yield Static("Key", classes="key-label", markup=False)
-            yield OptionList(
-                *(
-                    Option(Content(display_text(choice.label)))
-                    for choice in self.choices
-                ),
-                id="key-choices",
-            )
-            if self.unlisted is not None:
+            with VerticalScroll(id="key-body"):
                 yield Static(
-                    display_text(self.unlisted), id="key-unlisted", markup=False
+                    f"Set up key login for {display_text(self.machine.name)} "
+                    f"({display_text(self.machine.id)}).",
+                    markup=False,
                 )
-            yield Static("Target system", classes="key-label", markup=False)
-            with RadioSet(id="key-system"):
-                yield RadioButton(
-                    "Linux, macOS or other POSIX", value=True, id="system-posix"
+                # Above the lists, so a small terminal still shows it.
+                yield Static("", id="key-note", markup=False)
+                yield Static("Key", classes="key-label", markup=False)
+                # on_mount highlights the first choice.
+                yield OptionList(
+                    *(
+                        Option(self._prompt(index, index == 0))
+                        for index in range(len(self.choices))
+                    ),
+                    id="key-choices",
                 )
-                yield RadioButton("Windows (OpenSSH Server)", id="system-windows")
+                if self.unlisted is not None:
+                    yield Static(
+                        display_text(self.unlisted), id="key-unlisted", markup=False
+                    )
+                yield Static(
+                    "Target system",
+                    id="key-system-label",
+                    classes="key-label",
+                    markup=False,
+                )
+                with RadioSet(id="key-system"):
+                    yield Ring(
+                        "Linux, macOS or other POSIX", value=True, id="system-posix"
+                    )
+                    yield Ring("Windows (OpenSSH Server)", id="system-windows")
             yield Static(
-                "Up/Down: key  Tab, Space: system  Enter: start  Escape: cancel",
+                hint_row(
+                    [
+                        ("↑↓", "key"),
+                        ("tab", "system"),
+                        ("enter", "start"),
+                        ("esc", "cancel"),
+                    ]
+                ),
                 id="key-help",
-                markup=False,
+                classes="hint",
             )
+
+    def _prompt(self, index: int, on: bool) -> Content:
+        return marked(display_text(self.choices[index].label), on)
 
     def on_mount(self) -> None:
         options = self.query_one(OptionList)
@@ -797,13 +839,23 @@ class KeySetup(WorkbenchModal[KeyPlan | None]):
     def on_option_list_option_highlighted(
         self, event: OptionList.OptionHighlighted
     ) -> None:
+        # Move the marker: redraw the old and the new highlighted prompt.
+        new = event.option_index
+        if new != self._marked:
+            for index in (self._marked, new):
+                event.option_list.replace_option_prompt_at_index(
+                    index, self._prompt(index, index == new)
+                )
+            self._marked = new
         self._show_note()
 
     def _show_note(self) -> None:
         index = self.query_one(OptionList).highlighted
         choice = self.choices[index] if index is not None else None
         text = (choice.note if choice is not None else None) or self.warning or ""
-        self.query_one("#key-note", Static).update(display_text(text))
+        note = self.query_one("#key-note", Static)
+        note.update(display_text(text))
+        note.set_class(not text, "-empty")
 
     def action_start(self) -> None:
         index = self.query_one(OptionList).highlighted
