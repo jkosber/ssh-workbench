@@ -38,7 +38,6 @@ request for later ones. Each needs its own task before work starts.
 | Under 60 columns the first frame after startup or a resize shows the panes side by side for about 100 ms before they stack: Textual 8.2.8 keeps a container's arrangement cache across its own `layout` change, and clearing it needs a private method | 28 |
 | In the details' label row a cut-off name's `…` sits directly against the ID, with no space, such as `Long identifier machin…fictional-long-identi…`; a one-cell gap has to fit the ID's half-row cap and the two label-row tests that pin the ID's width and the name's half | 29 |
 | A question's text cannot be scrolled from the keyboard when it overflows its frame, as the delete question with a long name, a long ID and the rewrite warning does at 40x16: nothing in it takes the focus, so Down, Page Down and End do nothing | 30 |
-| The details' `connect` value wraps at the pane's edge, which can split the port: `studio@studio-box.example.com:2222` showed `:222` then `2` at 80x24 and `:22` then `22` at 60x20, where the first row reads as another port | 0.4.0 |
 | Behind a form or question the main screen stays readable as faint text, while the app smoke check in the testing guide expects no readable text there; one of the two should change | 0.4.0 |
 
 ### Status and aliases
@@ -170,7 +169,7 @@ in the pull request description.
 | - | Dependency update: pytest 9.2.0, pytest-asyncio 1.5.0 and Ruff 0.17.6; uv 0.13.9 and setup-uv v10.4.0 in CI; Python 3.14.10 for its security fixes; the other locked packages refreshed | [#53](https://github.com/jkosber/ssh-workbench/pull/53) | 0.4.0 |
 | 30 | Forms and pickers: a near-solid backdrop, frames sized to their content, a hint row in the footer's style on every modal, one-row form fields with labels beside them, error rows on demand, named buttons, radio and checkbox marks that differ by shape, a selection marker in both pickers, two-line link options, key picker spacing | [#54](https://github.com/jkosber/ssh-workbench/pull/54) | 0.4.0 |
 | - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | 0.4.0 |
-| 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | Unreleased |
+| 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | 0.4.0 |
 | - | Release 0.4.0 | [#56](https://github.com/jkosber/ssh-workbench/pull/56) | 0.4.0 |
 
 ## Deferred ideas
