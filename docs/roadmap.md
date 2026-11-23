@@ -57,6 +57,8 @@ request for later ones. Each needs its own task before work starts.
 | The key picker's hint row names `tab system`, but choosing Windows takes Tab, Down, then Space: Down alone only moves the highlight, and Enter then starts with POSIX | 30 |
 | A wrapped key label's second line starts in the marker's column, one cell left of the label | 30 |
 | The key picker's frame stays at its width cap (72 cells from 80 columns, 90% below) even for one short key; hugging the content would make the frame change width as notes come and go, and needs a minimum width for the docked hint row | 30 |
+| At 40x16 the key picker's highlighted key can leave the view: moving onto a key with a long note grows the note above the list, and the body stays scrolled to the top | 30 |
+| The key picker's focused target-system rings show the band and bold but no `▌` bar, unlike the form's connection row | 30 |
 
 ### Machine file and forms
 
@@ -70,6 +72,9 @@ request for later ones. Each needs its own task before work starts.
 | `Host` names are read on the UI thread when a form opens; a slow network share would pause the screen | 9 |
 | Space does not press a form button; Enter does, because Textual's `Button` binds only Enter | 30 |
 | The `links` box wraps a long line inside a word, such as in the middle of a URL, and its cursor line has no highlight | 30 |
+| The form's fields container is a Tab stop of its own: after `esc cancel`, Tab lands on it and nothing shows the focus, also when nothing scrolls. It was a stop before Task 30 too | 30 |
+| Editing a direct machine, the connection row's keyboard highlight starts on `SSH alias`, not on the chosen `Direct (addresses)`: Textual's `RadioSet` highlights its first button on mount, whichever is pressed. Tab to the row and Space then switches the machine to an alias (seen in a headless run); nothing is saved until Ctrl+S | 30 |
+| With the `links` box focused, narrowing the form under 60 columns scrolls the fields to the top and the box out of view | 30 |
 
 ### Exported aliases
 

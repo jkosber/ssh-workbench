@@ -28,6 +28,54 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## TUI overhaul Task 30: forms and pickers, 2026-11-22
+
+Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0
+(JetBrainsMono Nerd Font, size 9; the wrapper printed `TERM=xterm-ghostty`),
+Python 3.14.10, Textual 8.2.8, `feat/task30-forms-and-pickers` at `ea2c727`.
+A coding agent drove a floating Ghostty window and took screenshots with grim,
+as for Task 29. Keys went through Hyprland's `send_key_state`, one at a time,
+and the agent checked that the test window had the focus before each key. Two
+launchers were used. The first was a copy of the Task 29 launcher in an ignored
+folder: 51 fictional machines (the Task 29 set plus a machine with twelve
+links), a stand-in checker, a temporary machine file, state file and SSH
+folder, `NO_COLOR` unset, and the process, socket and browser entry points
+rejected. It ran once as is and once with a machine file that starts with a
+comment, so the rewrite warning shows. The second was
+`scripts/check_keys.py`, for the key picker. No port check, no `ssh -G`, no
+`ssh`, no browser. C was never pressed, and K only in `check_keys.py`. Window
+sizes were set in cells and matched each grid: 80x24, 60x20, 120x30, 160x50,
+40x16, and 59x20 for the breakpoint.
+
+| Check | Observed |
+| --- | --- |
+| Backdrop | Behind every modal the main screen's text sat at 1.20:1 to 1.33:1 against the backdrop (sampled pixels: header, list rows, details, footer). The panes stayed faintly there; words such as `Node 09` and the footer keys could still be made out when looked for |
+| Machine form, 80x24 | `Add machine` and `Edit machine` titles in the accent, bold, on a rounded accent border. About 71 columns wide, centered, as tall as its rows. Lowercase labels beside the fields: `id name connection alias links`; for Direct, `addresses user port key export`. The `id`, `user` and `port` inputs were 32 columns; the others filled the row. On empty Direct fields the placeholders `online one is used, else the first`, `optional`, `optional`, `path of the private key, optional` and `one per line: the name, then the URL` were muted. No empty error rows |
+| Buttons | The last row of the frame: `^s save` filled in the accent and `esc cancel` plain, with nothing under them. With the focus, `^s save` turned to accent text on a dark cell, weaker than its fill, and `esc cancel` to a light grey fill |
+| Error shown and cleared | Ctrl+S on an empty add form put `expected a nonempty string` in red under `id`, and the frame grew by one row. Typing `demo` removed it, and the next empty field's error (`name`, then `alias`) appeared under that field instead. For Direct, typing an address removed `expected a nonempty array of strings`, and the frame shrank back |
+| Focus bar | Tab moved a cyan `▌` through id, name, the connection row, alias or the Direct inputs, the checkbox and the links box (its full 5 rows). The field text stayed in the same column with and without the focus. One Tab stop after `esc cancel` showed no cue (the fields' scroll container, a stop before this task too); the next Tab reached `id` |
+| Rings and checkbox | Selected `●` in the foreground color, unselected `○` muted. Down then Space on the connection row moved the band to `Direct (addresses)` and filled its ring; only one was filled. The checkbox showed `·` muted when off and `X` when on, with the band on its label while focused |
+| Editing a direct machine | E on Studio box, Tab, Tab: the band was on `SSH alias` while the filled ring was on `Direct (addresses)`. Space was not pressed there |
+| Labels across 60 | With values typed and the checkbox on: at 59x20 the labels went above their fields, the two rings stacked, the fields scrolled with a one-column scrollbar, and the buttons stayed on the last row. At 60x20 and back at 80x24 the labels were beside their fields again. Every typed value and the checkbox were kept. With the links box focused, the narrowing scrolled the fields to the top and the links box out of view |
+| Long save message, 60x20 | With the commented file, E, Ctrl+S: the rewrite sentence and `Press Ctrl+S again to save.` took three rows above the buttons. The fields gave up the rows and scrolled, beside the links box's own scrollbar; the buttons stayed inside the frame |
+| Include question | Reached through the app's own export flow (add a Direct machine with `export` ticked, Ctrl+S) in the launcher's temporary SSH folder. `Exported aliases` title; the question naming the temporary config; `Include ssh-workbench.config` bold with a blank row above and below; `The file doesn't exist yet; ...`; a blank row; the hint row `y add  n not now`. N closed it and the result line read `Exported aliases work once your SSH config starts with: Include ssh-workbench.config` |
+| Delete question | Red border and red `Delete machine` title. For `Link shelf (link-shelf)` the frame was about 34 columns wide and 6 rows tall, centered; for the long name with the 86-character ID it went to the 72-column cap at 80x24 and up, and to 90% at 60x20 and 40x16, with the ID wrapped. With the commented file the rewrite warning followed the question. The hint row `y delete  n keep` was the frame's last row, with a blank row above it, at every size, 40x16 with the warning included. N and Escape kept the machine |
+| Link picker, three links | `Open a link` with `Studio box` above the options. Each option was the name with its URL on the next row, indented two past the name. Grafana's URL wrapped before `&refresh=30s` at 80x24 and up, and before `/fictional-studio-overview` at 60x20 and 40x16, every piece indented under the name. A cyan `▌` ran down the highlighted option's rows, the name turned bold, and the marker moved with Down. 72 columns wide from 80, 90% below. Hint row `enter open  esc cancel` at the bottom; Escape returned to the list with the same selection |
+| Link picker, twelve links | At 80x24, 120x30, 60x20 and 40x16 the options scrolled between the machine name and the hint row with a one-column scrollbar; the highlighted option and its marker stayed in view down to option 12. At 160x50 all twelve fit. With option 3 highlighted, resizing 60x20 to 80x24 and back rewrapped the URLs; option 3 kept the highlight and marker, and no URL piece started in column 0 |
+| Key picker (`check_keys.py`) | `Key login`; the intro; a blank row; `Key` bold; the options with the `▌` marker on the highlighted one, which moved with Down; `Target system` after a blank row; `● Linux, macOS or other POSIX` and `○ Windows (OpenSSH Server)`; the hint row `↑↓ key  tab system  enter start  esc cancel`. Tab, Down, Space filled the Windows ring and emptied the other; the focused rings showed the band and bold, no `▌` bar. Escape closed it and nothing started. For the alias machine, `Not listed: id_work, ...` was muted under the options |
+| Key picker with a note | The fixture's note names a temporary path, longer than a real SSH folder's. At 80x24 everything fit. At 60x20 the note pushed the Windows ring below the fold and the body scrolled. At 40x16 the first label wrapped over two rows, its second row starting under the marker, the hint row took two rows, and after Down onto a key with a note the note took about 7 rows and the highlighted key was out of view until the body was scrolled |
+| Glyphs | `▌ ● ○ · X ↑↓` each took one cell and drew in JetBrainsMono Nerd Font |
+| Hint row colors | Sampled: keys #4FBFE7 bold, labels near #A9AEB9, background #171B26, the same as the main footer's |
+| Q | `APP EXIT STATUS: 0` and the wrapper's prompt after all three runs |
+
+Not checked: Windows Terminal (after the merge, with the README screenshot);
+Enter in the link picker and in the key picker (no link opener and no
+key-setup child was run); Y in either question; Space on a form button; a
+130-character ID (the launcher's is 86); the key picker's note with a real
+SSH folder's path; text contrast inside the frames as a measured ratio; a
+physical keyboard; the mouse. The findings above that are not this task's to
+fix are backlog rows in [the roadmap](roadmap.md), each "From 30".
+
 ## Dependency update, 2026-11-22
 
 Arch Linux (Omarchy), uv 0.13.4 from the Arch package, Textual 8.2.8,
