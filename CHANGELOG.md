@@ -5,6 +5,14 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-23
+
+A new look for the whole app: panes under label rows instead of borders, one
+result line, a footer that follows the width, a `?` key panel, and denser
+rows, details, forms and pickers. Fifteen fixes cover crashes and unsafe paths
+in machine files, SSH config reading and key setup, and development moves to
+Python 3.14.10 and uv 0.13.9 for their security fixes.
+
 ### Added
 
 - An app icon in `docs/images/icon/`: the full icon (`ssh-workbench.svg`),
