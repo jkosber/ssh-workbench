@@ -36,6 +36,8 @@ Arch Linux (Omarchy), uv 0.13.4 from the Arch package, Textual 8.2.8,
 | Check | Observed |
 | --- | --- |
 | `uv python list 3.14 --all-versions --only-downloads` on uv 0.13.4 | The newest build listed is 3.14.8; uv's release notes add 3.14.10 in 0.13.6 |
+| `uv python install 3.14.10 --no-bin` on uv 0.13.4, with `UV_PYTHON_INSTALL_DIR` at an empty folder | `error: No download found for request: cpython-3.14.10-linux-x86_64-gnu` |
+| `uv sync --locked --dry-run` on uv 0.13.4, with that empty folder and `UV_PYTHON_PREFERENCE=only-managed` | `error: No interpreter found for Python 3.14.10 in managed installations`, with a hint to retry on a newer uv |
 | `uv tool run --from uv==0.13.9 uv python install 3.14.10 --no-bin` | uv 0.13.9, run as a tool, installed 3.14.10 among uv's managed Pythons |
 | `uv sync --locked` on uv 0.13.4, with `.python-version` at 3.14.10 | The environment was recreated on the managed 3.14.10; before, it ran the system's 3.14.8. `ssl.OPENSSL_VERSION` is OpenSSL 3.5.9 |
 | `uv lock --check` on uv 0.13.4 and on 0.13.9 | Both accept the lockfile, which uv 0.13.4 wrote |

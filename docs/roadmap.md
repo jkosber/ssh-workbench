@@ -95,6 +95,8 @@ request for later ones. Each needs its own task before work starts.
 | `UV_COMPILE_BYTECODE=1` in the environment makes the package check's `uv pip install` compile the wheel, which hides a `SyntaxWarning` from both stderr checks; the precompile test checks only the flag | 26 |
 | `scripts/check_terminal.py` replaces only Connect: K reaches the real `ssh-keygen` and then SSH through the real SSH config, although the script's docstring says it never invokes SSH; a discarded manual run started ssh-keygen this way | 24 |
 | `test_return_preserves_scroll_and_literal_details` can check End's scroll before it starts: Textual defers it to the next refresh, `wait_for_scheduled_animations` then finds no animation to wait for, and `scroll_y` is still 0. [Task 25's emulation](validation.md#task-25-details-reset-before-the-next-frame-2026-10-30) with 30 ms late timers failed there in 6 of 60 cases with the fix and 12 of 60 before it | 25 |
+| pytest-asyncio warns on every run that `asyncio_default_fixture_loop_scope` is unset and that a later version will default it to function scope; the suite's one async fixture, `no_app_connections`, has function scope, so setting the option should only end the warning (not tried) | [#53](https://github.com/jkosber/ssh-workbench/pull/53) |
+| setup-uv v10.4.0 adds a `require-checksums` input, which CI leaves at `false`; a proposal is to set it to `true`, so that a uv pin newer than the action's bundled checksums fails the job instead of installing without a checksum check (not tried) | [#53](https://github.com/jkosber/ssh-workbench/pull/53) |
 
 ## Done
 

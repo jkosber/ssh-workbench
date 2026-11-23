@@ -24,6 +24,16 @@ uv run --locked ssh-workbench --config examples/machines.example.toml
 On Linux, install PowerShell 7 (`pwsh`) as well, or 12 tests of the Windows
 key-install script fail; see [Testing](docs/testing.md#automated-checks).
 
+uv downloads the Python in `.python-version`, and each uv release knows only
+the builds that existed when it was made: 3.14.10 needs uv 0.13.6 or later.
+An older uv stops at `uv sync --locked` with "No interpreter found". Update
+uv, or let a newer one install that Python without replacing yours; the older
+uv then finds and uses it:
+
+```text
+uv tool run --from uv==0.13.9 uv python install 3.14.10 --no-bin
+```
+
 | Piece | What it does |
 | --- | --- |
 | `.python-version` | The Python version uv installs into `.venv`; don't change your global Python |
