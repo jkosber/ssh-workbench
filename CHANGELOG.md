@@ -5,6 +5,10 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+## 0.4.1 - 2026-11-24
+
+One fix, for the form on a small terminal.
+
 ### Fixed
 
 - On a small terminal, the form keeps the field being typed in visible when

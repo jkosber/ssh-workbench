@@ -175,6 +175,7 @@ installed package. It changes only at a release, never per edit or session.
 | 0.3.3 | Key setup follow-ups, tagged privately |
 | 0.3.4 | Caps Lock letter keys and a details scroll fix |
 | 0.4.0 | New look for the main screen, forms and pickers; fixes for crashes and unsafe paths |
+| 0.4.1 | A form scroll fix for small terminals |
 | 0.4.x | Policy: a release of fixes only |
 | 0.5.0 | Policy: the next release with new features |
 | 1.0.0 | Policy: a deliberately chosen stable release, later |
