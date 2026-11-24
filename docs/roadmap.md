@@ -6,7 +6,9 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-No task is in progress.
+| Task | Branch | Delivers | Acceptance |
+| --- | --- | --- | --- |
+| - | `fix/form-scroll-footer-waits` | The form keeps the focused field in view when an error row's layout reaches the screen after the form's scroll; look tests that measure the screen wait until the footer has its keys | A test that forces the late layout fails before the form fix and passes after it; `test_empty_screen_scrolls_to_its_last_line`, `test_empty_screen_is_muted_with_a_footer_style_key`, the three result-line height tests, `test_footer_rows_follow_width` and `test_size_matrix_holds` pass at `TEXTUAL_FPS=45` and `TEXTUAL_FPS=30`, with waits added and no assertion changed; a backlog row for the same scroll pattern in `app.py` |
 
 ## Next
 
