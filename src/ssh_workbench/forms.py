@@ -400,6 +400,18 @@ class MachineForm(WorkbenchModal[None]):
         self._show_kind()
         self._cap_fields()
         self.query_one("#form-id", Input).focus()
+        self.watch(
+            self.query_one("#form-fields"),
+            "virtual_size",
+            self._fields_changed,
+            init=False,
+        )
+
+    def _fields_changed(self) -> None:
+        """Keep the focused field in view when the fields change height. An
+        error row's layout can reach the screen after the scroll _validate
+        queues has run, so scroll again from the new layout."""
+        self.call_after_refresh(self._show_focused_field)
 
     def on_resize(self, event: events.Resize) -> None:
         self._cap_fields()
