@@ -2,6 +2,7 @@
 only while there is an error, named buttons and a frame sized to the form.
 Fictional files and SSH folders in tmp_path only."""
 
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
@@ -366,7 +367,10 @@ def scroll_before_error_layout(monkeypatch: pytest.MonkeyPatch) -> HeldLayouts:
     async def run_then_release(self: Screen) -> None:
         pending = bool(self._callbacks)
         await run_callbacks(self)
-        if pending or not any(w.has_class("form-error") for w in layouts.held):
+        # Only the form's own screen releases them, not the screen under it.
+        if pending or not any(
+            w.has_class("form-error") and w.screen is self for w in layouts.held
+        ):
             return
         released = list(layouts.held)
         layouts.armed = False
@@ -395,15 +399,24 @@ async def test_an_error_laid_out_after_the_scroll_keeps_the_field_in_view(
         scroll_before_error_layout.armed = True
         form.query_one("#form-name", Input).value = ""
         error = form.query_one("#form-name-error", Static)
-        await wait_for(pilot, lambda: error.region.height > 0)
+        try:
+            await wait_for(pilot, lambda: error.region.height > 0)
+        except TimeoutError:
+            assert not scroll_before_error_layout.held, (
+                "the layouts of the form's fields were held but never released: "
+                "Textual's refresh path changed and this test must be rewritten"
+            )
+            raise
         assert scroll_before_error_layout.released, (
             "no layout of the form's fields was held: Textual's refresh path "
             "changed and this test no longer forces the order it checks"
         )
-        for _ in range(4):
-            await pilot.pause()
+        fields = form.query_one("#form-fields")
+        # Without the fix this times out; the assertion below then shows why.
+        with suppress(TimeoutError):
+            await wait_for(pilot, lambda: fields.region.contains_region(user.region))
         assert app.focused is user
-        assert form.query_one("#form-fields").region.contains_region(user.region)
+        assert fields.region.contains_region(user.region)
 
 
 @pytest.mark.parametrize("size", [(40, 16), (59, 20)])
