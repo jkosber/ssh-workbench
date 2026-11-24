@@ -6,9 +6,7 @@ task moves from here to a release is in [the workflow guide](workflow.md).
 
 ## Now
 
-| Task | Branch | Delivers | Acceptance |
-| --- | --- | --- | --- |
-| - | `fix/form-scroll-footer-waits` | The form keeps the focused field in view when an error row's layout reaches the screen after the form's scroll; look tests that measure the screen wait until the footer has its keys | A test that forces the late layout fails before the form fix and passes after it; `test_empty_screen_scrolls_to_its_last_line`, `test_empty_screen_is_muted_with_a_footer_style_key`, the three result-line height tests, `test_footer_rows_follow_width` and `test_size_matrix_holds` pass at `TEXTUAL_FPS=45` and `TEXTUAL_FPS=30`, with waits added and no assertion changed; a backlog row for the same scroll pattern in `app.py` |
+No task is in progress.
 
 ## Next
 
@@ -41,6 +39,7 @@ request for later ones. Each needs its own task before work starts.
 | In the details' label row a cut-off name's `…` sits directly against the ID, with no space, such as `Long identifier machin…fictional-long-identi…`; a one-cell gap has to fit the ID's half-row cap and the two label-row tests that pin the ID's width and the name's half | 29 |
 | A question's text cannot be scrolled from the keyboard when it overflows its frame, as the delete question with a long name, a long ID and the rewrite warning does at 40x16: nothing in it takes the focus, so Down, Page Down and End do nothing | 30 |
 | Behind a form or question the main screen stays readable as faint text, while the app smoke check in the testing guide expects no readable text there; one of the two should change | 0.4.0 |
+| After a rebuild, `app.py` scrolls the list to its highlighted row with `call_after_refresh`, the pattern that let the form's scroll run on the layout from before an error row appeared; whether the screen can run that scroll before the rebuilt list is laid out was not probed | [#58](https://github.com/jkosber/ssh-workbench/pull/58) |
 
 ### Status and aliases
 
@@ -105,6 +104,7 @@ request for later ones. Each needs its own task before work starts.
 | `scripts/check_terminal.py` replaces only Connect: K reaches the real `ssh-keygen` and then SSH through the real SSH config, although the script's docstring says it never invokes SSH; a discarded manual run started ssh-keygen this way | 24 |
 | `test_return_preserves_scroll_and_literal_details` can check End's scroll before it starts: Textual defers it to the next refresh, `wait_for_scheduled_animations` then finds no animation to wait for, and `scroll_y` is still 0. [Task 25's emulation](validation.md#task-25-details-reset-before-the-next-frame-2026-10-30) with 30 ms late timers failed there in 6 of 60 cases with the fix and 12 of 60 before it | 25 |
 | pytest-asyncio warns on every run that `asyncio_default_fixture_loop_scope` is unset and that a later version will default it to function scope; the suite's one async fixture, `no_app_connections`, has function scope, so setting the option should only end the warning (not tried) | [#53](https://github.com/jkosber/ssh-workbench/pull/53) |
+| `test_initial_selection_order_and_keyboard_details` fails at times with `TEXTUAL_FPS=30`, on `main` too: after Up or Down the details' `links` row is still empty when the test reads it. The only failure in a full run at that rate once the footer waits were in | [#58](https://github.com/jkosber/ssh-workbench/pull/58) |
 | setup-uv v10.4.0 adds a `require-checksums` input, which CI leaves at `false`; a proposal is to set it to `true`, so that a uv pin newer than the action's bundled checksums fails the job instead of installing without a checksum check (not tried) | [#53](https://github.com/jkosber/ssh-workbench/pull/53) |
 
 ## Done
@@ -173,6 +173,7 @@ in the pull request description.
 | - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | 0.4.0 |
 | 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | 0.4.0 |
 | - | Release 0.4.0 | [#56](https://github.com/jkosber/ssh-workbench/pull/56) | 0.4.0 |
+| - | The form scrolls to the focused field again once an error row is laid out; look tests wait until the footer has its keys | [#58](https://github.com/jkosber/ssh-workbench/pull/58) | Unreleased |
 
 ## Deferred ideas
 
