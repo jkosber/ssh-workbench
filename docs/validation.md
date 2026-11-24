@@ -28,6 +28,31 @@ Not checked: what was left out, and why.
 | Screenshots | Only from fictional data; keep the rest in ignored `.local/` |
 | Automated checks | One line with the test count is enough; CI keeps the rest |
 
+## Form scroll and footer waits, 2026-11-23
+
+Arch Linux, Python 3.14.10, Textual 8.2.8, headless pilot only: no terminal,
+no SSH, no browser. `TEXTUAL_FPS` lowers Textual's screen update rate, which
+widens the gaps the CI failures fell into; it was set only for these runs, and
+no test or CI step sets it. "Footer tests" are
+`test_empty_screen_scrolls_to_its_last_line`,
+`test_empty_screen_is_muted_with_a_footer_style_key`, the three result-line
+height tests, `test_footer_rows_follow_width` and `test_size_matrix_holds`:
+23 cases.
+
+| Check | Branch | Before |
+| --- | --- | --- |
+| `test_an_error_laid_out_after_the_scroll_keeps_the_field_in_view`, 10 runs | At `6aade89`, the fix: 10 passed | At `fcf3e52`, the test without the fix: 10 failed, with the user field at y=13 below the fields area (y=2, 11 rows), as in CI runs 45134828365 and 45137084908 |
+| The same, at `TEXTUAL_FPS` 10, 30, 45 and 120 | Passed in every run, 3 or 5 per rate | Failed in every run |
+| Footer tests at `TEXTUAL_FPS=45`, twice | At `593d069`: 23 passed each time | `main` at `98077fa`: the two empty-screen tests failed each time |
+| Footer tests at `TEXTUAL_FPS=30`, twice | 23 passed each time | The five tests with the early measurement failed each time, and `test_size_matrix_holds` once at 60x20 and once at 80x24 with no footer keys, as its wait was true with none |
+| Full suite at `TEXTUAL_FPS=45` | 1494 passed | 2 failed (the two empty-screen tests), 1491 passed |
+| Full suite at `TEXTUAL_FPS=30` | 1 failed, 1493 passed: `test_initial_selection_order_and_keyboard_details`, which alone failed in 2 of 3 runs at that rate here and in 1 of 3 on `main`; a backlog row in [the roadmap](roadmap.md) | Not run |
+| Ruff check and format, `uv run --locked pytest`, `uv build`, `check_package.py` | Passed; 1494 passed | Not run |
+
+Not checked: the form in a real terminal, where the order is not under the
+test's control; a Windows machine; the list scroll after a rebuild in
+`app.py`, which uses the same `call_after_refresh` pattern (a backlog row).
+
 ## Release 0.4.0, 2026-11-23
 
 Arch Linux (Omarchy, Hyprland 0.56.2, Wayland), Ghostty 1.4.0 (JetBrainsMono

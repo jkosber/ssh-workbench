@@ -11,6 +11,7 @@ from support import (
     contrast,
     empty_lines,
     empty_text,
+    footer_ready,
     handoff,
     load_capture_look,
     luminance,
@@ -681,7 +682,7 @@ async def test_footer_rows_follow_width(size, rows) -> None:
     async with app.run_test(size=size) as pilot:
         # a bindings change recomposes the footer; the columns must survive it
         await pilot.press("tab")
-        await wait_for(pilot, lambda: all(k.region.width for k in app.query(FooterKey)))
+        await wait_for(pilot, lambda: footer_ready(app))
         footer = app.query_one(Footer)
         keys = list(app.query(FooterKey))
         assert footer.region.height == rows
@@ -967,6 +968,7 @@ async def test_result_line_keeps_both_slots_newest_first(
 async def test_short_screens_cap_the_result_line_at_two_rows() -> None:
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=(120, 18)) as pilot:
+        await wait_for(pilot, lambda: footer_ready(app))
         result = app.result
         result.show(result.connection, LONG_200, Glyph.FAILURE)
         result.show(result.link, LONG_200, Glyph.OTHER)
@@ -988,6 +990,7 @@ async def test_short_screens_cap_the_result_line_at_two_rows() -> None:
 async def test_short_screens_give_a_lone_result_both_rows() -> None:
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=(120, 18)) as pilot:
+        await wait_for(pilot, lambda: footer_ready(app))
         result = app.result
         footer = app.query_one(Footer)
         # 301 cells need three rows of 118, so the second row is cut.
@@ -1019,6 +1022,7 @@ async def test_tall_screens_cap_the_result_line_at_three_rows() -> None:
     app = SSHWorkbenchApp(MACHINES)
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
+        await wait_for(pilot, lambda: footer_ready(app))
         panes = app.query_one("#panes")
         idle = panes.region.height
         result = app.result
@@ -1108,7 +1112,7 @@ async def test_size_matrix_holds(size: tuple[int, int]) -> None:
         # Under 60 columns the first paint keeps the side-by-side arrangement
         # until the next layout pass (see test_narrow_terminals_stack_the_panes).
         await pilot.pause()
-        await wait_for(pilot, lambda: all(k.region.width for k in app.query(FooterKey)))
+        await wait_for(pilot, lambda: footer_ready(app))
         screen = app.screen
         assert_tiled(app, width, height)
         keys = list(app.query(FooterKey))
@@ -1207,6 +1211,7 @@ async def test_empty_screen_is_muted_with_a_footer_style_key() -> None:
     app = SSHWorkbenchApp(None, config_path=Path("fictional") / "machines.toml")
     async with app.run_test(size=(80, 24)) as pilot:
         await pilot.pause()
+        await wait_for(pilot, lambda: footer_ready(app))
         muted = Color.parse(app.get_css_variables()["text-muted"])
         lines = empty_lines(app)
         assert [line.styles.color for line in lines] == [muted] * 4
@@ -1254,6 +1259,8 @@ async def test_empty_screen_scrolls_to_its_last_line() -> None:
     app = SSHWorkbenchApp(None, config_path=path)
     async with app.run_test(size=(40, 16)) as pilot:
         await pilot.pause()
+        # Until the footer is laid out with its keys, the panes are taller.
+        await wait_for(pilot, lambda: footer_ready(app))
         empty = app.query_one("#empty-state", VerticalScroll)
         assert empty.max_scroll_y > 0
         assert app.focused is empty

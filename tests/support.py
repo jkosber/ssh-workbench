@@ -11,6 +11,7 @@ from textual.color import Color
 from textual.containers import VerticalScroll
 from textual.drivers.headless_driver import HeadlessDriver
 from textual.widgets import Static
+from textual.widgets._footer import FooterKey
 
 from ssh_workbench import app as app_module
 from ssh_workbench.app import SSHWorkbenchApp
@@ -60,6 +61,14 @@ async def wait_for(pilot, predicate) -> None:
     async with asyncio.timeout(5):
         while not predicate():
             await pilot.pause()
+
+
+def footer_ready(app) -> bool:
+    """The footer has its keys and each is laid out. The footer gets them
+    after the first screen update, and until it is laid out with them the
+    panes above it are taller."""
+    keys = list(app.query(FooterKey))
+    return bool(keys) and all(key.region.width for key in keys)
 
 
 # push_screen makes a screen current before it has composed its widgets.

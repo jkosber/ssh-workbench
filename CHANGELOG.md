@@ -5,6 +5,13 @@ Changes by release, newest first. Version numbers follow the policy in
 
 ## Unreleased
 
+### Fixed
+
+- On a small terminal, the form keeps the field being typed in visible when
+  an error row appears above it. Before, when the error row was drawn after
+  the form had scrolled, the field could end one row below the form's
+  fields.
+
 ## 0.4.0 - 2026-11-23
 
 A new look for the whole app: panes under label rows instead of borders, one

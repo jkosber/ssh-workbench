@@ -2,11 +2,13 @@
 only while there is an error, named buttons and a frame sized to the form.
 Fictional files and SSH folders in tmp_path only."""
 
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
 from support import contrast, showing, wait_for
 from textual.color import Color
+from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets import Button, Checkbox, Input, RadioButton, Static, TextArea
 
@@ -315,6 +317,106 @@ async def test_an_error_above_the_focused_field_keeps_it_in_view(
         assert form.query_one("#form-name-error", Static).display is True
         assert app.focused is user
         assert form.query_one("#form-fields").region.contains_region(user.region)
+
+
+class HeldLayouts:
+    """Layout requests from the form's fields, held back once armed, and how
+    many were let through."""
+
+    def __init__(self) -> None:
+        self.armed = False
+        self.held: list[Widget] = []
+        self.released = 0
+
+
+@pytest.fixture
+def scroll_before_error_layout(monkeypatch: pytest.MonkeyPatch) -> HeldLayouts:
+    """Force the order a CI runner hit: the screen runs the callbacks queued
+    with call_after_refresh before an error row's layout reaches it.
+
+    Once armed, every layout request from #form-fields or a widget in it
+    waits in Widget._check_refresh, so the screen keeps its old layout. The
+    requests go through when the screen finds its callback queue empty with
+    an error row among them: the form queues its scroll in the step that
+    shows the row, and the screen runs that queue before it can find it
+    empty, so the scroll has run on the old layout. Patches only Textual."""
+    for owner, name in (
+        (Widget, "_check_refresh"),
+        (Screen, "_invoke_and_clear_callbacks"),
+    ):
+        if not callable(getattr(owner, name, None)):
+            pytest.fail(
+                f"Textual has no {owner.__name__}.{name}: this test's hook on the "
+                "refresh order is gone and must be rewritten for this Textual"
+            )
+    layouts = HeldLayouts()
+    check_refresh = Widget._check_refresh
+    run_callbacks = Screen._invoke_and_clear_callbacks
+
+    def hold(self: Widget) -> None:
+        if (
+            layouts.armed
+            and self._layout_required
+            and any(node.id == "form-fields" for node in self.ancestors_with_self)
+        ):
+            if self not in layouts.held:
+                layouts.held.append(self)
+            return
+        check_refresh(self)
+
+    async def run_then_release(self: Screen) -> None:
+        pending = bool(self._callbacks)
+        await run_callbacks(self)
+        # Only the form's own screen releases them, not the screen under it.
+        if pending or not any(
+            w.has_class("form-error") and w.screen is self for w in layouts.held
+        ):
+            return
+        released = list(layouts.held)
+        layouts.armed = False
+        layouts.held.clear()
+        layouts.released += len(released)
+        for widget in released:
+            check_refresh(widget)
+
+    monkeypatch.setattr(Widget, "_check_refresh", hold)
+    monkeypatch.setattr(Screen, "_invoke_and_clear_callbacks", run_then_release)
+    return layouts
+
+
+async def test_an_error_laid_out_after_the_scroll_keeps_the_field_in_view(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scroll_before_error_layout: HeldLayouts,
+) -> None:
+    app, _ = saved_app(tmp_path, monkeypatch)
+    async with app.run_test(size=(40, 16)) as pilot:
+        form = await open_form(app, pilot, "edit")
+        user = form.query_one("#form-user", Input)
+        user.focus()
+        await pilot.pause()
+        await pilot.pause()
+        scroll_before_error_layout.armed = True
+        form.query_one("#form-name", Input).value = ""
+        error = form.query_one("#form-name-error", Static)
+        try:
+            await wait_for(pilot, lambda: error.region.height > 0)
+        except TimeoutError:
+            assert not scroll_before_error_layout.held, (
+                "the layouts of the form's fields were held but never released: "
+                "Textual's refresh path changed and this test must be rewritten"
+            )
+            raise
+        assert scroll_before_error_layout.released, (
+            "no layout of the form's fields was held: Textual's refresh path "
+            "changed and this test no longer forces the order it checks"
+        )
+        fields = form.query_one("#form-fields")
+        # Without the fix this times out; the assertion below then shows why.
+        with suppress(TimeoutError):
+            await wait_for(pilot, lambda: fields.region.contains_region(user.region))
+        assert app.focused is user
+        assert fields.region.contains_region(user.region)
 
 
 @pytest.mark.parametrize("size", [(40, 16), (59, 20)])
