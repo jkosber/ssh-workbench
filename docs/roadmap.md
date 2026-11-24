@@ -173,8 +173,8 @@ in the pull request description.
 | - | The README image retaken in Windows Terminal with the new look; the validation log records the overhaul's look check there | [#55](https://github.com/jkosber/ssh-workbench/pull/55) | 0.4.0 |
 | 31 | A direct machine's `connect` value breaks before its port instead of at the row's edge, so a port is never split across two rows | [#57](https://github.com/jkosber/ssh-workbench/pull/57) | 0.4.0 |
 | - | Release 0.4.0 | [#56](https://github.com/jkosber/ssh-workbench/pull/56) | 0.4.0 |
-| - | The form scrolls to the focused field again once an error row is laid out; look tests wait until the footer has its keys | [#58](https://github.com/jkosber/ssh-workbench/pull/58) | Unreleased |
-| - | CI's checks job gets 20 minutes; the Windows job ran 7.5 to 9.6 minutes against 10 and was cancelled once at the limit | [#59](https://github.com/jkosber/ssh-workbench/pull/59) | Unreleased |
+| - | The form scrolls to the focused field again once an error row is laid out; look tests wait until the footer has its keys | [#58](https://github.com/jkosber/ssh-workbench/pull/58) | 0.4.1 |
+| - | CI's checks job gets 20 minutes; the Windows job ran 7.5 to 9.6 minutes against 10 and was cancelled once at the limit | [#59](https://github.com/jkosber/ssh-workbench/pull/59) | 0.4.1 |
 
 ## Deferred ideas
 

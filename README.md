@@ -51,7 +51,7 @@ You need:
 Install from GitHub:
 
 ```text
-uv tool install git+https://github.com/jkosber/ssh-workbench@v0.4.0
+uv tool install git+https://github.com/jkosber/ssh-workbench@v0.4.1
 ssh-workbench --version
 ```
 
